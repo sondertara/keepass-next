@@ -1,7 +1,6 @@
 package com.kunzisoft.keepass.view
 
 import android.content.Context
-import android.os.Build
 import android.os.Parcel
 import android.os.Parcelable
 import android.os.Parcelable.Creator
@@ -83,12 +82,6 @@ abstract class TemplateAbstractView<
         foregroundColorButton = findViewById(R.id.template_foreground_color_button)
         titleContainerView = findViewById(R.id.template_title_container)
         templateContainerView = findViewById(R.id.template_fields_container)
-        // To fix card view margin below Marshmallow
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-            val paddingVertical = resources.getDimensionPixelSize(R.dimen.card_view_margin_vertical)
-            val paddingHorizontal = resources.getDimensionPixelSize(R.dimen.card_view_margin_horizontal)
-            templateContainerView.setPadding(paddingHorizontal, paddingVertical, paddingHorizontal, paddingVertical)
-        }
         customFieldsContainerView = findViewById(R.id.custom_fields_container)
         notReferencedFieldsContainerView = findViewById(R.id.not_referenced_fields_container)
     }

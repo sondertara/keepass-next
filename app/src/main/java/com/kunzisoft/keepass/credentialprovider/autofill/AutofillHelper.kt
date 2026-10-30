@@ -40,7 +40,6 @@ import android.view.autofill.AutofillManager
 import android.view.autofill.AutofillValue
 import android.widget.RemoteViews
 import android.widget.inline.InlinePresentationSpec
-import androidx.annotation.RequiresApi
 import androidx.autofill.inline.UiVersions
 import androidx.autofill.inline.v1.InlineSuggestionUi
 import androidx.core.content.ContextCompat
@@ -60,7 +59,6 @@ import java.io.IOException
 import kotlin.math.min
 
 
-@RequiresApi(api = Build.VERSION_CODES.O)
 object AutofillHelper {
 
     private const val EXTRA_BASE_STRUCTURE = "com.kunzisoft.keepass.autofill.BASE_STRUCTURE"
@@ -69,10 +67,8 @@ object AutofillHelper {
     fun Intent.addAutofillComponent(autofillComponent: AutofillComponent?): Intent {
         autofillComponent?.let {
             this.putExtra(EXTRA_BASE_STRUCTURE, autofillComponent.assistStructure)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                autofillComponent.compatInlineSuggestionsRequest?.let {
-                    this.putExtra(EXTRA_INLINE_SUGGESTIONS_REQUEST, it)
-                }
+            autofillComponent.compatInlineSuggestionsRequest?.let {
+                this.putExtra(EXTRA_INLINE_SUGGESTIONS_REQUEST, it)
             }
         }
         return this
@@ -80,13 +76,10 @@ object AutofillHelper {
 
     fun Intent.retrieveAutofillComponent(): AutofillComponent? {
         this.getParcelableExtraCompat<AssistStructure>(EXTRA_BASE_STRUCTURE)?.let { assistStructure ->
-            return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                AutofillComponent(
-                    assistStructure,
-                    this.getParcelableExtraCompat(EXTRA_INLINE_SUGGESTIONS_REQUEST))
-            } else {
-                AutofillComponent(assistStructure, null)
-            }
+            return AutofillComponent(
+                assistStructure,
+                this.getParcelableExtraCompat(EXTRA_INLINE_SUGGESTIONS_REQUEST)
+            )
         }
         return null
     }
@@ -94,10 +87,8 @@ object AutofillHelper {
     fun Bundle.addAutofillComponent(autofillComponent: AutofillComponent?): Bundle {
         autofillComponent?.let {
             this.putParcelable(EXTRA_BASE_STRUCTURE, autofillComponent.assistStructure)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                autofillComponent.compatInlineSuggestionsRequest?.let {
-                    this.putParcelable(EXTRA_INLINE_SUGGESTIONS_REQUEST, it)
-                }
+            autofillComponent.compatInlineSuggestionsRequest?.let {
+                this.putParcelable(EXTRA_INLINE_SUGGESTIONS_REQUEST, it)
             }
         }
         return this
@@ -105,14 +96,10 @@ object AutofillHelper {
 
     fun Bundle.retrieveAutofillComponent(): AutofillComponent? {
         this.getParcelableCompat<AssistStructure>(EXTRA_BASE_STRUCTURE)?.let { assistStructure ->
-            return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                AutofillComponent(
-                    assistStructure,
-                    this.getParcelableCompat(EXTRA_INLINE_SUGGESTIONS_REQUEST)
-                )
-            } else {
-                AutofillComponent(assistStructure, null)
-            }
+            return AutofillComponent(
+                assistStructure,
+                this.getParcelableCompat(EXTRA_INLINE_SUGGESTIONS_REQUEST)
+            )
         }
         return null
     }
@@ -202,9 +189,7 @@ object AutofillHelper {
             if (optionalIds.isNotEmpty()) {
                 builder.setOptionalIds(optionalIds.toTypedArray())
             }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                builder.setFlags(SaveInfo.FLAG_SAVE_ON_ALL_VIEWS_INVISIBLE)
-            }
+            builder.setFlags(SaveInfo.FLAG_SAVE_ON_ALL_VIEWS_INVISIBLE)
             return builder.build()
         }
         return null
@@ -232,9 +217,7 @@ object AutofillHelper {
             @Suppress("DEPRECATION")
             Dataset.Builder(remoteViews).apply {
                 inlinePresentation?.let {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                        setInlinePresentation(inlinePresentation)
-                    }
+                    setInlinePresentation(inlinePresentation)
                 }
             }
         }
@@ -381,7 +364,6 @@ object AutofillHelper {
     }
 
     @SuppressLint("RestrictedApi")
-    @RequiresApi(Build.VERSION_CODES.R)
     private fun buildInlinePresentationForEntry(
         context: Context,
         database: ContextualDatabase,
@@ -447,7 +429,6 @@ object AutofillHelper {
         return null
     }
 
-    @RequiresApi(Build.VERSION_CODES.R)
     @SuppressLint("RestrictedApi")
     private fun buildInlinePresentationForManualSelection(
         context: Context,
@@ -487,32 +468,28 @@ object AutofillHelper {
         }
 
         // Add Header
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            val packageName = context.packageName
-            parseResult.webDomain?.let { webDomain ->
-                responseBuilder.setHeader(RemoteViews(packageName, R.layout.item_autofill_web_domain).apply {
-                    setTextViewText(R.id.autofill_web_domain_text, webDomain)
+        val packageName = context.packageName
+        parseResult.webDomain?.let { webDomain ->
+            responseBuilder.setHeader(RemoteViews(packageName, R.layout.item_autofill_web_domain).apply {
+                setTextViewText(R.id.autofill_web_domain_text, webDomain)
+            })
+        } ?: run {
+            parseResult.applicationId?.let { applicationId ->
+                responseBuilder.setHeader(RemoteViews(packageName, R.layout.item_autofill_app_id).apply {
+                    setTextViewText(R.id.autofill_app_id_text, applicationId)
                 })
-            } ?: kotlin.run {
-                parseResult.applicationId?.let { applicationId ->
-                    responseBuilder.setHeader(RemoteViews(packageName, R.layout.item_autofill_app_id).apply {
-                        setTextViewText(R.id.autofill_app_id_text, applicationId)
-                    })
-                }
             }
         }
 
         // Add inline suggestion for new IME and dataset
         var maxInlineSuggestions = 0
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            autofillComponent.compatInlineSuggestionsRequest
-                ?.inlineSuggestionsRequest?.let { inlineSuggestionsRequest ->
-                val maxAllowed = inlineSuggestionsRequest.maxSuggestionCount
-                maxInlineSuggestions = minOf(maxAllowed, entriesInfo.size)
-                if (PreferencesUtil.isAutofillManualSelectionEnable(context)) {
-                    if (entriesInfo.size >= maxAllowed && maxInlineSuggestions > 0) {
-                        --maxInlineSuggestions
-                    }
+        autofillComponent.compatInlineSuggestionsRequest
+            ?.inlineSuggestionsRequest?.let { inlineSuggestionsRequest ->
+            val maxAllowed = inlineSuggestionsRequest.maxSuggestionCount
+            maxInlineSuggestions = minOf(maxAllowed, entriesInfo.size)
+            if (PreferencesUtil.isAutofillManualSelectionEnable(context)) {
+                if (entriesInfo.size >= maxAllowed && maxInlineSuggestions > 0) {
+                    --maxInlineSuggestions
                 }
             }
         }
@@ -522,8 +499,7 @@ object AutofillHelper {
             try {
                 // Build inline presentation for compatible keyboard
                 var inlinePresentation: InlinePresentation? = null
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
-                    && currentInlineIndex < maxInlineSuggestions
+                if (currentInlineIndex < maxInlineSuggestions
                     && autofillComponent.compatInlineSuggestionsRequest != null) {
                     inlinePresentation = buildInlinePresentationForEntry(
                         context,
@@ -570,20 +546,18 @@ object AutofillHelper {
             )?.let { pendingIntent ->
 
                 var inlinePresentation: InlinePresentation? = null
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    autofillComponent.compatInlineSuggestionsRequest
-                        ?.inlineSuggestionsRequest?.let { inlineSuggestionsRequest ->
-                            val specs = inlineSuggestionsRequest.inlinePresentationSpecs
-                            if (specs.isNotEmpty() && currentInlineIndex < inlineSuggestionsRequest.maxSuggestionCount) {
-                                val inlinePresentationSpec = specs[min(currentInlineIndex, specs.size - 1)]
-                                inlinePresentation = buildInlinePresentationForManualSelection(
-                                    context,
-                                    inlinePresentationSpec,
-                                    pendingIntent
-                                )
-                            }
+                autofillComponent.compatInlineSuggestionsRequest
+                    ?.inlineSuggestionsRequest?.let { inlineSuggestionsRequest ->
+                        val specs = inlineSuggestionsRequest.inlinePresentationSpecs
+                        if (specs.isNotEmpty() && currentInlineIndex < inlineSuggestionsRequest.maxSuggestionCount) {
+                            val inlinePresentationSpec = specs[min(currentInlineIndex, specs.size - 1)]
+                            inlinePresentation = buildInlinePresentationForManualSelection(
+                                context,
+                                inlinePresentationSpec,
+                                pendingIntent
+                            )
                         }
-                }
+                    }
 
                 val datasetBuilder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     Dataset.Builder(Presentations.Builder()
@@ -598,9 +572,7 @@ object AutofillHelper {
                     @Suppress("DEPRECATION")
                     Dataset.Builder(manualSelectionView).apply {
                         inlinePresentation?.let {
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                                setInlinePresentation(it)
-                            }
+                            setInlinePresentation(it)
                         }
                     }
                 }

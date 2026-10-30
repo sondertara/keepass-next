@@ -119,10 +119,8 @@ fun Context.copyToClipboard(
 ) {
     clipboardManager()?.setPrimaryClip(
         ClipData.newPlainText(DEFAULT_LABEL, value).apply {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                description.extras = PersistableBundle().apply {
-                    putBoolean("android.content.extra.IS_SENSITIVE", sensitive)
-                }
+            description.extras = PersistableBundle().apply {
+                putBoolean("android.content.extra.IS_SENSITIVE", sensitive)
             }
         },
     )
@@ -147,12 +145,7 @@ private fun Context.vibrateFeedback() {
         }
 
         vibrator?.let {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                it.vibrate(VibrationEffect.createOneShot(30, VibrationEffect.DEFAULT_AMPLITUDE))
-            } else {
-                @Suppress("DEPRECATION")
-                it.vibrate(30)
-            }
+            it.vibrate(VibrationEffect.createOneShot(30, VibrationEffect.DEFAULT_AMPLITUDE))
         }
     } catch (_: Exception) {
         // Ignored if vibration permission not granted or device has no vibrator
@@ -179,11 +172,7 @@ fun Context.copyToClipboard(
  */
 fun Context.cleanClipboard() {
     try {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            clipboardManager()?.clearPrimaryClip()
-        } else {
-            copyToClipboard(DEFAULT_LABEL, "")
-        }
+        clipboardManager()?.clearPrimaryClip()
     } catch (e: Exception) {
         Log.e(TAG, "Unable to clean the clipboard", e)
     }

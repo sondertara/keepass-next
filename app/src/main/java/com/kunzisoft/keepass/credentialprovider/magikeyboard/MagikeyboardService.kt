@@ -25,7 +25,6 @@ import android.content.Intent
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener
 import android.inputmethodservice.InputMethodService
 import android.media.AudioManager
-import android.os.Build
 import android.provider.Settings
 import android.util.Log
 import android.view.Gravity
@@ -195,12 +194,10 @@ class MagikeyboardService : InputMethodService(),
                                             KeyboardEntriesAdapter.KeyboardEntry(
                                                 id = entry.nodeId.id,
                                                 icon = mDatabase?.let { database ->
-                                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                                                        entry.buildIcon(
-                                                            this@MagikeyboardService,
-                                                            database
-                                                        )
-                                                    } else null
+                                                    entry.buildIcon(
+                                                        this@MagikeyboardService,
+                                                        database
+                                                    )
                                                 },
                                                 title = entry.getVisualTitle(),
                                                 subtitle = entry.username

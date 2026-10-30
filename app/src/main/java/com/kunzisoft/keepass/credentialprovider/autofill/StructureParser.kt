@@ -19,13 +19,11 @@
 package com.kunzisoft.keepass.credentialprovider.autofill
 
 import android.app.assist.AssistStructure
-import android.os.Build
 import android.text.InputType
 import android.util.Log
 import android.view.View
 import android.view.autofill.AutofillId
 import android.view.autofill.AutofillValue
-import androidx.annotation.RequiresApi
 import org.joda.time.DateTime
 import java.util.Locale
 
@@ -33,7 +31,6 @@ import java.util.Locale
 /**
  * Parse AssistStructure and guess username and password fields.
  */
-@RequiresApi(api = Build.VERSION_CODES.O)
 class StructureParser(
     private val structure: AssistStructure,
     private val webViewDenied: Boolean = false
@@ -98,12 +95,10 @@ class StructureParser(
                 Log.d(TAG, "Autofill domain: $webDomain")
             }
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            node.webScheme?.let { webScheme ->
-                if (webScheme.isNotEmpty()) {
-                    result?.webScheme = webScheme
-                    Log.d(TAG, "Autofill scheme: $webScheme")
-                }
+        node.webScheme?.let { webScheme ->
+            if (webScheme.isNotEmpty()) {
+                result?.webScheme = webScheme
+                Log.d(TAG, "Autofill scheme: $webScheme")
             }
         }
         val domainNotEmpty = result?.webDomain?.isNotEmpty() == true
@@ -514,7 +509,6 @@ class StructureParser(
         return false
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.O)
     class Result {
         var isWebView: Boolean = false
         var applicationId: String? = null

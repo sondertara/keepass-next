@@ -31,7 +31,7 @@ import androidx.fragment.app.DialogFragment
 import com.kunzisoft.keepass.R
 
 class UnavailableFeatureDialogFragment : DialogFragment() {
-    private var minVersionRequired = Build.VERSION_CODES.M
+    private var minVersionRequired = Build.VERSION_CODES.R
 
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         activity?.let { activity ->

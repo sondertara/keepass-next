@@ -9,7 +9,6 @@ import android.os.Build
 import android.util.Log
 import android.view.Window
 import android.view.WindowManager.LayoutParams.FLAG_SECURE
-import androidx.annotation.RequiresApi
 import androidx.core.net.toUri
 import com.kunzisoft.encrypt.Signature.getAllFingerprints
 import com.kunzisoft.keepass.BuildConfig
@@ -102,7 +101,6 @@ object AppUtil {
                 || isKeeProAppInstalled())
     }
 
-    @RequiresApi(Build.VERSION_CODES.P)
     fun getInstalledBrowsersWithSignatures(
         context: Context,
         withGServices: Boolean = true
@@ -148,7 +146,6 @@ object AppUtil {
         return browserList.distinctBy { it.packageName } // Ensure uniqueness just in case
     }
 
-    @RequiresApi(Build.VERSION_CODES.P)
     private fun buildAndroidPrivilegedApp(
         packageManager: PackageManager,
         packageName: String
@@ -204,7 +201,7 @@ object AppUtil {
     fun SearchInfo.withoutBrowserOrAppBlocked(context: Context): SearchInfo? {
         val searchInfo = SearchInfo(this)
         val applicationId = searchInfo.applicationId
-        val isWebBrowser = if (!applicationId.isNullOrEmpty() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        val isWebBrowser = if (!applicationId.isNullOrEmpty()) {
             getInstalledBrowsersWithSignatures(context, withGServices = false).any {
                 it.packageName == applicationId
             }

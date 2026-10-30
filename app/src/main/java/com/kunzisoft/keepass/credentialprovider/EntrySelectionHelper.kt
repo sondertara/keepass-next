@@ -28,7 +28,6 @@ import android.os.Bundle
 import android.util.Log
 import android.widget.RemoteViews
 import androidx.activity.result.ActivityResultLauncher
-import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.IconCompat
 import com.kunzisoft.keepass.R
@@ -352,14 +351,11 @@ object EntrySelectionHelper {
                             searchInfo
                         )
                         TypeMode.AUTOFILL -> {
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                selectionAction.invoke(
-                                    isIntentSenderMode(specialMode, typeMode),
-                                    typeMode,
-                                    searchInfo
-                                )
-                            } else
-                                defaultAction.invoke()
+                            selectionAction.invoke(
+                                isIntentSenderMode(specialMode, typeMode),
+                                typeMode,
+                                searchInfo
+                            )
                         }
                         TypeMode.PASSWORD,
                         TypeMode.PASSKEY ->
@@ -418,7 +414,6 @@ object EntrySelectionHelper {
     /**
      * Method to assign a drawable to a new icon from a database icon
      */
-    @RequiresApi(Build.VERSION_CODES.M)
     fun EntryInfo.buildIcon(
         context: Context,
         database: ContextualDatabase

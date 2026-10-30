@@ -1,7 +1,6 @@
 package com.kunzisoft.keepass.view
 
 import android.content.Context
-import android.os.Build
 import android.text.InputFilter
 import android.text.InputType
 import android.text.method.PasswordTransformationMethod
@@ -46,10 +45,8 @@ open class TextEditFieldView @JvmOverloads constructor(
                 LayoutParams.MATCH_PARENT,
                 LayoutParams.WRAP_CONTENT)
         inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            imeOptions = EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING
-            importantForAutofill = IMPORTANT_FOR_AUTOFILL_NO
-        }
+        imeOptions = EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING
+        importantForAutofill = IMPORTANT_FOR_AUTOFILL_NO
         importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
         maxLines = 1
     }

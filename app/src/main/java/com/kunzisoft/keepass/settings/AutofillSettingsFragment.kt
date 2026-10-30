@@ -19,33 +19,19 @@
  */
 package com.kunzisoft.keepass.settings
 
-import android.os.Build
 import android.os.Bundle
-import androidx.annotation.RequiresApi
 import androidx.fragment.app.DialogFragment
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
-import androidx.preference.TwoStatePreference
 import com.kunzisoft.keepass.R
 import com.kunzisoft.keepass.settings.preferencedialogfragment.AutofillBlocklistAppIdPreferenceDialogFragmentCompat
 import com.kunzisoft.keepass.settings.preferencedialogfragment.AutofillBlocklistWebDomainPreferenceDialogFragmentCompat
 
-@RequiresApi(Build.VERSION_CODES.O)
 class AutofillSettingsFragment : PreferenceFragmentCompat() {
 
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
         // Load the preferences from an XML resource
         setPreferencesFromResource(R.xml.preferences_autofill, rootKey)
-
-        val autofillInlineSuggestionsPreference: TwoStatePreference? = findPreference(getString(R.string.autofill_inline_suggestions_key))
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
-            autofillInlineSuggestionsPreference?.isVisible = false
-        }
-
-        val autofillAskSaveDataPreference: TwoStatePreference? = findPreference(getString(R.string.autofill_ask_to_save_data_key))
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
-            autofillAskSaveDataPreference?.isVisible = false
-        }
     }
 
     override fun onDisplayPreferenceDialog(preference: Preference) {

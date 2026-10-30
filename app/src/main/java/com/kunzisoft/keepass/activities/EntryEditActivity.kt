@@ -596,12 +596,10 @@ class EntryEditActivity : DatabaseLockActivity() {
 
     private fun entryValidatedForAutofill(entry: EntryInfo) {
         // Build Autofill response with the entry selected
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            this.buildSpecialModeResponseAndSetResult(
-                entryInfo = entry,
-                extras = buildEntryResult(entry)
-            )
-        }
+        this.buildSpecialModeResponseAndSetResult(
+            entryInfo = entry,
+            extras = buildEntryResult(entry)
+        )
         onValidateSpecialMode()
     }
 

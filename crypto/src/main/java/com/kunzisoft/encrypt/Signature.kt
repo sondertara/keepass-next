@@ -20,8 +20,6 @@
 package com.kunzisoft.encrypt
 
 import android.content.pm.SigningInfo
-import android.os.Build
-import android.util.AndroidException
 import android.util.Log
 import org.bouncycastle.asn1.pkcs.PrivateKeyInfo
 import org.bouncycastle.crypto.params.Ed25519PublicKeyParameters
@@ -471,8 +469,6 @@ object Signature {
      */
     fun SigningInfo.getAllFingerprints(): Set<String>? {
         try {
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P)
-                throw AndroidException("API level ${Build.VERSION.SDK_INT} not supported")
             val signatures = mutableSetOf<String>()
             // Add current content signers first so that the current signer is the primary/first fingerprint
             // (used for Android passkey origin generation).

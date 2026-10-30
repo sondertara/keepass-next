@@ -114,21 +114,17 @@ class NestedAppSettingsFragment : NestedSettingsFragment() {
     private fun onCreateFormFillingPreference(rootKey: String?) {
         setPreferencesFromResource(R.xml.preferences_form_filling, rootKey)
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            // Hide Passkeys settings if needed
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                findPreference<Preference>(getString(R.string.passkeys_explanation_key))
-                    ?.isVisible = false
-                findPreference<Preference>(getString(R.string.settings_passkeys_key))
-                    ?.isVisible = false
-            }
+        // Hide Passkeys settings if needed
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            findPreference<Preference>(getString(R.string.passkeys_explanation_key))
+                ?.isVisible = false
+            findPreference<Preference>(getString(R.string.settings_passkeys_key))
+                ?.isVisible = false
+        }
 
-            findPreference<TwoStatePreference>(getString(R.string.settings_credential_provider_enable_key))?.setOnPreferenceClickListener {
-                context?.showAutofillDeviceSettings()
-                false
-            }
-        } else {
-            findPreference<Preference>(getString(R.string.credential_provider_key))?.isVisible = false
+        findPreference<TwoStatePreference>(getString(R.string.settings_credential_provider_enable_key))?.setOnPreferenceClickListener {
+            context?.showAutofillDeviceSettings()
+            false
         }
 
         findPreference<Preference>(getString(R.string.magic_keyboard_explanation_key))?.setOnPreferenceClickListener {
@@ -158,16 +154,14 @@ class NestedAppSettingsFragment : NestedSettingsFragment() {
             }
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            findPreference<Preference>(getString(R.string.autofill_explanation_key))?.setOnPreferenceClickListener {
-                context?.openUrl(R.string.autofill_explanation_url)
-                false
-            }
+        findPreference<Preference>(getString(R.string.autofill_explanation_key))?.setOnPreferenceClickListener {
+            context?.openUrl(R.string.autofill_explanation_url)
+            false
+        }
 
-            findPreference<Preference>(getString(R.string.settings_autofill_key))?.setOnPreferenceClickListener {
-                startActivity(Intent(context, AutofillSettingsActivity::class.java))
-                false
-            }
+        findPreference<Preference>(getString(R.string.settings_autofill_key))?.setOnPreferenceClickListener {
+            startActivity(Intent(context, AutofillSettingsActivity::class.java))
+            false
         }
 
         findPreference<Preference>(getString(R.string.clipboard_explanation_key))?.setOnPreferenceClickListener {
@@ -211,16 +205,13 @@ class NestedAppSettingsFragment : NestedSettingsFragment() {
             val autoOpenPromptPreference: TwoStatePreference? = findPreference(getString(R.string.biometric_auto_open_prompt_key))
             val tempDeviceUnlockPreference: TwoStatePreference? = findPreference(getString(R.string.temp_device_unlock_enable_key))
 
-            val biometricUnlockSupported = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                DeviceUnlockManager.biometricUnlockSupported(activity)
-            } else false
+            val biometricUnlockSupported = DeviceUnlockManager.biometricUnlockSupported(activity)
             biometricUnlockEnablePreference?.apply {
-                // False if under Marshmallow
                 if (!biometricUnlockSupported) {
                     isChecked = false
                     setOnPreferenceClickListener { preference ->
                         (preference as TwoStatePreference).isChecked = false
-                        UnavailableFeatureDialogFragment.getInstance(Build.VERSION_CODES.M)
+                        UnavailableFeatureDialogFragment.getInstance(Build.VERSION_CODES.R)
                                 .show(parentFragmentManager, "unavailableFeatureDialog")
                         false
                     }
@@ -256,9 +247,7 @@ class NestedAppSettingsFragment : NestedSettingsFragment() {
                 }
             }
 
-            val deviceCredentialUnlockSupported = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                DeviceUnlockManager.deviceCredentialUnlockSupported(activity)
-            } else false
+            val deviceCredentialUnlockSupported = DeviceUnlockManager.deviceCredentialUnlockSupported(activity)
             deviceCredentialUnlockEnablePreference?.apply {
                 // Biometric unlock already checked
                 if (biometricUnlockEnablePreference?.isChecked == true)
@@ -267,7 +256,7 @@ class NestedAppSettingsFragment : NestedSettingsFragment() {
                     isChecked = false
                     setOnPreferenceClickListener { preference ->
                         (preference as TwoStatePreference).isChecked = false
-                        UnavailableFeatureDialogFragment.getInstance(Build.VERSION_CODES.M)
+                        UnavailableFeatureDialogFragment.getInstance(Build.VERSION_CODES.R)
                                 .show(parentFragmentManager, "unavailableFeatureDialog")
                         false
                     }
@@ -354,7 +343,7 @@ class NestedAppSettingsFragment : NestedSettingsFragment() {
             ) { _, _ ->
                 validate?.invoke()
                 warningAlertDialog?.setOnDismissListener(null)
-                if (deleteKeys && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                if (deleteKeys) {
                     DeviceUnlockManager.deleteAllEntryKeysInKeystoreForBiometric(activity)
                 }
             }
@@ -487,12 +476,10 @@ class NestedAppSettingsFragment : NestedSettingsFragment() {
         super.onResume()
         context?.let { context ->
             // Check Autofill service
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                findPreference<TwoStatePreference?>(
-                    getString(R.string.settings_credential_provider_enable_key)
-                )?.let { credentialProviderPreference ->
-                    credentialProviderPreference.isChecked = context.isCredentialProviderActivated()
-                }
+            findPreference<TwoStatePreference?>(
+                getString(R.string.settings_credential_provider_enable_key)
+            )?.let { credentialProviderPreference ->
+                credentialProviderPreference.isChecked = context.isCredentialProviderActivated()
             }
             // Check Magikeyboard service
             findPreference<TwoStatePreference?>(
@@ -505,8 +492,7 @@ class NestedAppSettingsFragment : NestedSettingsFragment() {
                 getString(R.string.autofill_share_magikeyboard_key)
             )?.let { autofillShareMagikeyboardPreference ->
                 autofillShareMagikeyboardPreference.isEnabled =
-                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
-                        && context.isMagikeyboardActivated()
+                    context.isMagikeyboardActivated()
                         && context.isCredentialProviderActivated()
             }
         }

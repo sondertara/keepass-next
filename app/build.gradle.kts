@@ -17,11 +17,10 @@ android {
 
     defaultConfig {
         applicationId = "com.kunzisoft.keepass"
-        minSdk = 19
+        minSdk = 30
         targetSdk = 36
         versionCode = 45600
         versionName = "4.5.6"
-        multiDexEnabled = true
 
         testApplicationId = "com.kunzisoft.keepass.tests"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -131,7 +130,6 @@ dependencies {
     implementation(libs.kotlin.stdlib)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android)
-    implementation(libs.androidx.multidex)
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.preference.ktx)
     implementation(libs.androidx.cardview)

@@ -9,8 +9,7 @@ android {
     ndkVersion = "25.2.9519653"
 
     defaultConfig {
-        minSdk = 19
-        multiDexEnabled = true
+        minSdk = 30
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

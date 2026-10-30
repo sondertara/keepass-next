@@ -8,7 +8,6 @@ import android.content.Intent
 import android.content.ServiceConnection
 import android.net.Uri
 import android.os.Binder
-import android.os.Build
 import android.os.IBinder
 import com.kunzisoft.keepass.R
 import com.kunzisoft.keepass.app.database.CipherDatabaseEntity
@@ -69,11 +68,8 @@ class DeviceUnlockNotificationService : NotificationService() {
         val pendingDeleteIntent = PendingIntent.getBroadcast(this,
             4577,
             Intent(REMOVE_DEVICE_UNLOCK_KEY_ACTION),
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                PendingIntent.FLAG_IMMUTABLE
-            } else {
-                0
-            })
+            PendingIntent.FLAG_IMMUTABLE
+        )
         val biometricUnlockEnabled = PreferencesUtil.isBiometricUnlockEnable(this)
         val notificationBuilder = buildNewNotification().apply {
             setSmallIcon(if (biometricUnlockEnabled) {

@@ -21,12 +21,10 @@ package com.kunzisoft.keepass.credentialprovider.passkey.util
 
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import android.os.Bundle
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Log
-import androidx.annotation.RequiresApi
 import androidx.credentials.exceptions.CreateCredentialUnknownException
 import androidx.credentials.provider.CallingAppInfo
 import com.kunzisoft.encrypt.HashManager
@@ -51,7 +49,6 @@ import javax.crypto.SecretKey
  * allows to add and retrieve intent values with preconfigured keys,
  * and makes it easy to create creation and usage requests
  */
-@RequiresApi(Build.VERSION_CODES.P)
 object PassHelper {
 
     private const val EXTRA_APP_ORIGIN = "com.kunzisoft.keepass.extra.appOrigin"

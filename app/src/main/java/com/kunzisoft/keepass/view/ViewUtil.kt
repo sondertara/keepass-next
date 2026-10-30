@@ -30,7 +30,6 @@ import android.graphics.PorterDuff
 import android.graphics.PorterDuffColorFilter
 import android.graphics.Typeface
 import android.graphics.drawable.Drawable
-import android.os.Build
 import android.text.Selection
 import android.text.Spannable
 import android.text.SpannableString
@@ -354,17 +353,15 @@ fun CollapsingToolbarLayout.changeTitleColor(color: Int) {
 
 @Suppress("DEPRECATION")
 fun Activity.setTransparentNavigationBar(applyToStatusBar: Boolean = false, applyWindowInsets: () -> Unit) {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
-        WindowCompat.setDecorFitsSystemWindows(window, false)
-        window.navigationBarColor = ContextCompat.getColor(this, R.color.surface_selector)
-        if (applyToStatusBar) {
-            obtainStyledAttributes(intArrayOf(R.attr.colorSurface)).apply {
-                window.statusBarColor = getColor(0, Color.GRAY)
-                recycle()
-            }
+    WindowCompat.setDecorFitsSystemWindows(window, false)
+    window.navigationBarColor = ContextCompat.getColor(this, R.color.surface_selector)
+    if (applyToStatusBar) {
+        obtainStyledAttributes(intArrayOf(R.attr.colorSurface)).apply {
+            window.statusBarColor = getColor(0, Color.GRAY)
+            recycle()
         }
-        applyWindowInsets.invoke()
     }
+    applyWindowInsets.invoke()
 }
 
 /**

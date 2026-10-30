@@ -19,51 +19,34 @@
  */
 package com.kunzisoft.keepass.credentialprovider.autofill
 
-import android.annotation.TargetApi
-import android.os.Build
 import android.os.Parcel
 import android.os.Parcelable
 import android.service.autofill.FillRequest
 import android.view.inputmethod.InlineSuggestionsRequest
-import androidx.annotation.RequiresApi
 import com.kunzisoft.keepass.utils.readParcelableCompat
 
 /**
  * Utility class only to prevent java.lang.NoClassDefFoundError for old Android version and new lib compilation
  */
-@RequiresApi(Build.VERSION_CODES.O)
 class CompatInlineSuggestionsRequest : Parcelable {
 
-    @TargetApi(Build.VERSION_CODES.R)
     var inlineSuggestionsRequest: InlineSuggestionsRequest? = null
         private set
 
     constructor(fillRequest: FillRequest) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            this.inlineSuggestionsRequest = fillRequest.inlineSuggestionsRequest
-        } else {
-            this.inlineSuggestionsRequest = null
-        }
+        this.inlineSuggestionsRequest = fillRequest.inlineSuggestionsRequest
     }
 
-    @RequiresApi(Build.VERSION_CODES.R)
     constructor(inlineSuggestionsRequest: InlineSuggestionsRequest?) {
         this.inlineSuggestionsRequest = inlineSuggestionsRequest
     }
 
     constructor(parcel: Parcel) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            this.inlineSuggestionsRequest = parcel.readParcelableCompat()
-        }
-        else {
-            this.inlineSuggestionsRequest = null
-        }
+        this.inlineSuggestionsRequest = parcel.readParcelableCompat()
     }
 
     override fun writeToParcel(parcel: Parcel, flags: Int) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            parcel.writeParcelable(inlineSuggestionsRequest, flags)
-        }
+        parcel.writeParcelable(inlineSuggestionsRequest, flags)
     }
 
     override fun describeContents(): Int {

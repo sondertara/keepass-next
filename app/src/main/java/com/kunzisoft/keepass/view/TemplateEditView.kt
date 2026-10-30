@@ -1,7 +1,6 @@
 package com.kunzisoft.keepass.view
 
 import android.content.Context
-import android.os.Build
 import android.util.AttributeSet
 import android.view.View
 import androidx.annotation.IdRes
@@ -161,9 +160,7 @@ class TemplateEditView @JvmOverloads constructor(
                 if (field.protectedValue.isProtected) {
                     textDirection = TEXT_DIRECTION_LTR
                 }
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    importantForAutofill = IMPORTANT_FOR_AUTOFILL_NO
-                }
+                importantForAutofill = IMPORTANT_FOR_AUTOFILL_NO
                 mFields[field.name] = this
             }
         }
@@ -176,9 +173,7 @@ class TemplateEditView @JvmOverloads constructor(
                 setItems(templateAttribute.options.getListItems())
                 default = templateAttribute.default.toCharArray()
                 setActionClick(templateAttribute, field, this)
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    importantForAutofill = IMPORTANT_FOR_AUTOFILL_NO
-                }
+                importantForAutofill = IMPORTANT_FOR_AUTOFILL_NO
             }
         }
     }

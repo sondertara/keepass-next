@@ -592,11 +592,7 @@ open class DatabaseTaskNotificationService : LockNotificationService(), Progress
                         this,
                         4576,
                         Intent(LOCK_ACTION),
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                            PendingIntent.FLAG_IMMUTABLE
-                        } else {
-                            0
-                        }
+                        PendingIntent.FLAG_IMMUTABLE
                     )
                     // Add actions in notifications
                     notificationBuilder.apply {

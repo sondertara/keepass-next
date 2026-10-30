@@ -2,9 +2,7 @@ package com.kunzisoft.keepass.viewmodels
 
 import android.app.Application
 import android.net.Uri
-import android.os.Build
 import android.util.Log
-import androidx.annotation.RequiresApi
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.lifecycle.AndroidViewModel
@@ -32,7 +30,6 @@ import kotlinx.coroutines.launch
 import javax.crypto.Cipher
 
 
-@RequiresApi(Build.VERSION_CODES.M)
 class DeviceUnlockViewModel(application: Application): AndroidViewModel(application) {
     private var cipherDatabase: CipherEncryptDatabase? = null
 
@@ -192,8 +189,7 @@ class DeviceUnlockViewModel(application: Application): AndroidViewModel(applicat
 
     private fun showPendingIfNecessary() {
         // Reassign prompt state to open again if necessary
-        if (cryptoPrompt?.isOldCredentialOperation() != true
-            && uiState.value.cryptoPromptState == DeviceUnlockPromptMode.IDLE_SHOW) {
+        if (uiState.value.cryptoPromptState == DeviceUnlockPromptMode.IDLE_SHOW) {
             cryptoPromptShowPending = true
         }
     }
@@ -453,9 +449,7 @@ class DeviceUnlockViewModel(application: Application): AndroidViewModel(applicat
     }
 
     fun clearData() {
-        if (cryptoPrompt?.isOldCredentialOperation() != true) {
-            clearPrompt()
-        }
+        clearPrompt()
     }
 
     override fun onCleared() {

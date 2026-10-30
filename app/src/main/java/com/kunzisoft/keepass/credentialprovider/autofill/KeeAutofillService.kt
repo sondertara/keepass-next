@@ -41,7 +41,6 @@ import android.util.Log
 import android.view.autofill.AutofillId
 import android.view.autofill.AutofillManager
 import android.widget.RemoteViews
-import androidx.annotation.RequiresApi
 import androidx.autofill.inline.UiVersions
 import androidx.autofill.inline.v1.InlineSuggestionUi
 import androidx.core.content.ContextCompat
@@ -66,7 +65,6 @@ import org.joda.time.DateTime
 import org.joda.time.Instant
 
 
-@RequiresApi(api = Build.VERSION_CODES.O)
 class KeeAutofillService : AutofillService() {
 
     private var mDatabaseTaskProvider: DatabaseTaskProvider? = null
@@ -153,9 +151,7 @@ class KeeAutofillService : AutofillService() {
 
                 if (parseResult.isValid()) {
                     val inlineSuggestionsRequest =
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
-                            && autofillInlineSuggestionsEnabled
-                        ) {
+                        if (autofillInlineSuggestionsEnabled) {
                             CompatInlineSuggestionsRequest(request)
                         } else {
                             null
@@ -292,9 +288,7 @@ class KeeAutofillService : AutofillService() {
 
                     // Build inline presentation
                     var inlinePresentation: InlinePresentation? = null
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
-                        && autofillInlineSuggestionsEnabled
-                    ) {
+                    if (autofillInlineSuggestionsEnabled) {
                         autofillComponent.compatInlineSuggestionsRequest
                             ?.inlineSuggestionsRequest?.let { inlineSuggestionsRequest ->
                             val inlinePresentationSpecs =
@@ -370,7 +364,7 @@ class KeeAutofillService : AutofillService() {
                                 inlinePresentation
                             )
                         }
-                    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && inlinePresentation != null) {
+                    } else if (inlinePresentation != null) {
                         @Suppress("DEPRECATION")
                         responseBuilder.setAuthentication(
                             autofillIds,
@@ -397,7 +391,7 @@ class KeeAutofillService : AutofillService() {
 
     override fun onSaveRequest(request: SaveRequest, callback: SaveCallback) {
         var success = false
-        if (askToSaveData && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        if (askToSaveData) {
             val latestStructure = request.fillContexts.last().structure
             StructureParser(latestStructure).parse(saveValue = true)?.let { parseResult ->
 
@@ -526,12 +520,8 @@ class KeeAutofillService : AutofillService() {
 }
 
 fun Context.isCredentialProviderActivated(): Boolean {
-    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        ContextCompat.getSystemService(
-            this,
-            AutofillManager::class.java
-        )?.hasEnabledAutofillServices() == true
-    } else {
-        false
-    }
+    return ContextCompat.getSystemService(
+        this,
+        AutofillManager::class.java
+    )?.hasEnabledAutofillServices() == true
 }

@@ -4,7 +4,6 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.inputmethodservice.InputMethodService
-import android.os.Build
 import android.provider.Settings
 import android.util.Log
 import android.view.View
@@ -36,19 +35,11 @@ object KeyboardUtil {
     }
 
     fun InputMethodService.switchToPreviousKeyboard() {
-        var imeManager: InputMethodManager? = null
         try {
-            imeManager = ContextCompat.getSystemService(this, InputMethodManager::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                switchToPreviousInputMethod()
-            } else {
-                @Suppress("DEPRECATION")
-                window.window?.let { window ->
-                    imeManager?.switchToLastInputMethod(window.attributes.token)
-                }
-            }
+            switchToPreviousInputMethod()
         } catch (e: Exception) {
             Log.e(TAG, "Unable to switch to the previous IME", e)
+            val imeManager = ContextCompat.getSystemService(this, InputMethodManager::class.java)
             imeManager?.showInputMethodPicker()
         }
     }

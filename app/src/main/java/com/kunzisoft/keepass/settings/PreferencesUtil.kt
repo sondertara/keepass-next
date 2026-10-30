@@ -536,11 +536,7 @@ object PreferencesUtil {
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
         return prefs.getBoolean(context.getString(R.string.biometric_unlock_enable_key),
             context.resources.getBoolean(R.bool.biometric_unlock_enable_default))
-                && (if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-            DeviceUnlockManager.biometricUnlockSupported(context)
-        } else {
-            false
-        })
+                && DeviceUnlockManager.biometricUnlockSupported(context)
     }
 
     fun isDeviceCredentialUnlockEnable(context: Context): Boolean {

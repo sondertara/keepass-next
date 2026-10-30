@@ -19,10 +19,7 @@
  */
 package com.kunzisoft.keepass.biometric
 
-import android.app.Activity
-import android.app.KeyguardManager
 import android.content.Intent
-import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.util.Log
@@ -32,9 +29,6 @@ import android.view.MenuInflater
 import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
-import androidx.activity.result.ActivityResultLauncher
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.annotation.RequiresApi
 import androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
@@ -54,7 +48,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.util.concurrent.Executors
 
-@RequiresApi(Build.VERSION_CODES.M)
 class DeviceUnlockFragment: Fragment() {
 
     private var mDeviceUnlockView: DeviceUnlockView? = null
@@ -65,17 +58,6 @@ class DeviceUnlockFragment: Fragment() {
 
     // Only to fix multiple fingerprint menu #332
     private var mAllowDeviceUnlockMenu = false
-
-    private var mDeviceCredentialResultLauncher: ActivityResultLauncher<Intent>? = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            mDeviceUnlockViewModel.onAuthenticationSucceeded()
-        } else {
-            setAuthenticationFailed()
-        }
-        mDeviceUnlockViewModel.biometricPromptClosed()
-    }
 
     private var biometricAuthenticationCallback = object: BiometricPrompt.AuthenticationCallback() {
         override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
@@ -210,19 +192,6 @@ class DeviceUnlockFragment: Fragment() {
                         }.build(),
                         BiometricPrompt.CryptoObject(cryptoPrompt.cipher)
                     )
-                } else if (cryptoPrompt.isDeviceCredentialOperation) {
-                    context?.let { context ->
-                        @Suppress("DEPRECATION")
-                        mDeviceCredentialResultLauncher?.launch(
-                            ContextCompat.getSystemService(
-                                context,
-                                KeyguardManager::class.java
-                            )?.createConfirmDeviceCredentialIntent(
-                                promptTitle,
-                                promptDescription
-                            )
-                        )
-                    }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Unable to open prompt", e)
@@ -239,20 +208,9 @@ class DeviceUnlockFragment: Fragment() {
     private fun openBiometricSetting() {
         mDeviceUnlockView?.setDeviceUnlockButtonViewClickListener {
             try {
-                when {
-                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.R -> {
-                        context?.startActivity(Intent(Settings.ACTION_BIOMETRIC_ENROLL))
-                    }
-                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.P -> {
-                        @Suppress("DEPRECATION") context
-                            ?.startActivity(Intent(Settings.ACTION_FINGERPRINT_ENROLL))
-                    }
-                    else -> {
-                        context?.startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS))
-                    }
-                }
+                context?.startActivity(Intent(Settings.ACTION_BIOMETRIC_ENROLL))
             } catch (_: Exception) {
-                // ACTION_SECURITY_SETTINGS does not contain fingerprint enrollment on some devices...
+                // ACTION_SETTINGS fallback if BIOMETRIC_ENROLL is not handled
                 context?.startActivity(Intent(Settings.ACTION_SETTINGS))
             }
         }

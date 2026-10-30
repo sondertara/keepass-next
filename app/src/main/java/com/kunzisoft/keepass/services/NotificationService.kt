@@ -61,17 +61,15 @@ abstract class NotificationServiceParam<T> : Service() {
 
         notificationManager = NotificationManagerCompat.from(this)
 
-        // Create notification channel for Oreo+
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            if (notificationManager?.getNotificationChannel(retrieveChannelId()) == null) {
-                val channel = NotificationChannel(retrieveChannelId(),
-                        retrieveChannelName(),
-                        NotificationManager.IMPORTANCE_DEFAULT).apply {
-                    enableVibration(false)
-                    setSound(null, null)
-                }
-                notificationManager?.createNotificationChannel(channel)
+        // Create notification channel
+        if (notificationManager?.getNotificationChannel(retrieveChannelId()) == null) {
+            val channel = NotificationChannel(retrieveChannelId(),
+                    retrieveChannelName(),
+                    NotificationManager.IMPORTANCE_DEFAULT).apply {
+                enableVibration(false)
+                setSound(null, null)
             }
+            notificationManager?.createNotificationChannel(channel)
         }
 
         // Get the color
@@ -94,23 +92,19 @@ abstract class NotificationServiceParam<T> : Service() {
                                         type: NotificationServiceType
     ) {
         @Suppress("DEPRECATION")
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val foregroundServiceTimer = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                FOREGROUND_SERVICE_TYPE_SPECIAL_USE
-            } else {
-                FOREGROUND_SERVICE_TYPE_NONE
-            }
-            val foregroundType = when (type) {
-                NotificationServiceType.DATABASE_TASK -> FOREGROUND_SERVICE_TYPE_DATA_SYNC
-                NotificationServiceType.ATTACHMENT -> FOREGROUND_SERVICE_TYPE_DATA_SYNC
-                NotificationServiceType.CLIPBOARD -> foregroundServiceTimer
-                NotificationServiceType.KEYBOARD -> foregroundServiceTimer
-                NotificationServiceType.DEVICE_UNLOCK -> foregroundServiceTimer
-            }
-            startForeground(notificationId, builder.build(), foregroundType)
+        val foregroundServiceTimer = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            FOREGROUND_SERVICE_TYPE_SPECIAL_USE
         } else {
-            startForeground(notificationId, builder.build())
+            FOREGROUND_SERVICE_TYPE_NONE
         }
+        val foregroundType = when (type) {
+            NotificationServiceType.DATABASE_TASK -> FOREGROUND_SERVICE_TYPE_DATA_SYNC
+            NotificationServiceType.ATTACHMENT -> FOREGROUND_SERVICE_TYPE_DATA_SYNC
+            NotificationServiceType.CLIPBOARD -> foregroundServiceTimer
+            NotificationServiceType.KEYBOARD -> foregroundServiceTimer
+            NotificationServiceType.DEVICE_UNLOCK -> foregroundServiceTimer
+        }
+        startForeground(notificationId, builder.build(), foregroundType)
     }
 
     protected open fun stopService() {
@@ -188,11 +182,7 @@ abstract class NotificationServiceParam<T> : Service() {
             this,
             randomRequestCode(),
             intent,
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-            } else {
-                PendingIntent.FLAG_UPDATE_CURRENT
-            }
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
     }
 
@@ -203,11 +193,7 @@ abstract class NotificationServiceParam<T> : Service() {
             this,
             randomRequestCode(),
             intent,
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-            } else {
-                PendingIntent.FLAG_UPDATE_CURRENT
-            }
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
     }
 

@@ -22,14 +22,11 @@ package com.kunzisoft.keepass.biometric
 import android.app.KeyguardManager
 import android.content.Context
 import android.content.pm.PackageManager
-import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyPermanentlyInvalidatedException
 import android.security.keystore.KeyProperties
-import android.security.keystore.UserNotAuthenticatedException
 import android.util.Log
 import android.widget.Toast
-import androidx.annotation.RequiresApi
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
 import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK
@@ -45,7 +42,6 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.IvParameterSpec
 
-@RequiresApi(api = Build.VERSION_CODES.M)
 class DeviceUnlockManager(private var appContext: Context) {
 
     private var keyStore: KeyStore? = null
@@ -109,7 +105,7 @@ class DeviceUnlockManager(private var appContext: Context) {
                                             // to authorize every use of the key
                                             setUserAuthenticationRequired(true)
                                         }
-                                        if (isDeviceCredentialBiometricOperation(deviceCredentialUnlockEnable)) {
+                                        if (deviceCredentialUnlockEnable) {
                                             // Authent with device credential on Android R+
                                             // define a validity duration to fix "At least one biometric must be enrolled"
                                             // if no biometric enrolled
@@ -117,15 +113,9 @@ class DeviceUnlockManager(private var appContext: Context) {
                                                 0,
                                                 KeyProperties.AUTH_DEVICE_CREDENTIAL
                                             )
-                                        } else if (deviceCredentialUnlockEnable) {
-                                            // Authent with device credential on Legacy Android M-Q
-                                            // duration required for PIN/Pattern on older APIs
-                                            @Suppress("DEPRECATION")
-                                            setUserAuthenticationValidityDurationSeconds(5)
                                         }
                                         // To store in the security chip
-                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P
-                                            && appContext.packageManager.hasSystemFeature(
+                                        if (appContext.packageManager.hasSystemFeature(
                                                 PackageManager.FEATURE_STRONGBOX_KEYSTORE)) {
                                             setIsStrongBoxBacked(true)
                                         }
@@ -159,25 +149,14 @@ class DeviceUnlockManager(private var appContext: Context) {
         try {
             getSecretKey()?.let { secretKey ->
                 cipher?.let { cipher ->
-                    try {
-                        cipher.init(Cipher.ENCRYPT_MODE, secretKey)
-                    } catch (e: Exception) {
-                        if (isUserNotAuthenticatedException(deviceCredentialUnlockEnable, e)) {
-                            // Show the prompt without initialized cipher device credential legacy
-                            Log.i(TAG, "User not authenticated, will initialize cipher after prompt")
-                        } else {
-                            throw e
-                        }
-                    }
+                    cipher.init(Cipher.ENCRYPT_MODE, secretKey)
                     actionIfCypherInit.invoke(
                         DeviceUnlockCryptoPrompt(
                             type = DeviceUnlockCryptoPromptType.CREDENTIAL_ENCRYPTION,
                             cipher = cipher,
                             titleId = R.string.device_unlock_prompt_store_credential_title,
                             descriptionId = R.string.device_unlock_prompt_store_credential_message,
-                            isDeviceCredentialOperation = isDeviceCredentialOperation(
-                                deviceCredentialUnlockEnable
-                            ),
+                            isDeviceCredentialOperation = false,
                             isBiometricOperation = isBiometricOperation(
                                 biometricUnlockEnable, deviceCredentialUnlockEnable
                             )
@@ -208,11 +187,6 @@ class DeviceUnlockManager(private var appContext: Context) {
         handleEncryptedResult: (encryptedValue: ByteArray, ivSpec: ByteArray) -> Unit
     ) {
         try {
-            if (isDeviceCredentialOperation(deviceCredentialUnlockEnable)) {
-                getSecretKey()?.let { secretKey ->
-                    cipher?.init(Cipher.ENCRYPT_MODE, secretKey)
-                }
-            }
             val encrypted = cipher?.doFinal(value) ?: byteArrayOf()
             // passes updated iv spec on to callback so this can be stored for decryption
             cipher?.parameters?.getParameterSpec(IvParameterSpec::class.java)?.let{ spec ->
@@ -241,24 +215,14 @@ class DeviceUnlockManager(private var appContext: Context) {
             val spec = IvParameterSpec(ivSpecValue)
             getSecretKey()?.let { secretKey ->
                 cipher?.let { cipher ->
-                    try {
-                        cipher.init(Cipher.DECRYPT_MODE, secretKey, spec)
-                    } catch (e: Exception) {
-                        if (isUserNotAuthenticatedException(deviceCredentialUnlockEnable, e)) {
-                            Log.i(TAG, "User not authenticated, will initialize cipher after prompt")
-                        } else {
-                            throw e
-                        }
-                    }
+                    cipher.init(Cipher.DECRYPT_MODE, secretKey, spec)
                     actionIfCypherInit.invoke(
                         DeviceUnlockCryptoPrompt(
                             type = DeviceUnlockCryptoPromptType.CREDENTIAL_DECRYPTION,
                             cipher = cipher,
                             titleId = R.string.device_unlock_prompt_extract_credential_title,
                             descriptionId = R.string.device_unlock_prompt_extract_credential_message,
-                            isDeviceCredentialOperation = isDeviceCredentialOperation(
-                                deviceCredentialUnlockEnable
-                            ),
+                            isDeviceCredentialOperation = false,
                             isBiometricOperation = isBiometricOperation(
                                 biometricUnlockEnable, deviceCredentialUnlockEnable
                             )
@@ -298,15 +262,6 @@ class DeviceUnlockManager(private var appContext: Context) {
         handleDecryptedResult: (decryptedValue: ByteArray) -> Unit
     ) {
         try {
-            if (isDeviceCredentialOperation(deviceCredentialUnlockEnable)) {
-                getSecretKey()?.let { secretKey ->
-                    if (ivSpecValue != null) {
-                        cipher?.init(Cipher.DECRYPT_MODE, secretKey, IvParameterSpec(ivSpecValue))
-                    } else {
-                        cipher?.init(Cipher.DECRYPT_MODE, secretKey)
-                    }
-                }
-            }
             // actual decryption here
             cipher?.doFinal(encryptedValue)?.let { decrypted ->
                 handleDecryptedResult.invoke(decrypted)
@@ -337,12 +292,10 @@ class DeviceUnlockManager(private var appContext: Context) {
         private const val DEVICE_UNLOCK_BLOCKS_MODES = KeyProperties.BLOCK_MODE_CBC
         private const val DEVICE_UNLOCK_ENCRYPTION_PADDING = KeyProperties.ENCRYPTION_PADDING_PKCS7
 
-        @RequiresApi(api = Build.VERSION_CODES.M)
         fun canAuthenticate(context: Context): Int {
             return try {
                 BiometricManager.from(context).canAuthenticate(
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
-                            && PreferencesUtil.isDeviceCredentialUnlockEnable(context)) {
+                    if (PreferencesUtil.isDeviceCredentialUnlockEnable(context)) {
                         BIOMETRIC_STRONG or DEVICE_CREDENTIAL
                     } else {
                         BIOMETRIC_STRONG
@@ -352,12 +305,11 @@ class DeviceUnlockManager(private var appContext: Context) {
                 Log.e(TAG, "Unable to authenticate with strong biometric.", e)
                 try {
                     BiometricManager.from(context).canAuthenticate(
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
-                                    && PreferencesUtil.isDeviceCredentialUnlockEnable(context)) {
-                                BIOMETRIC_WEAK or DEVICE_CREDENTIAL
-                            } else {
-                                BIOMETRIC_WEAK
-                            }
+                        if (PreferencesUtil.isDeviceCredentialUnlockEnable(context)) {
+                            BIOMETRIC_WEAK or DEVICE_CREDENTIAL
+                        } else {
+                            BIOMETRIC_WEAK
+                        }
                     )
                 } catch (e: Exception) {
                     Log.e(TAG, "Unable to authenticate with weak biometric.", e)
@@ -392,17 +344,13 @@ class DeviceUnlockManager(private var appContext: Context) {
         }
 
         fun deviceCredentialUnlockSupported(context: Context): Boolean {
-            return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                val biometricCanAuthenticate = BiometricManager.from(context).canAuthenticate(DEVICE_CREDENTIAL)
-                (biometricCanAuthenticate == BiometricManager.BIOMETRIC_SUCCESS
-                        || biometricCanAuthenticate == BiometricManager.BIOMETRIC_STATUS_UNKNOWN
-                        || biometricCanAuthenticate == BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE
-                        || biometricCanAuthenticate == BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED
-                        || biometricCanAuthenticate == BiometricManager.BIOMETRIC_ERROR_SECURITY_UPDATE_REQUIRED
-                        )
-            } else {
-                true
-            }
+            val biometricCanAuthenticate = BiometricManager.from(context).canAuthenticate(DEVICE_CREDENTIAL)
+            return (biometricCanAuthenticate == BiometricManager.BIOMETRIC_SUCCESS
+                    || biometricCanAuthenticate == BiometricManager.BIOMETRIC_STATUS_UNKNOWN
+                    || biometricCanAuthenticate == BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE
+                    || biometricCanAuthenticate == BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED
+                    || biometricCanAuthenticate == BiometricManager.BIOMETRIC_ERROR_SECURITY_UPDATE_REQUIRED
+            )
         }
 
         /**
@@ -431,9 +379,8 @@ class DeviceUnlockManager(private var appContext: Context) {
 }
 
 fun deviceUnlockError(error: Throwable, context: Context): String {
-    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
-        && (error is UnrecoverableKeyException
-                || error is KeyPermanentlyInvalidatedException)) {
+    return if (error is UnrecoverableKeyException
+            || error is KeyPermanentlyInvalidatedException) {
         context.getString(R.string.device_unlock_invalid_key)
     } else
         error.cause?.localizedMessage
@@ -451,41 +398,12 @@ private fun isBiometricOperation(
     biometricUnlockEnable: Boolean,
     deviceCredentialUnlockEnable: Boolean
 ): Boolean {
-    return biometricUnlockEnable
-            || isDeviceCredentialBiometricOperation(deviceCredentialUnlockEnable)
-}
-
-// Since Android 30, device credential is also a biometric operation
-private fun isDeviceCredentialOperation(
-    deviceCredentialUnlockEnable: Boolean
-): Boolean {
-    return Build.VERSION.SDK_INT < Build.VERSION_CODES.R
-            && deviceCredentialUnlockEnable
-}
-
-private fun isDeviceCredentialBiometricOperation(
-    deviceCredentialUnlockEnable: Boolean
-): Boolean {
-    return Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
-            && deviceCredentialUnlockEnable
+    return biometricUnlockEnable || deviceCredentialUnlockEnable
 }
 
 fun isDeviceCredentialBiometricOperation(context: Context?): Boolean {
     if (context == null) {
         return false
     }
-    return isDeviceCredentialBiometricOperation(
-        isDeviceCredentialUnlockEnable(context)
-    )
-}
-
-private fun isUserNotAuthenticatedException(
-    deviceCredentialUnlockEnable: Boolean,
-    exception: Exception
-): Boolean {
-    return isDeviceCredentialOperation(deviceCredentialUnlockEnable)
-            && ((Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
-                && exception is UserNotAuthenticatedException)
-            || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
-                && exception.cause is UserNotAuthenticatedException))
+    return isDeviceCredentialUnlockEnable(context)
 }

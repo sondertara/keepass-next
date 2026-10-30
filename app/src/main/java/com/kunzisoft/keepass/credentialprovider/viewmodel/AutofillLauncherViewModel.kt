@@ -4,10 +4,8 @@ import android.app.Activity.RESULT_CANCELED
 import android.app.Activity.RESULT_OK
 import android.app.Application
 import android.content.Intent
-import android.os.Build
 import android.util.Log
 import androidx.activity.result.ActivityResult
-import androidx.annotation.RequiresApi
 import androidx.lifecycle.viewModelScope
 import com.kunzisoft.keepass.credentialprovider.EntrySelectionHelper.retrieveAndRemoveEntries
 import com.kunzisoft.keepass.credentialprovider.EntrySelectionHelper.retrieveRegisterInfo
@@ -36,7 +34,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.IOException
 
-@RequiresApi(api = Build.VERSION_CODES.O)
 class AutofillLauncherViewModel(application: Application): CredentialLauncherViewModel(application) {
 
     private var mAutofillComponent: AutofillComponent? = null

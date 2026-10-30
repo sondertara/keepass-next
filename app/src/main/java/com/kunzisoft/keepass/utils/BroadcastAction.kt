@@ -68,11 +68,7 @@ open class LockReceiver(private var lockAction: () -> Unit) : BroadcastReceiver(
                                 Intent(intent).apply {
                                     action = LOCK_ACTION
                                 },
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                                    PendingIntent.FLAG_IMMUTABLE
-                                } else {
-                                    0
-                                }
+                                PendingIntent.FLAG_IMMUTABLE
                             )
                             this.mLockPendingIntent = lockPendingIntent
                             // Launch the effective action after a small time

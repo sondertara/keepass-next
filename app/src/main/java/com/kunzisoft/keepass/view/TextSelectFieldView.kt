@@ -1,7 +1,6 @@
 package com.kunzisoft.keepass.view
 
 import android.content.Context
-import android.os.Build
 import android.text.InputType
 import android.util.AttributeSet
 import android.util.TypedValue
@@ -52,10 +51,8 @@ class TextSelectFieldView @JvmOverloads constructor(context: Context,
             LayoutParams.MATCH_PARENT,
             LayoutParams.WRAP_CONTENT)
         inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            imeOptions = EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING
-            importantForAutofill = IMPORTANT_FOR_AUTOFILL_NO
-        }
+        imeOptions = EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING
+        importantForAutofill = IMPORTANT_FOR_AUTOFILL_NO
         importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
         val drawable = ContextCompat.getDrawable(context, R.drawable.ic_arrow_down_white_24dp)
             ?.apply {

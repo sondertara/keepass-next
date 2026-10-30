@@ -22,7 +22,6 @@ package com.kunzisoft.keepass.activities
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -111,11 +110,7 @@ class MainCredentialActivity : DatabaseModeActivity() {
     private var deviceUnlockFragment: DeviceUnlockFragment? = null
 
     private val mMainCredentialViewModel: MainCredentialViewModel by viewModels()
-    private val mDeviceUnlockViewModel: DeviceUnlockViewModel? by lazy {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            ViewModelProvider(this)[DeviceUnlockViewModel::class.java]
-        } else null
-    }
+    private val mDeviceUnlockViewModel: DeviceUnlockViewModel by viewModels()
 
     private val mPasswordActivityEducation = PasswordActivityEducation(this)
 
@@ -161,9 +156,7 @@ class MainCredentialActivity : DatabaseModeActivity() {
 
         // Listen password checkbox to init advanced unlock and confirmation button
         mainCredentialView.onConditionToStoreCredentialChanged = { _, verified ->
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                mDeviceUnlockViewModel?.checkConditionToStoreCredential(condition = verified)
-            }
+            mDeviceUnlockViewModel.checkConditionToStoreCredential(condition = verified)
             mMainCredentialViewModel.onConditionChanged(mainCredentialView.isFill())
         }
 
@@ -190,9 +183,7 @@ class MainCredentialActivity : DatabaseModeActivity() {
             loadDatabase()
         } else {
             // Init Biometric elements
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                mDeviceUnlockViewModel?.connect(mMainCredentialViewModel.databaseFileUri)
-            }
+            mDeviceUnlockViewModel.connect(mMainCredentialViewModel.databaseFileUri)
         }
         // To validate with the keyboard
         mainCredentialView.onValidateListener = {
@@ -289,33 +280,29 @@ class MainCredentialActivity : DatabaseModeActivity() {
                     }
                 }
                 launch {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                        mDeviceUnlockViewModel?.let { deviceUnlockViewModel ->
-                            deviceUnlockViewModel.uiState.collect { uiState ->
-                                // New value received
-                                uiState.credentialRequiredCipher?.let { cipher ->
-                                    deviceUnlockViewModel.encryptCredential(
-                                        credential = getCredentialForEncryption(),
-                                        cipher = cipher
-                                    )
-                                }
-                                uiState.cipherEncryptDatabase?.let { cipherEncryptDatabase ->
-                                    onCredentialEncrypted(cipherEncryptDatabase)
-                                    deviceUnlockViewModel.consumeCredentialEncrypted()
-                                }
-                                uiState.cipherDecryptDatabase?.let { cipherDecryptDatabase ->
-                                    onCredentialDecrypted(cipherDecryptDatabase)
-                                    deviceUnlockViewModel.consumeCredentialDecrypted()
-                                }
-                                uiState.exception?.let { error ->
-                                    Snackbar.make(
-                                        coordinatorLayout,
-                                        deviceUnlockError(error, this@MainCredentialActivity),
-                                        Snackbar.LENGTH_LONG
-                                    ).asError().show()
-                                    deviceUnlockViewModel.exceptionShown()
-                                }
-                            }
+                    mDeviceUnlockViewModel.uiState.collect { uiState ->
+                        // New value received
+                        uiState.credentialRequiredCipher?.let { cipher ->
+                            mDeviceUnlockViewModel.encryptCredential(
+                                credential = getCredentialForEncryption(),
+                                cipher = cipher
+                            )
+                        }
+                        uiState.cipherEncryptDatabase?.let { cipherEncryptDatabase ->
+                            onCredentialEncrypted(cipherEncryptDatabase)
+                            mDeviceUnlockViewModel.consumeCredentialEncrypted()
+                        }
+                        uiState.cipherDecryptDatabase?.let { cipherDecryptDatabase ->
+                            onCredentialDecrypted(cipherDecryptDatabase)
+                            mDeviceUnlockViewModel.consumeCredentialDecrypted()
+                        }
+                        uiState.exception?.let { error ->
+                            Snackbar.make(
+                                coordinatorLayout,
+                                deviceUnlockError(error, this@MainCredentialActivity),
+                                Snackbar.LENGTH_LONG
+                            ).asError().show()
+                            mDeviceUnlockViewModel.exceptionShown()
                         }
                     }
                 }
@@ -327,8 +314,7 @@ class MainCredentialActivity : DatabaseModeActivity() {
         super.onResume()
 
         // Init Biometric elements only if allowed
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
-            && PreferencesUtil.isDeviceUnlockEnable(this)) {
+        if (PreferencesUtil.isDeviceUnlockEnable(this)) {
             deviceUnlockFragment = supportFragmentManager
                 .findFragmentByTag(UNLOCK_FRAGMENT_TAG) as? DeviceUnlockFragment?
             if (deviceUnlockFragment == null) {
@@ -599,9 +585,7 @@ class MainCredentialActivity : DatabaseModeActivity() {
                             performedNextEducation(menu)
                         })
                 try {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
-                        && !userVerificationEducationPerformed
-                    ) {
+                    if (!userVerificationEducationPerformed) {
                         val biometricCanAuthenticate = DeviceUnlockManager.canAuthenticate(this)
                         if ((biometricCanAuthenticate == BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED
                                     || biometricCanAuthenticate == BiometricManager.BIOMETRIC_SUCCESS)
@@ -685,9 +669,7 @@ class MainCredentialActivity : DatabaseModeActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            mDeviceUnlockViewModel?.disconnect()
-        }
+        mDeviceUnlockViewModel.disconnect()
     }
 
     companion object {

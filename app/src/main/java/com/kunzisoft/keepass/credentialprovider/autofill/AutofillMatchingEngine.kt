@@ -47,7 +47,6 @@ object AutofillMatchingEngine {
         "tv.danmaku.bili" to listOf("bilibili", "bili", "danmaku"),
         "com.bilibili.app.in" to listOf("bilibili", "bili"),
         "com.valvesoftware.android.steam.community" to listOf("steam", "valve"),
-        "com.microsoft.emmx" to listOf("edge", "microsoft"),
         "com.alibaba.aliexpresshd" to listOf("aliexpress", "alibaba"),
         "com.autonavi.minimap" to listOf("gaode", "amap", "autonavi"),
         "com.sina.weibo" to listOf("weibo", "sina"),
@@ -60,9 +59,46 @@ object AutofillMatchingEngine {
         "com.google.android.youtube" to listOf("youtube"),
         "com.google.android.apps.docs" to listOf("drive", "google drive", "google"),
         "com.google.android.gm" to listOf("gmail", "google"),
-        "com.android.chrome" to listOf("chrome", "google"),
         "com.zhihu.android" to listOf("zhihu"),
         "com.netease.cloudmusic" to listOf("netease", "cloudmusic")
+    )
+
+    /** Known browser packages whose package IDs must never be matched as target service brands. */
+    val KNOWN_BROWSER_PACKAGES = setOf(
+        "com.android.chrome",
+        "com.chrome.beta",
+        "com.chrome.dev",
+        "com.chrome.canary",
+        "com.google.android.apps.chrome",
+        "com.google.android.apps.chrome_dev",
+        "com.microsoft.emmx",
+        "com.microsoft.emmx.beta",
+        "com.microsoft.emmx.canary",
+        "com.microsoft.emmx.dev",
+        "org.mozilla.firefox",
+        "org.mozilla.firefox_beta",
+        "org.mozilla.fenix",
+        "org.mozilla.focus",
+        "com.brave.browser",
+        "com.brave.browser_beta",
+        "com.brave.browser_dev",
+        "com.brave.browser_nightly",
+        "com.opera.browser",
+        "com.opera.mini.native",
+        "com.opera.touch",
+        "com.opera.gx",
+        "com.sec.android.app.sbrowser",
+        "com.sec.android.app.sbrowser.beta",
+        "com.duckduckgo.mobile.android",
+        "com.vivaldi.browser",
+        "com.kiwibrowser.browser",
+        "mark.via",
+        "mark.via.gp",
+        "alook.browser",
+        "com.quark.browser",
+        "com.ucmobile",
+        "com.tencent.mtt",
+        "com.baidu.browser.apps"
     )
 
     /** Common namespace prefixes in package names. */
@@ -105,6 +141,11 @@ object AutofillMatchingEngine {
     fun extractAppKeywords(applicationId: String?): List<String> {
         if (applicationId.isNullOrBlank()) return emptyList()
         val pkg = applicationId.trim().lowercase()
+
+        // Browser package names should not match brand keywords for websites visited within them
+        if (KNOWN_BROWSER_PACKAGES.contains(pkg)) {
+            return emptyList()
+        }
 
         val results = mutableListOf<String>()
 
@@ -242,13 +283,17 @@ object AutofillMatchingEngine {
         if (entries.size <= 1) return entries
 
         val keywords = when {
-            searchInfo?.applicationId != null -> extractAppKeywords(searchInfo.applicationId)
-            searchInfo?.webDomain != null -> extractDomainKeywords(searchInfo.webDomain)
-            searchInfo?.relyingParty != null -> extractDomainKeywords(searchInfo.relyingParty)
+            !searchInfo?.webDomain.isNullOrBlank() -> extractDomainKeywords(searchInfo?.webDomain)
+            !searchInfo?.relyingParty.isNullOrBlank() -> extractDomainKeywords(searchInfo?.relyingParty)
+            !searchInfo?.applicationId.isNullOrBlank() -> extractAppKeywords(searchInfo?.applicationId)
             else -> emptyList()
         }
 
-        val rawId = searchInfo?.applicationId ?: searchInfo?.webDomain ?: searchInfo?.relyingParty
+        val rawId = when {
+            !searchInfo?.webDomain.isNullOrBlank() -> searchInfo?.webDomain
+            !searchInfo?.relyingParty.isNullOrBlank() -> searchInfo?.relyingParty
+            else -> searchInfo?.applicationId
+        }
 
         return entries.sortedWith(
             compareByDescending<EntryInfo> { calculateRelevance(it, keywords, rawId) }
@@ -266,15 +311,19 @@ object AutofillMatchingEngine {
         searchInfo: SearchInfo
     ): List<EntryInfo> {
         val keywords = when {
-            searchInfo.applicationId != null -> extractAppKeywords(searchInfo.applicationId)
-            searchInfo.webDomain != null -> extractDomainKeywords(searchInfo.webDomain)
-            searchInfo.relyingParty != null -> extractDomainKeywords(searchInfo.relyingParty)
+            !searchInfo.webDomain.isNullOrBlank() -> extractDomainKeywords(searchInfo.webDomain)
+            !searchInfo.relyingParty.isNullOrBlank() -> extractDomainKeywords(searchInfo.relyingParty)
+            !searchInfo.applicationId.isNullOrBlank() -> extractAppKeywords(searchInfo.applicationId)
             else -> emptyList()
         }
 
         if (keywords.isEmpty()) return emptyList()
 
-        val rawIdentifier = searchInfo.applicationId ?: searchInfo.webDomain ?: searchInfo.relyingParty
+        val rawIdentifier = when {
+            !searchInfo.webDomain.isNullOrBlank() -> searchInfo.webDomain
+            !searchInfo.relyingParty.isNullOrBlank() -> searchInfo.relyingParty
+            else -> searchInfo.applicationId
+        }
         val matchedEntriesMap = mutableMapOf<String, EntryInfo>()
 
         for (keyword in keywords) {

@@ -33,6 +33,7 @@ import android.service.autofill.Field
 import android.service.autofill.FillResponse
 import android.service.autofill.InlinePresentation
 import android.service.autofill.Presentations
+import android.service.autofill.SaveInfo
 import android.util.Log
 import android.view.autofill.AutofillId
 import android.view.autofill.AutofillManager
@@ -169,6 +170,46 @@ object AutofillHelper {
         return this
     }
 
+    fun buildSaveInfo(parseResult: StructureParser.Result): SaveInfo? {
+        var types: Int = SaveInfo.SAVE_DATA_TYPE_GENERIC
+        val requiredIds = mutableListOf<AutofillId>()
+        val optionalIds = mutableListOf<AutofillId>()
+
+        // Only if at least a password
+        parseResult.passwordId?.let { passwordInfo ->
+            parseResult.usernameId?.let { usernameInfo ->
+                types = types or SaveInfo.SAVE_DATA_TYPE_USERNAME
+                requiredIds.add(usernameInfo)
+            }
+            types = types or SaveInfo.SAVE_DATA_TYPE_PASSWORD
+            requiredIds.add(passwordInfo)
+        }
+        // or a credit card form
+        if (requiredIds.isEmpty()) {
+            parseResult.creditCardNumberId?.let { numberId ->
+                types = types or SaveInfo.SAVE_DATA_TYPE_CREDIT_CARD
+                requiredIds.add(numberId)
+                Log.d(TAG, "Asking to save credit card number")
+            }
+            parseResult.creditCardExpirationDateId?.let { id -> optionalIds.add(id) }
+            parseResult.creditCardExpirationYearId?.let { id -> optionalIds.add(id) }
+            parseResult.creditCardExpirationMonthId?.let { id -> optionalIds.add(id) }
+            parseResult.creditCardHolderId?.let { id -> optionalIds.add(id) }
+            parseResult.cardVerificationValueId?.let { id -> optionalIds.add(id) }
+        }
+        if (requiredIds.isNotEmpty()) {
+            val builder = SaveInfo.Builder(types, requiredIds.toTypedArray())
+            if (optionalIds.isNotEmpty()) {
+                builder.setOptionalIds(optionalIds.toTypedArray())
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                builder.setFlags(SaveInfo.FLAG_SAVE_ON_ALL_VIEWS_INVISIBLE)
+            }
+            return builder.build()
+        }
+        return null
+    }
+
     private fun buildDatasetForEntry(
         context: Context,
         database: ContextualDatabase,
@@ -185,7 +226,6 @@ object AutofillHelper {
                         setInlinePresentation(inlinePresentation)
                     }
                 }
-                .setDialogPresentation(remoteViews)
                 .setMenuPresentation(remoteViews)
                 .build())
         } else {
@@ -438,6 +478,14 @@ object AutofillHelper {
         autofillComponent: AutofillComponent
     ): FillResponse? {
         val responseBuilder = FillResponse.Builder()
+
+        // Tell the autofill framework the interest to save credentials if enabled
+        if (PreferencesUtil.askToSaveAutofillData(context)) {
+            buildSaveInfo(parseResult)?.let { saveInfo ->
+                responseBuilder.setSaveInfo(saveInfo)
+            }
+        }
+
         // Add Header
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             val packageName = context.packageName
@@ -455,33 +503,38 @@ object AutofillHelper {
         }
 
         // Add inline suggestion for new IME and dataset
-        var numberInlineSuggestions = 0
+        var maxInlineSuggestions = 0
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             autofillComponent.compatInlineSuggestionsRequest
                 ?.inlineSuggestionsRequest?.let { inlineSuggestionsRequest ->
-                numberInlineSuggestions = minOf(inlineSuggestionsRequest.maxSuggestionCount, entriesInfo.size)
+                val maxAllowed = inlineSuggestionsRequest.maxSuggestionCount
+                maxInlineSuggestions = minOf(maxAllowed, entriesInfo.size)
                 if (PreferencesUtil.isAutofillManualSelectionEnable(context)) {
-                    if (entriesInfo.size >= inlineSuggestionsRequest.maxSuggestionCount) {
-                        --numberInlineSuggestions
+                    if (entriesInfo.size >= maxAllowed && maxInlineSuggestions > 0) {
+                        --maxInlineSuggestions
                     }
                 }
             }
         }
 
-        entriesInfo.forEachIndexed { _, entry ->
+        var currentInlineIndex = 0
+        entriesInfo.forEach { entry ->
             try {
                 // Build inline presentation for compatible keyboard
                 var inlinePresentation: InlinePresentation? = null
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
-                    && numberInlineSuggestions > 0
+                    && currentInlineIndex < maxInlineSuggestions
                     && autofillComponent.compatInlineSuggestionsRequest != null) {
                     inlinePresentation = buildInlinePresentationForEntry(
                         context,
                         database,
                         autofillComponent.compatInlineSuggestionsRequest,
-                        numberInlineSuggestions--,
+                        currentInlineIndex,
                         entry
                     )
+                    if (inlinePresentation != null) {
+                        currentInlineIndex++
+                    }
                 }
                 // Create dataset for each entry
                 responseBuilder.addDataset(
@@ -520,13 +573,15 @@ object AutofillHelper {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                     autofillComponent.compatInlineSuggestionsRequest
                         ?.inlineSuggestionsRequest?.let { inlineSuggestionsRequest ->
-                            val inlinePresentationSpec =
-                                inlineSuggestionsRequest.inlinePresentationSpecs[0]
-                            inlinePresentation = buildInlinePresentationForManualSelection(
-                                context,
-                                inlinePresentationSpec,
-                                pendingIntent
-                            )
+                            val specs = inlineSuggestionsRequest.inlinePresentationSpecs
+                            if (specs.isNotEmpty() && currentInlineIndex < inlineSuggestionsRequest.maxSuggestionCount) {
+                                val inlinePresentationSpec = specs[min(currentInlineIndex, specs.size - 1)]
+                                inlinePresentation = buildInlinePresentationForManualSelection(
+                                    context,
+                                    inlinePresentationSpec,
+                                    pendingIntent
+                                )
+                            }
                         }
                 }
 
@@ -537,7 +592,6 @@ object AutofillHelper {
                                 setInlinePresentation(it)
                             }
                         }
-                        .setDialogPresentation(manualSelectionView)
                         .setMenuPresentation(manualSelectionView)
                         .build())
                 } else {

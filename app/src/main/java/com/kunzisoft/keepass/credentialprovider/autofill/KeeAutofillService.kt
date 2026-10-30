@@ -112,7 +112,13 @@ class KeeAutofillService : AutofillService() {
         cancellationSignal: CancellationSignal,
         callback: FillCallback
     ) {
-        cancellationSignal.setOnCancelListener { Log.w(TAG, "Cancel autofill.") }
+        @Volatile var isCancelled = false
+        cancellationSignal.setOnCancelListener {
+            isCancelled = true
+            Log.w(TAG, "Cancel autofill.")
+        }
+
+        getPreferences()
 
         if (request.flags and FillRequest.FLAG_COMPATIBILITY_MODE_REQUEST != 0) {
             Log.d(TAG, "Autofill requested in compatibility mode")
@@ -163,6 +169,7 @@ class KeeAutofillService : AutofillService() {
                         database = mDatabase,
                         searchInfo = searchInfo,
                         onItemsFound = { openedDatabase, items ->
+                            if (isCancelled) return@checkAutoSearchInfo
                             // Add Autofill entries to Magic Keyboard #2024 #995
                             if (autofillSharedToMagikeyboard) {
                                 MagikeyboardService.addEntries(
@@ -189,6 +196,7 @@ class KeeAutofillService : AutofillService() {
                             )
                         },
                         onItemNotFound = { openedDatabase ->
+                            if (isCancelled) return@checkAutoSearchInfo
                             // Show UI if no search result
                             showUIForEntrySelection(
                                 parseResult, openedDatabase,
@@ -196,6 +204,7 @@ class KeeAutofillService : AutofillService() {
                             )
                         },
                         onDatabaseClosed = {
+                            if (isCancelled) return@checkAutoSearchInfo
                             // Show UI if database not open
                             showUIForEntrySelection(
                                 parseResult, null,
@@ -276,46 +285,16 @@ class KeeAutofillService : AutofillService() {
 
                     // Tell the autofill framework the interest to save credentials
                     if (askToSaveData) {
-                        var types: Int = SaveInfo.SAVE_DATA_TYPE_GENERIC
-                        val requiredIds = mutableListOf<AutofillId>()
-                        val optionalIds = mutableListOf<AutofillId>()
-
-                        // Only if at least a password
-                        parseResult.passwordId?.let { passwordInfo ->
-                            parseResult.usernameId?.let { usernameInfo ->
-                                types = types or SaveInfo.SAVE_DATA_TYPE_USERNAME
-                                requiredIds.add(usernameInfo)
-                            }
-                            types = types or SaveInfo.SAVE_DATA_TYPE_PASSWORD
-                            requiredIds.add(passwordInfo)
-                        }
-                        // or a credit card form
-                        if (requiredIds.isEmpty()) {
-                            parseResult.creditCardNumberId?.let { numberId ->
-                                types = types or SaveInfo.SAVE_DATA_TYPE_CREDIT_CARD
-                                requiredIds.add(numberId)
-                                Log.d(TAG, "Asking to save credit card number")
-                            }
-                            parseResult.creditCardExpirationDateId?.let { id -> optionalIds.add(id) }
-                            parseResult.creditCardExpirationYearId?.let { id -> optionalIds.add(id) }
-                            parseResult.creditCardExpirationMonthId?.let { id -> optionalIds.add(id) }
-                            parseResult.creditCardHolderId?.let { id -> optionalIds.add(id) }
-                            parseResult.cardVerificationValueId?.let { id -> optionalIds.add(id) }
-                        }
-                        if (requiredIds.isNotEmpty()) {
-                            val builder = SaveInfo.Builder(types, requiredIds.toTypedArray())
-                            if (optionalIds.isNotEmpty()) {
-                                builder.setOptionalIds(optionalIds.toTypedArray())
-                            }
-                            responseBuilder.setSaveInfo(builder.build())
+                        AutofillHelper.buildSaveInfo(parseResult)?.let { saveInfo ->
+                            responseBuilder.setSaveInfo(saveInfo)
                         }
                     }
 
                     // Build inline presentation
+                    var inlinePresentation: InlinePresentation? = null
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
                         && autofillInlineSuggestionsEnabled
                     ) {
-                        var inlinePresentation: InlinePresentation? = null
                         autofillComponent.compatInlineSuggestionsRequest
                             ?.inlineSuggestionsRequest?.let { inlineSuggestionsRequest ->
                             val inlinePresentationSpecs =
@@ -354,32 +333,35 @@ class KeeAutofillService : AutofillService() {
                                 }
                             }
                         }
+                    }
 
-                        // Build response
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                            try {
-                                // Buggy method on some API 33 devices
-                                responseBuilder.setAuthentication(
-                                    autofillIds,
-                                    intentSender,
-                                    Presentations.Builder().apply {
-                                        inlinePresentation?.let {
-                                            setInlinePresentation(it)
-                                        }
-                                        setDialogPresentation(remoteViewsUnlock)
-                                    }.build()
-                                )
-                            } catch (e: Exception) {
-                                Log.e(TAG, "Unable to use the new setAuthentication method.", e)
-                                @Suppress("DEPRECATION")
-                                responseBuilder.setAuthentication(
-                                    autofillIds,
-                                    intentSender,
-                                    remoteViewsUnlock,
-                                    inlinePresentation
-                                )
-                            }
-                        } else {
+                    val isWebEnvironment = parseResult.isWebView || !parseResult.webDomain.isNullOrBlank()
+                    // If database is already unlocked and this is a webpage where no entries matched,
+                    // do not show an intrusive dropdown popup that steals focus and dismisses the keyboard!
+                    // Inline chip on keyboard is fine, but if inlinePresentation == null, only attach SaveInfo.
+                    val shouldSuppressIntrusiveDropdown = database != null && isWebEnvironment && inlinePresentation == null
+                    if (shouldSuppressIntrusiveDropdown) {
+                        success = true
+                        callback.onSuccess(responseBuilder.build())
+                        return
+                    }
+
+                    // Build response
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        try {
+                            // Use MenuPresentation instead of DialogPresentation to avoid closing soft keyboard
+                            responseBuilder.setAuthentication(
+                                autofillIds,
+                                intentSender,
+                                Presentations.Builder().apply {
+                                    inlinePresentation?.let {
+                                        setInlinePresentation(it)
+                                    }
+                                    setMenuPresentation(remoteViewsUnlock)
+                                }.build()
+                            )
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Unable to use the new setAuthentication method.", e)
                             @Suppress("DEPRECATION")
                             responseBuilder.setAuthentication(
                                 autofillIds,
@@ -388,6 +370,14 @@ class KeeAutofillService : AutofillService() {
                                 inlinePresentation
                             )
                         }
+                    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && inlinePresentation != null) {
+                        @Suppress("DEPRECATION")
+                        responseBuilder.setAuthentication(
+                            autofillIds,
+                            intentSender,
+                            remoteViewsUnlock,
+                            inlinePresentation
+                        )
                     } else {
                         @Suppress("DEPRECATION")
                         responseBuilder.setAuthentication(

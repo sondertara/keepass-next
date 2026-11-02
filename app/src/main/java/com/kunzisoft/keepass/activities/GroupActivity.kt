@@ -92,7 +92,7 @@ import com.kunzisoft.keepass.activities.helpers.ExternalFileHelper.registerCreat
 import com.kunzisoft.keepass.activities.helpers.ExternalFileHelper.registerOpenFile
 import com.kunzisoft.keepass.activities.controllers.GroupSearchController
 import com.kunzisoft.keepass.activities.controllers.GroupSelectionCoordinator
-import com.kunzisoft.keepass.activities.session.DatabaseSessionActivity
+import com.kunzisoft.keepass.activities.session.VaultSessionActivity
 import com.kunzisoft.keepass.adapters.BreadcrumbAdapter
 import com.kunzisoft.keepass.credentialprovider.EntrySelectionHelper
 import com.kunzisoft.keepass.credentialprovider.EntrySelectionHelper.addSearchInfo
@@ -160,7 +160,7 @@ import kotlinx.coroutines.launch
 import java.util.EnumSet
 
 
-class GroupActivity : DatabaseSessionActivity() {
+class GroupActivity : VaultSessionActivity() {
 
     // Views
     private var header: ViewGroup? = null

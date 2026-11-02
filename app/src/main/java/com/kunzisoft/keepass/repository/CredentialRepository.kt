@@ -21,6 +21,7 @@ package com.kunzisoft.keepass.repository
 
 import android.content.Context
 import com.kunzisoft.keepass.credentialprovider.autofill.AutofillMatchingEngine
+import com.kunzisoft.keepass.database.ContextualDatabase
 import com.kunzisoft.keepass.database.search.SearchParameters
 import com.kunzisoft.keepass.model.EntryInfo
 import com.kunzisoft.keepass.model.Passkey
@@ -50,6 +51,17 @@ interface CredentialRepository {
      * Executes intelligent credential lookup based on [SearchInfo] with ranking and heuristic fallback.
      */
     fun queryCredentials(searchInfo: SearchInfo?, context: Context? = null): CredentialResult
+
+    /**
+     * Executes Tier-1 exact search and Tier-2 heuristic fallback matching on [database]
+     * using pre-built [searchParameters] and [searchInfo].
+     */
+    fun matchEntries(
+        database: ContextualDatabase,
+        searchInfo: SearchInfo,
+        searchParameters: SearchParameters,
+        max: Int = 1000
+    ): List<EntryInfo>
 
     /**
      * Extracts Passkey credential info from the entry if configured.
@@ -156,6 +168,28 @@ class CredentialRepositoryImpl(
         }
 
         return CredentialRepository.CredentialResult.Empty
+    }
+
+    override fun matchEntries(
+        database: ContextualDatabase,
+        searchInfo: SearchInfo,
+        searchParameters: SearchParameters,
+        max: Int
+    ): List<EntryInfo> {
+        val searchGroup = database.createSearchGroupInfo(
+            searchParameters = searchParameters,
+            max = max
+        )
+        if (searchGroup.numberOfSearchResults() > 0) {
+            return AutofillMatchingEngine.rankEntries(
+                entries = searchGroup.getSearchResults(),
+                searchInfo = searchInfo
+            )
+        }
+        return AutofillMatchingEngine.findFallbackMatches(
+            database = database,
+            searchInfo = searchInfo
+        )
     }
 
     override fun getPasskey(entryInfo: EntryInfo): Passkey? {

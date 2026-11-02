@@ -59,7 +59,7 @@ import com.kunzisoft.keepass.activities.fragments.EntryEditFragment
 import com.kunzisoft.keepass.activities.helpers.ExternalFileHelper
 import com.kunzisoft.keepass.activities.helpers.ExternalFileHelper.openFile
 import com.kunzisoft.keepass.activities.helpers.ExternalFileHelper.registerOpenFile
-import com.kunzisoft.keepass.activities.session.DatabaseSessionActivity
+import com.kunzisoft.keepass.activities.session.VaultSessionActivity
 import com.kunzisoft.keepass.activities.session.DatabaseSessionOptions
 import com.kunzisoft.keepass.adapters.TemplatesSelectorAdapter
 import com.kunzisoft.keepass.credentialprovider.EntrySelectionHelper
@@ -120,10 +120,10 @@ import com.kunzisoft.keepass.viewmodels.UserVerificationViewModel
 import kotlinx.coroutines.launch
 import java.util.EnumSet
 
-class EntryEditActivity : DatabaseSessionActivity() {
+class EntryEditActivity : VaultSessionActivity() {
 
     override fun createSessionOptions(): DatabaseSessionOptions =
-        DatabaseSessionOptions(finishActivityIfReloadRequested = true, timeoutRetrievalGuard = true)
+        DatabaseSessionOptions.vaultProtected(finishActivityIfReloadRequested = true, timeoutRetrievalGuard = true)
 
     // Views
     private var container: View? = null

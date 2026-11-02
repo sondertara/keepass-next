@@ -20,11 +20,11 @@
 package com.kunzisoft.keepass.database.helper
 
 import android.content.Context
-import com.kunzisoft.keepass.credentialprovider.autofill.AutofillMatchingEngine
 import com.kunzisoft.keepass.database.ContextualDatabase
 import com.kunzisoft.keepass.database.search.SearchParameters
 import com.kunzisoft.keepass.model.EntryInfo
 import com.kunzisoft.keepass.model.SearchInfo
+import com.kunzisoft.keepass.repository.CredentialRepositoryImpl
 import com.kunzisoft.keepass.settings.PreferencesUtil.searchSubDomains
 import com.kunzisoft.keepass.timeout.TimeoutHelper
 import kotlinx.coroutines.CoroutineScope
@@ -155,34 +155,16 @@ object SearchHelper {
                 && !searchInfo.containsOnlyNullValues()
             ) {
                 searchInfo.getSearchParametersFromSearchInfo(context) { searchParameters ->
-                    // Tier 1: Exact search
-                    val searchGroup = database.createSearchGroupInfo(
+                    val matchedEntries = CredentialRepositoryImpl.getInstance().matchEntries(
+                        database = database,
+                        searchInfo = searchInfo,
                         searchParameters = searchParameters,
                         max = MAX_SEARCH_ENTRY
                     )
-                    if (searchGroup.numberOfSearchResults() > 0) {
-                        val ranked = AutofillMatchingEngine.rankEntries(
-                            entries = searchGroup.getSearchResults(),
-                            searchInfo = searchInfo
-                        )
-                        onItemsFound.invoke(
-                            database,
-                            ranked
-                        )
+                    if (matchedEntries.isNotEmpty()) {
+                        onItemsFound.invoke(database, matchedEntries)
                     } else {
-                        // Tier 2: Smart fallback heuristic matching
-                        val fallbackEntries = AutofillMatchingEngine.findFallbackMatches(
-                            database = database,
-                            searchInfo = searchInfo
-                        )
-                        if (fallbackEntries.isNotEmpty()) {
-                            onItemsFound.invoke(
-                                database,
-                                fallbackEntries
-                            )
-                        } else {
-                            onItemNotFound.invoke(database)
-                        }
+                        onItemNotFound.invoke(database)
                     }
                 }
             } else

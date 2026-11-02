@@ -55,8 +55,13 @@ class DatabaseViewModel(application: Application): AndroidViewModel(application)
     private val mDatabaseState = MutableStateFlow<ContextualDatabase?>(null)
     val databaseState: StateFlow<ContextualDatabase?> = mDatabaseState.asStateFlow()
 
+    val sessionState: StateFlow<DatabaseJobManager.VaultSessionState> =
+        DatabaseJobManager.getInstance().sessionState
+
     val database: ContextualDatabase?
         get() = databaseState.value
+
+    private var lastDatabaseLoaded: Boolean? = null
 
     private val mActionState = MutableStateFlow<ActionState>(ActionState.Wait)
     val actionState: StateFlow<ActionState> = mActionState.asStateFlow()
@@ -69,11 +74,17 @@ class DatabaseViewModel(application: Application): AndroidViewModel(application)
     init {
         mDatabaseTaskProvider.onDatabaseRetrieved = { databaseRetrieved ->
             val databaseWasReloaded = databaseRetrieved?.wasReloaded == true
+            val currentLoaded = databaseRetrieved?.loaded
             if (databaseWasReloaded) {
                 mActionState.value = ActionState.OnDatabaseReloaded
             }
-            if (database == null || database != databaseRetrieved || databaseWasReloaded) {
+            if (database == null
+                || database != databaseRetrieved
+                || lastDatabaseLoaded != currentLoaded
+                || databaseWasReloaded
+            ) {
                 databaseRetrieved?.wasReloaded = false
+                lastDatabaseLoaded = currentLoaded
                 mDatabaseState.value = databaseRetrieved
             }
         }

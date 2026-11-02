@@ -34,8 +34,7 @@ import com.kunzisoft.keepass.R
 import com.kunzisoft.keepass.activities.EntryEditActivity
 import com.kunzisoft.keepass.activities.FileDatabaseSelectActivity
 import com.kunzisoft.keepass.activities.GroupActivity
-import com.kunzisoft.keepass.activities.session.DatabaseSessionActivity
-import com.kunzisoft.keepass.activities.session.DatabaseSessionOptions
+import com.kunzisoft.keepass.activities.session.PreUnlockSessionActivity
 import com.kunzisoft.keepass.credentialprovider.EntrySelectionHelper.addRegisterInfo
 import com.kunzisoft.keepass.credentialprovider.EntrySelectionHelper.addSearchInfo
 import com.kunzisoft.keepass.credentialprovider.EntrySelectionHelper.addSpecialMode
@@ -57,10 +56,7 @@ import com.kunzisoft.keepass.utils.AppUtil.randomRequestCode
 import com.kunzisoft.keepass.view.toastError
 import kotlinx.coroutines.launch
 
-class AutofillLauncherActivity : DatabaseSessionActivity() {
-
-    override fun createSessionOptions(): DatabaseSessionOptions =
-        DatabaseSessionOptions(enableTimeout = false, manageDatabaseInfo = false, enableSpecialMode = true)
+class AutofillLauncherActivity : PreUnlockSessionActivity() {
 
     private val autofillLauncherViewModel: AutofillLauncherViewModel by viewModels()
 

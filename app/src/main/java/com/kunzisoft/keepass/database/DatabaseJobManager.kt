@@ -59,6 +59,14 @@ class DatabaseJobManager(
     private val coroutineScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 ) : ProgressTaskUpdater {
 
+    sealed class VaultSessionState {
+        data object Locked : VaultSessionState()
+        data class Unlocked(
+            val database: ContextualDatabase,
+            val sessionVersion: Long = System.nanoTime()
+        ) : VaultSessionState()
+    }
+
     sealed class DatabaseJobState {
         object Idle : DatabaseJobState()
         data class Running(
@@ -140,6 +148,9 @@ class DatabaseJobManager(
     private val _databaseState = MutableStateFlow<ContextualDatabase?>(null)
     val databaseState: StateFlow<ContextualDatabase?> = _databaseState.asStateFlow()
 
+    private val _sessionState = MutableStateFlow<VaultSessionState>(VaultSessionState.Locked)
+    val sessionState: StateFlow<VaultSessionState> = _sessionState.asStateFlow()
+
     private val _activeJobsCount = MutableStateFlow(0)
     val activeJobsCount: StateFlow<Int> = _activeJobsCount.asStateFlow()
 
@@ -157,7 +168,17 @@ class DatabaseJobManager(
         get() = _databaseState.value
         set(value) {
             _databaseState.value = value
+            _sessionState.value = if (value != null && value.loaded) {
+                VaultSessionState.Unlocked(value)
+            } else {
+                VaultSessionState.Locked
+            }
         }
+
+    fun refreshSessionState(database: ContextualDatabase? = currentDatabase) {
+        currentDatabase = database
+        databaseListeners.forEach { it.onDatabaseRetrieved(database) }
+    }
 
     // Challenge-response launcher hook
     var challengeResponseRequester: ((context: Context, hardwareKey: HardwareKey, seed: ByteArray?) -> Unit)? = null
@@ -214,9 +235,8 @@ class DatabaseJobManager(
         actionTaskListeners.remove(listener)
     }
 
-    fun checkDatabase(database: ContextualDatabase? = ContextualDatabase.getInstance()) {
-        currentDatabase = database
-        databaseListeners.forEach { it.onDatabaseRetrieved(database) }
+    fun checkDatabase(database: ContextualDatabase? = currentDatabase) {
+        refreshSessionState(database)
     }
 
     /**
@@ -428,6 +448,10 @@ class DatabaseJobManager(
 
             if (result.isSuccess && isSavingAction) {
                 database?.indicateUpToDateData()
+            }
+
+            if (database != null) {
+                refreshSessionState(database)
             }
 
             deferred.complete(result)

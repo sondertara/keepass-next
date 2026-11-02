@@ -19,22 +19,12 @@
  */
 package com.kunzisoft.keepass.database
 
-import android.content.BroadcastReceiver
-import android.content.ComponentName
 import android.content.Context
-import android.content.Context.BIND_ABOVE_CLIENT
-import android.content.Context.BIND_AUTO_CREATE
-import android.content.Context.BIND_IMPORTANT
 import android.content.Intent
-import android.content.IntentFilter
-import android.content.ServiceConnection
 import android.net.Uri
 import android.os.Bundle
-import android.os.IBinder
 import android.util.Log
 import android.widget.Toast
-import androidx.core.content.ContextCompat
-import androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED
 import com.kunzisoft.keepass.R
 import com.kunzisoft.keepass.database.crypto.EncryptionAlgorithm
 import com.kunzisoft.keepass.database.crypto.kdf.KdfEngine
@@ -84,13 +74,11 @@ import com.kunzisoft.keepass.services.DatabaseTaskNotificationService.Companion.
 import com.kunzisoft.keepass.services.DatabaseTaskNotificationService.Companion.BENCHMARK_TIME_KEY
 import com.kunzisoft.keepass.services.DatabaseTaskNotificationService.Companion.ENTRIES_ID_KEY
 import com.kunzisoft.keepass.services.DatabaseTaskNotificationService.Companion.GROUPS_ID_KEY
-import com.kunzisoft.keepass.utils.DATABASE_START_TASK_ACTION
-import com.kunzisoft.keepass.utils.DATABASE_STOP_TASK_ACTION
 import com.kunzisoft.keepass.utils.putParcelableList
 
 /**
- * Utility class to connect an activity or a service to the DatabaseTaskNotificationService,
- * Useful to retrieve a database instance and sending tasks commands
+ * Utility class to dispatch database task commands to [DatabaseTaskNotificationService]
+ * and observe in-process [DatabaseJobManager] state and events.
  */
 class DatabaseTaskProvider(
     private var context: Context
@@ -102,17 +90,13 @@ class DatabaseTaskProvider(
     var actionTaskListener: DatabaseJobManager.ActionTaskListener? = null
     var databaseInfoListener: DatabaseJobManager.DatabaseInfoListener? = null
 
-    private var databaseTaskBroadcastReceiver: BroadcastReceiver? = null
-    private var mBinder: DatabaseTaskNotificationService.ActionTaskBinder? = null
-
-    private var serviceConnection: ServiceConnection? = null
     private var isInitialConnection: Boolean = true
 
     fun destroy() {
         this.onDatabaseRetrieved = null
-        this.databaseTaskBroadcastReceiver = null
-        this.mBinder = null
-        this.serviceConnection = null
+        this.onStartActionRequested = null
+        this.actionTaskListener = null
+        this.databaseInfoListener = null
     }
 
     val jobManager: DatabaseJobManager
@@ -133,144 +117,24 @@ class DatabaseTaskProvider(
         jobManager.checkAction()
     }
 
-    private fun initServiceConnection() {
-        if (serviceConnection == null) {
-            serviceConnection = object : ServiceConnection {
-                override fun onBindingDied(name: ComponentName?) {
-                    actionTaskListener?.onActionStopped()
-                    onDatabaseRetrieved?.invoke(null)
-                }
-
-                override fun onNullBinding(name: ComponentName?) {
-                    actionTaskListener?.onActionStopped()
-                    onDatabaseRetrieved?.invoke(null)
-                }
-
-                override fun onServiceConnected(name: ComponentName?, serviceBinder: IBinder?) {
-                    mBinder =
-                        (serviceBinder as DatabaseTaskNotificationService.ActionTaskBinder?)?.apply {
-                            addServiceListeners(this)
-                            getService().checkDatabase()
-                            if (isInitialConnection) {
-                                isInitialConnection = false
-                                getService().checkDatabaseInfo()
-                            }
-                            getService().checkAction()
-                        }
-                }
-
-                override fun onServiceDisconnected(name: ComponentName?) {
-                    removeServiceListeners(mBinder)
-                    mBinder = null
-                }
-            }
-        }
-    }
-
-    private fun addServiceListeners(service: DatabaseTaskNotificationService.ActionTaskBinder?) {
-        service?.addDatabaseListener(databaseListener)
-        jobManager.addDatabaseListener(databaseListener)
-        databaseInfoListener?.let { infoListener ->
-            service?.addDatabaseFileInfoListener(infoListener)
-            jobManager.addDatabaseInfoListener(infoListener)
-        }
-        actionTaskListener?.let { taskListener ->
-            service?.addActionTaskListener(taskListener)
-            jobManager.addActionTaskListener(taskListener)
-        }
-    }
-
-    private fun removeServiceListeners(service: DatabaseTaskNotificationService.ActionTaskBinder?) {
-        actionTaskListener?.let { taskListener ->
-            service?.removeActionTaskListener(taskListener)
-            jobManager.removeActionTaskListener(taskListener)
-        }
-        databaseInfoListener?.let { infoListener ->
-            service?.removeDatabaseFileInfoListener(infoListener)
-            jobManager.removeDatabaseInfoListener(infoListener)
-        }
-        service?.removeDatabaseListener(databaseListener)
-        jobManager.removeDatabaseListener(databaseListener)
-        onDatabaseRetrieved?.invoke(null)
-    }
-
-    private fun bindService() {
-        initServiceConnection()
-        serviceConnection?.let {
-            context.bindService(
-                Intent(
-                    context.applicationContext,
-                    DatabaseTaskNotificationService::class.java
-                ),
-                it,
-                BIND_AUTO_CREATE or BIND_IMPORTANT or BIND_ABOVE_CLIENT
-            )
-        }
-    }
-
-    /**
-     * Unbind the service and assign null to the service connection to check if already unbind or not
-     */
-    private fun unBindService() {
-        try {
-            serviceConnection?.let {
-                context.unbindService(it)
-            }
-        } catch (e: java.lang.Exception) {
-            Log.e(TAG, "Unable to unbind the database task service", e)
-        } finally {
-            serviceConnection = null
-        }
-    }
-
     fun registerProgressTask() {
         jobManager.addDatabaseListener(databaseListener)
         databaseInfoListener?.let { jobManager.addDatabaseInfoListener(it) }
         actionTaskListener?.let { jobManager.addActionTaskListener(it) }
 
-        // Register a database task receiver to stop loading dialog when service finish the task
-        databaseTaskBroadcastReceiver = object : BroadcastReceiver() {
-            override fun onReceive(context: Context?, intent: Intent?) {
-                when (intent?.action) {
-                    DATABASE_START_TASK_ACTION -> {
-                        // Bind to the service when is starting
-                        bindService()
-                    }
-
-                    DATABASE_STOP_TASK_ACTION -> {
-                        // Remove the progress task
-                        unBindService()
-                    }
-                }
-            }
+        val currentDb = jobManager.currentDatabase ?: ContextualDatabase.getInstance().takeIf { it.loaded }
+        jobManager.checkDatabase(currentDb)
+        if (isInitialConnection) {
+            isInitialConnection = false
+            jobManager.checkDatabaseInfo(context.applicationContext)
         }
-        ContextCompat.registerReceiver(
-            context, databaseTaskBroadcastReceiver,
-            IntentFilter().apply {
-                addAction(DATABASE_START_TASK_ACTION)
-                addAction(DATABASE_STOP_TASK_ACTION)
-            }, RECEIVER_NOT_EXPORTED
-        )
-
-        // Check if a service is currently running else do nothing
-        bindService()
+        jobManager.checkAction()
     }
 
     fun unregisterProgressTask() {
         actionTaskListener?.let { jobManager.removeActionTaskListener(it) }
         databaseInfoListener?.let { jobManager.removeDatabaseInfoListener(it) }
         jobManager.removeDatabaseListener(databaseListener)
-
-        removeServiceListeners(mBinder)
-        mBinder = null
-
-        unBindService()
-
-        try {
-            context.unregisterReceiver(databaseTaskBroadcastReceiver)
-        } catch (_: IllegalArgumentException) {
-            // If receiver not register, do nothing
-        }
     }
 
     private fun start(bundle: Bundle? = null, actionTask: String) {

@@ -29,19 +29,37 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import com.kunzisoft.keepass.R
 import com.kunzisoft.keepass.activities.stylish.Stylish
+import com.kunzisoft.keepass.events.VaultEventBusImpl
 import com.kunzisoft.keepass.otp.scanner.QrScanActivity
+import com.kunzisoft.keepass.plugins.VaultPluginManager
+import com.kunzisoft.keepass.settings.AppSettingsRepositoryImpl
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 
 class App : Application() {
 
+    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var pluginManager: VaultPluginManager? = null
+
     override fun onCreate() {
         super.onCreate()
 
         ProcessLifecycleOwner.get().lifecycle.addObserver(AppLifecycleObserver)
+
+        val appSettingsRepository = AppSettingsRepositoryImpl.getInstance(this)
+        pluginManager = VaultPluginManager.createDefault(
+            context = this,
+            eventBus = VaultEventBusImpl.instance,
+            appSettingsRepository = appSettingsRepository
+        ).also {
+            it.startAll(applicationScope)
+        }
 
         Stylish.load(this)
         registerQuickScanShortcut()

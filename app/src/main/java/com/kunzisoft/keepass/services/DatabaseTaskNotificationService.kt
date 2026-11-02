@@ -198,8 +198,6 @@ open class DatabaseTaskNotificationService : LockNotificationService(), Progress
         super.onStartCommand(intent, flags, startId)
 
         val database = ContextualDatabase.getInstance()
-        DatabaseJobManager.getInstance().currentDatabase = database
-
         val intentAction = intent?.action
         val isSavingAction = if (intent != null && !database.isReadOnly) {
             if (intent.hasExtra(SAVE_DATABASE_KEY)) {
@@ -213,6 +211,8 @@ open class DatabaseTaskNotificationService : LockNotificationService(), Progress
 
         if (intentAction == null && !database.loaded) {
             stopService()
+        } else if (database.loaded) {
+            DatabaseJobManager.getInstance().currentDatabase = database
         }
 
         val actionRunnable: ActionRunnable? = if (intent != null) {
@@ -230,6 +230,7 @@ open class DatabaseTaskNotificationService : LockNotificationService(), Progress
         val isMainAction = intentAction != ACTION_CHALLENGE_RESPONDED
 
         if (actionRunnable != null) {
+            DatabaseJobManager.getInstance().currentDatabase = database
             mainScope.launch {
                 try {
                     DatabaseJobManager.getInstance().executeAction(

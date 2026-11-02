@@ -29,8 +29,7 @@ import androidx.lifecycle.lifecycleScope
 import com.kunzisoft.keepass.activities.EntryEditActivity
 import com.kunzisoft.keepass.activities.FileDatabaseSelectActivity
 import com.kunzisoft.keepass.activities.GroupActivity
-import com.kunzisoft.keepass.activities.session.DatabaseSessionActivity
-import com.kunzisoft.keepass.activities.session.DatabaseSessionOptions
+import com.kunzisoft.keepass.activities.session.PreUnlockSessionActivity
 import com.kunzisoft.keepass.credentialprovider.EntrySelectionHelper.addSearchInfo
 import com.kunzisoft.keepass.credentialprovider.EntrySelectionHelper.setActivityResult
 import com.kunzisoft.keepass.credentialprovider.TypeMode
@@ -47,10 +46,7 @@ import kotlinx.coroutines.launch
  * Activity to search or select entry in database,
  * Commonly used with Magikeyboard
  */
-class EntrySelectionLauncherActivity : DatabaseSessionActivity() {
-
-    override fun createSessionOptions(): DatabaseSessionOptions =
-        DatabaseSessionOptions(enableTimeout = false, manageDatabaseInfo = false, enableSpecialMode = true)
+class EntrySelectionLauncherActivity : PreUnlockSessionActivity() {
 
     private val entrySelectionViewModel: EntrySelectionViewModel by viewModels()
 

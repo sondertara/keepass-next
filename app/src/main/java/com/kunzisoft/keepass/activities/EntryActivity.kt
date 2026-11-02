@@ -54,7 +54,7 @@ import com.kunzisoft.keepass.R
 import com.kunzisoft.keepass.activities.fragments.EntryFragment
 import com.kunzisoft.keepass.activities.helpers.ExternalFileHelper.registerCreateFile
 import com.kunzisoft.keepass.activities.helpers.ExternalFileHelper.createFile
-import com.kunzisoft.keepass.activities.session.DatabaseSessionActivity
+import com.kunzisoft.keepass.activities.session.VaultSessionActivity
 import com.kunzisoft.keepass.adapters.TagsAdapter
 import com.kunzisoft.keepass.credentialprovider.SpecialMode
 import com.kunzisoft.keepass.credentialprovider.UserVerificationActionType
@@ -93,7 +93,7 @@ import com.kunzisoft.keepass.viewmodels.UserVerificationViewModel
 import kotlinx.coroutines.launch
 import java.util.EnumSet
 
-class EntryActivity : DatabaseSessionActivity() {
+class EntryActivity : VaultSessionActivity() {
 
     private var container: View? = null
     private var coordinatorError: CoordinatorLayout? = null

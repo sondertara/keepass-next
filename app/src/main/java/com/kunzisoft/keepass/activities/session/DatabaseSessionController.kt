@@ -145,7 +145,10 @@ class DatabaseSessionController(
         )
 
     // Timeout & lock management
-    var timeoutEnable: Boolean = options.enableTimeout
+    val isVaultProtected: Boolean
+        get() = options.role == SessionRole.VAULT_PROTECTED && options.enableTimeout
+
+    var timeoutEnable: Boolean = isVaultProtected
     private var lockReceiver: LockReceiver? = null
     private var exitLock: Boolean = false
     var databaseAllowUserVerification: Boolean = true
@@ -185,11 +188,11 @@ class DatabaseSessionController(
                 credentialResultLaunched = savedInstanceState.getBoolean(CREDENTIAL_RESULT_LAUNCHER_KEY)
             }
             if (savedInstanceState.containsKey(TIMEOUT_ENABLE_KEY)) {
-                timeoutEnable = savedInstanceState.getBoolean(TIMEOUT_ENABLE_KEY)
+                timeoutEnable = savedInstanceState.getBoolean(TIMEOUT_ENABLE_KEY) && isVaultProtected
             }
         } else {
             activity.intent?.let {
-                timeoutEnable = it.getBooleanExtra(TIMEOUT_ENABLE_KEY, options.enableTimeout)
+                timeoutEnable = it.getBooleanExtra(TIMEOUT_ENABLE_KEY, isVaultProtected) && isVaultProtected
             }
         }
     }
@@ -292,7 +295,7 @@ class DatabaseSessionController(
                         }
                     }
                 }
-                if (options.enableTimeout) {
+                if (isVaultProtected) {
                     launch {
                         nodesViewModel.nodesToPermanentlyDelete.collect { nodes ->
                             deleteDatabaseNodes(nodes)
@@ -309,7 +312,7 @@ class DatabaseSessionController(
         }
 
         // Database retrieval timeout guard
-        if (options.timeoutRetrievalGuard) {
+        if (isVaultProtected && options.timeoutRetrievalGuard) {
             activity.lifecycleScope.launch {
                 if (options.finishActivityIfReloadRequested || callback.finishActivityIfReloadRequested()) {
                     delay(3000)
@@ -323,7 +326,7 @@ class DatabaseSessionController(
     }
 
     private fun onDatabaseRetrievedInternal(db: ContextualDatabase) {
-        if (options.enableTimeout) {
+        if (isVaultProtected) {
             if (!db.loaded) {
                 if (timeoutEnable) {
                     activity.finish()
@@ -361,7 +364,7 @@ class DatabaseSessionController(
         actionTask: String,
         result: ActionRunnable.Result
     ) {
-        if (options.enableTimeout) {
+        if (isVaultProtected) {
             when (actionTask) {
                 DatabaseTaskNotificationService.ACTION_DATABASE_MERGE_TASK,
                 DatabaseTaskNotificationService.ACTION_DATABASE_RELOAD_TASK -> {
@@ -399,7 +402,7 @@ class DatabaseSessionController(
     override fun onResume(owner: LifecycleOwner) {
         databaseViewModel.checkChanges()
 
-        if (options.enableTimeout) {
+        if (isVaultProtected) {
             autoSaveEnable = PreferencesUtil.isAutoSaveDatabaseEnabled(activity)
             database?.let { db ->
                 callback.viewToInvalidateTimeout()

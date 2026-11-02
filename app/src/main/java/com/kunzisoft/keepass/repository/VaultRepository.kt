@@ -50,6 +50,12 @@ interface VaultRepository {
     val database: ContextualDatabase?
 
     /**
+     * Reactive flow representing the current vault session state (Locked vs Unlocked).
+     */
+    val sessionState: StateFlow<DatabaseJobManager.VaultSessionState>
+        get() = DatabaseJobManager.getInstance().sessionState
+
+    /**
      * Reactive flow indicating whether the database has unsaved modifications.
      */
     val dataModifiedFlow: StateFlow<Boolean>?
@@ -127,6 +133,9 @@ class VaultRepositoryImpl(
 
     override val isUnlocked: Boolean
         get() = database?.loaded == true
+
+    override val sessionState: StateFlow<DatabaseJobManager.VaultSessionState>
+        get() = jobManagerProvider().sessionState
 
     override val dataModifiedFlow: StateFlow<Boolean>?
         get() = database?.dataModifiedSinceLastLoadingFlow

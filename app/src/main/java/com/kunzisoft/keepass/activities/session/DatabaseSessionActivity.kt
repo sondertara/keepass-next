@@ -84,3 +84,21 @@ abstract class DatabaseSessionActivity : StylishActivity(), DatabaseSessionHolde
         }
     }
 }
+
+/**
+ * Base Activity for pre-unlock and launcher screens (file selection, master password prompt,
+ * autofill/selection launchers) that operate when the database is closed or being unlocked.
+ */
+abstract class PreUnlockSessionActivity : DatabaseSessionActivity() {
+    override fun createSessionOptions(): DatabaseSessionOptions =
+        DatabaseSessionOptions.preUnlock()
+}
+
+/**
+ * Base Activity for unlocked vault screens (groups, entry view/edit, settings requiring open vault)
+ * that enforce lock/timeout guards and observe vault node operations.
+ */
+abstract class VaultSessionActivity : DatabaseSessionActivity() {
+    override fun createSessionOptions(): DatabaseSessionOptions =
+        DatabaseSessionOptions.vaultProtected()
+}

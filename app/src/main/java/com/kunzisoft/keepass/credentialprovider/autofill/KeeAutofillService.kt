@@ -54,7 +54,6 @@ import com.kunzisoft.keepass.events.VaultEventBusImpl
 import com.kunzisoft.keepass.model.CreditCard
 import com.kunzisoft.keepass.model.RegisterInfo
 import com.kunzisoft.keepass.model.SearchInfo
-import com.kunzisoft.keepass.plugins.VaultPluginManager
 import com.kunzisoft.keepass.repository.CredentialRepository
 import com.kunzisoft.keepass.repository.CredentialRepositoryImpl
 import com.kunzisoft.keepass.repository.VaultRepository
@@ -63,10 +62,6 @@ import com.kunzisoft.keepass.settings.AppSettingsRepository
 import com.kunzisoft.keepass.settings.AppSettingsRepositoryImpl
 import com.kunzisoft.keepass.settings.AutofillSettingsActivity
 import com.kunzisoft.keepass.utils.AppUtil.randomRequestCode
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import org.joda.time.DateTime
 import org.joda.time.Instant
 
@@ -77,32 +72,12 @@ class KeeAutofillService : AutofillService() {
     private lateinit var vaultRepository: VaultRepository
     private lateinit var credentialRepository: CredentialRepository
 
-    private var pluginManager: VaultPluginManager? = null
-    private var serviceScope: CoroutineScope? = null
-
     override fun onCreate() {
         super.onCreate()
 
         appSettingsRepository = AppSettingsRepositoryImpl.getInstance(this)
         vaultRepository = VaultRepositoryImpl.getInstance()
         credentialRepository = CredentialRepositoryImpl.getInstance(vaultRepository) { appSettingsRepository }
-
-        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-        serviceScope = scope
-
-        // Decoupled side-effect plugins triggered via domain events
-        pluginManager = VaultPluginManager.createDefault(this, eventBus, appSettingsRepository).also {
-            it.startAll(scope)
-        }
-    }
-
-    override fun onDestroy() {
-        pluginManager?.stopAll()
-        pluginManager = null
-        serviceScope?.cancel()
-        serviceScope = null
-
-        super.onDestroy()
     }
 
     override fun onFillRequest(

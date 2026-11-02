@@ -99,8 +99,8 @@ class DatabaseTaskProvider(
     var onDatabaseRetrieved: ((database: ContextualDatabase?) -> Unit)? = null
 
     var onStartActionRequested: ((bundle: Bundle?, actionTask: String) -> Unit)? = null
-    var actionTaskListener: DatabaseTaskNotificationService.ActionTaskListener? = null
-    var databaseInfoListener: DatabaseTaskNotificationService.DatabaseInfoListener? = null
+    var actionTaskListener: DatabaseJobManager.ActionTaskListener? = null
+    var databaseInfoListener: DatabaseJobManager.DatabaseInfoListener? = null
 
     private var databaseTaskBroadcastReceiver: BroadcastReceiver? = null
     private var mBinder: DatabaseTaskNotificationService.ActionTaskBinder? = null
@@ -122,7 +122,7 @@ class DatabaseTaskProvider(
         jobManager.saveDatabaseInfo(context.applicationContext)
     }
 
-    private var databaseListener = object : DatabaseTaskNotificationService.DatabaseListener {
+    private var databaseListener = object : DatabaseJobManager.DatabaseListener {
         override fun onDatabaseRetrieved(database: ContextualDatabase?) {
             onDatabaseRetrieved?.invoke(database)
         }

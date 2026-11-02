@@ -148,7 +148,7 @@ import com.kunzisoft.keepass.view.toastError
 import com.kunzisoft.keepass.view.updateButtonPaddingStart
 import com.kunzisoft.keepass.viewmodels.GroupEditViewModel
 import com.kunzisoft.keepass.viewmodels.GroupViewModel
-import com.kunzisoft.keepass.viewmodels.GroupViewModel.NodeActionMode
+import com.kunzisoft.keepass.viewmodels.NodeActionMode
 import com.kunzisoft.keepass.viewmodels.MainCredentialDialogViewModel
 import com.kunzisoft.keepass.viewmodels.NodeEditViewModel
 import com.kunzisoft.keepass.viewmodels.SearchViewModel

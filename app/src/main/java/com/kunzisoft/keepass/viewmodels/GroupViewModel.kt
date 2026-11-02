@@ -599,8 +599,6 @@ class GroupViewModel(application: Application): AndroidViewModel(application) {
         }
     }
 
-    typealias NodeActionState = com.kunzisoft.keepass.viewmodels.NodeActionState
-
     sealed class GroupEvent {
         object RemoveNodeAction : GroupEvent()
         data class OpenGroup(val groupId: GroupId) : GroupEvent()
@@ -624,9 +622,6 @@ class GroupViewModel(application: Application): AndroidViewModel(application) {
         val isRecycleBin: Boolean
     )
 
-    typealias GroupUiState = com.kunzisoft.keepass.viewmodels.GroupUiState
-    typealias GroupUISTate = com.kunzisoft.keepass.viewmodels.GroupUiState
-
     data class GroupState(
         var groupId: GroupId?,
         var firstVisibleItem: Int?,
@@ -644,8 +639,6 @@ class GroupViewModel(application: Application): AndroidViewModel(application) {
         val sortNodeParameters: SortNodeEnum.SortNodeParameters? = null,
         val sortDatabaseParameters: SortNodeEnum.SortDatabaseParameters? = null
     )
-
-    typealias NodeActionMode = com.kunzisoft.keepass.viewmodels.NodeActionMode
 
     companion object {
         private val TAG = GroupViewModel::class.java.name

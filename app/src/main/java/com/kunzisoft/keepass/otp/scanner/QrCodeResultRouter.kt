@@ -25,7 +25,6 @@ import android.util.Log
 import android.widget.Toast
 import com.kunzisoft.keepass.R
 import com.kunzisoft.keepass.credentialprovider.activity.EntrySelectionLauncherActivity
-import com.kunzisoft.keepass.otp.OtpEntryQuickCreator
 
 /**
  * Unified router for scanned QR payloads:
@@ -103,7 +102,7 @@ object QrCodeResultRouter {
         val parsedOtp = OtpEntryQuickCreator.parse(trimmed)
         if (parsedOtp != null) {
             return try {
-                val syntheticUri = Uri.parse("otpauth://totp/Account?secret=${parsedOtp.secretClean}")
+                val syntheticUri = Uri.parse(parsedOtp.rawUri)
                 val otpIntent = Intent(context, EntrySelectionLauncherActivity::class.java).apply {
                     action = Intent.ACTION_VIEW
                     data = syntheticUri

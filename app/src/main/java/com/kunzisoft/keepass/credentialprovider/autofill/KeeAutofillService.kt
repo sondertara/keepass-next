@@ -110,7 +110,7 @@ class KeeAutofillService : AutofillService() {
         cancellationSignal: CancellationSignal,
         callback: FillCallback
     ) {
-        @Volatile var isCancelled = false
+        var isCancelled = false
         cancellationSignal.setOnCancelListener {
             isCancelled = true
             Log.w(TAG, "Cancel autofill.")
@@ -154,6 +154,7 @@ class KeeAutofillService : AutofillService() {
                     when (val result = credentialRepository.queryCredentials(searchInfo, context = this)) {
                         is CredentialRepository.CredentialResult.Success -> {
                             if (isCancelled) return@let
+                            val database = vaultRepository.database ?: return@let
 
                             // Dispatch domain event: plugins handle MagicKeyboard / Clipboard OTP notifications
                             eventBus.tryEmit(VaultEvent.CredentialsRetrieved(result.entries, TypeMode.AUTOFILL))
@@ -161,7 +162,7 @@ class KeeAutofillService : AutofillService() {
                             callback.onSuccess(
                                 AutofillHelper.buildResponse(
                                     context = this,
-                                    database = vaultRepository.database,
+                                    database = database,
                                     entriesInfo = result.entries,
                                     parseResult = parseResult,
                                     autofillComponent = autofillComponent

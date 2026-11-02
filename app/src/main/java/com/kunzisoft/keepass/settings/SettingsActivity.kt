@@ -44,6 +44,7 @@ import com.kunzisoft.keepass.activities.helpers.ExternalFileHelper.openFile
 import com.kunzisoft.keepass.activities.helpers.ExternalFileHelper.registerCreateDatabaseFile
 import com.kunzisoft.keepass.activities.helpers.ExternalFileHelper.registerOpenFile
 import com.kunzisoft.keepass.activities.session.DatabaseSessionActivity
+import com.kunzisoft.keepass.activities.session.DatabaseSessionController.Companion.TIMEOUT_ENABLE_KEY
 import com.kunzisoft.keepass.timeout.TimeoutHelper
 import com.kunzisoft.keepass.view.showError
 import com.kunzisoft.keepass.viewmodels.SetMainCredentialViewModel

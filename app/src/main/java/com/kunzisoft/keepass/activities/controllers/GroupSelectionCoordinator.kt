@@ -26,12 +26,14 @@ import androidx.appcompat.view.ActionMode
 import androidx.appcompat.widget.Toolbar
 import com.kunzisoft.keepass.R
 import com.kunzisoft.keepass.database.ContextualDatabase
+import com.kunzisoft.keepass.database.element.Tags
 import com.kunzisoft.keepass.model.EntryInfo
 import com.kunzisoft.keepass.model.GroupInfo
 import com.kunzisoft.keepass.model.NodeInfo
 import com.kunzisoft.keepass.model.SortedNodeInfo
 import com.kunzisoft.keepass.viewmodels.GroupViewModel
-import com.kunzisoft.keepass.viewmodels.GroupViewModel.NodeActionMode
+import com.kunzisoft.keepass.viewmodels.NodeActionMode
+import com.kunzisoft.keepass.viewmodels.NodeActionState
 
 /**
  * Coordinator for Contextual Action Mode (CAB), multi-selection state,
@@ -225,11 +227,10 @@ class GroupSelectionCoordinator(
     /**
      * Synchronize action mode with ViewModel node action state.
      */
-    fun syncWithState(state: GroupViewModel.NodeActionState) {
+    fun syncWithState(state: NodeActionState) {
         if (state.nodeActionMode != null) {
             if (activeActionMode == null) {
-                activeActionMode = getToolbarAction()?.startSupportActionMode(actionModeCallback)
-                    ?: activity.startSupportActionMode(actionModeCallback)
+                activeActionMode = activity.startSupportActionMode(actionModeCallback)
             }
             activeActionMode?.invalidate()
         } else {
@@ -253,10 +254,8 @@ class GroupSelectionCoordinator(
 
         nodes.forEach { node ->
             if (node is EntryInfo) {
-                val currentTags = node.tags.toMutableList()
-                if (!currentTags.contains(tag)) {
-                    currentTags.add(tag)
-                    node.tags = currentTags
+                if (!node.tags.contains(tag)) {
+                    node.tags.put(tag)
                     onUpdateEntry?.invoke(node)
                 }
             }
@@ -273,9 +272,10 @@ class GroupSelectionCoordinator(
 
         nodes.forEach { node ->
             if (node is EntryInfo) {
-                val currentTags = node.tags.toMutableList()
-                if (currentTags.remove(tag)) {
-                    node.tags = currentTags
+                if (node.tags.contains(tag)) {
+                    val updatedTags = Tags()
+                    node.tags.toStringList().filter { it != tag }.forEach { updatedTags.put(it) }
+                    node.tags = updatedTags
                     onUpdateEntry?.invoke(node)
                 }
             }
@@ -296,19 +296,21 @@ class GroupSelectionCoordinator(
 
         nodes.forEach { node ->
             if (node is EntryInfo) {
-                val currentTags = node.tags.toMutableList()
+                val currentList = node.tags.toStringList().toMutableList()
                 var modified = false
                 tagsToRemove.forEach { toRemove ->
-                    if (currentTags.remove(toRemove)) modified = true
+                    if (currentList.remove(toRemove)) modified = true
                 }
                 tagsToAdd.forEach { toAdd ->
-                    if (toAdd.isNotBlank() && !currentTags.contains(toAdd)) {
-                        currentTags.add(toAdd)
+                    if (toAdd.isNotBlank() && !currentList.contains(toAdd)) {
+                        currentList.add(toAdd)
                         modified = true
                     }
                 }
                 if (modified) {
-                    node.tags = currentTags
+                    val updatedTags = Tags()
+                    currentList.forEach { updatedTags.put(it) }
+                    node.tags = updatedTags
                     onUpdateEntry?.invoke(node)
                 }
             }

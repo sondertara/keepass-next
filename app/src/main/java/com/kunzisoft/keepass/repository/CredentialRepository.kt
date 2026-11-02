@@ -24,7 +24,7 @@ import com.kunzisoft.keepass.credentialprovider.autofill.AutofillMatchingEngine
 import com.kunzisoft.keepass.database.search.SearchParameters
 import com.kunzisoft.keepass.model.EntryInfo
 import com.kunzisoft.keepass.model.Passkey
-import com.kunzisoft.keepass.model.PasskeyInfoHelper
+import com.kunzisoft.keepass.model.PasskeyEntryFields
 import com.kunzisoft.keepass.model.SearchInfo
 import com.kunzisoft.keepass.otp.OtpElement
 import com.kunzisoft.keepass.otp.OtpEntryFields
@@ -159,19 +159,24 @@ class CredentialRepositoryImpl(
     }
 
     override fun getPasskey(entryInfo: EntryInfo): Passkey? {
-        return entryInfo.passkey ?: PasskeyInfoHelper.getPasskeyFromEntry(entryInfo)
+        return entryInfo.passkey ?: PasskeyEntryFields.parseFields { id ->
+            entryInfo.customFields.firstOrNull { it.name == id }?.protectedValue?.charArrayValue
+        }
     }
 
     override fun getOtpElement(entryInfo: EntryInfo): OtpElement? {
-        return OtpEntryFields.parseFields { id -> entryInfo.getFieldValue(id) }
+        entryInfo.otpModel?.let { return OtpElement(it) }
+        return OtpEntryFields.parseFields { id ->
+            entryInfo.customFields.firstOrNull { it.name == id }?.protectedValue?.charArrayValue
+        }
     }
 
     override fun getOtpToken(entryInfo: EntryInfo): String? {
-        return getOtpElement(entryInfo)?.token
+        return getOtpElement(entryInfo)?.token?.let { String(it) }
     }
 
     override fun getOtpTokenFormatted(entryInfo: EntryInfo): String? {
-        return getOtpElement(entryInfo)?.tokenFormatted
+        return getOtpElement(entryInfo)?.tokenFormatted?.let { String(it) }
     }
 
     override fun getUsername(entryInfo: EntryInfo): String? {

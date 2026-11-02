@@ -75,7 +75,7 @@ interface VaultRepository {
     fun getChildren(
         groupId: GroupId,
         recursiveNumberOfEntries: Boolean = false,
-        nodeFilter: NodeFilter = EmptyNodeFilter
+        nodeFilter: NodeFilter = EmptyNodeFilter()
     ): List<SortedNodeInfo>
 
     /**
@@ -163,7 +163,7 @@ class VaultRepositoryImpl(
         val db = database ?: return emptyList()
         if (!db.loaded) return emptyList()
         return try {
-            val searchGroup = db.createSearchGroupInfo(parameters, max)
+            val searchGroup = db.createSearchGroupInfo(searchParameters = parameters, max = max)
             searchGroup.getSearchResults()
         } catch (_: Exception) {
             emptyList()

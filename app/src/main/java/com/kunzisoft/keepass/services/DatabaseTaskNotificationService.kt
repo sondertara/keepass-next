@@ -77,34 +77,30 @@ open class DatabaseTaskNotificationService : LockNotificationService(), Progress
     inner class ActionTaskBinder : Binder() {
         fun getService(): DatabaseTaskNotificationService = this@DatabaseTaskNotificationService
 
-        fun addDatabaseListener(databaseListener: DatabaseListener) {
+        fun addDatabaseListener(databaseListener: DatabaseJobManager.DatabaseListener) {
             DatabaseJobManager.getInstance().addDatabaseListener(databaseListener)
         }
 
-        fun removeDatabaseListener(databaseListener: DatabaseListener) {
+        fun removeDatabaseListener(databaseListener: DatabaseJobManager.DatabaseListener) {
             DatabaseJobManager.getInstance().removeDatabaseListener(databaseListener)
         }
 
-        fun addDatabaseFileInfoListener(databaseInfoListener: DatabaseInfoListener) {
+        fun addDatabaseFileInfoListener(databaseInfoListener: DatabaseJobManager.DatabaseInfoListener) {
             DatabaseJobManager.getInstance().addDatabaseInfoListener(databaseInfoListener)
         }
 
-        fun removeDatabaseFileInfoListener(databaseInfoListener: DatabaseInfoListener) {
+        fun removeDatabaseFileInfoListener(databaseInfoListener: DatabaseJobManager.DatabaseInfoListener) {
             DatabaseJobManager.getInstance().removeDatabaseInfoListener(databaseInfoListener)
         }
 
-        fun addActionTaskListener(actionTaskListener: ActionTaskListener) {
+        fun addActionTaskListener(actionTaskListener: DatabaseJobManager.ActionTaskListener) {
             DatabaseJobManager.getInstance().addActionTaskListener(actionTaskListener)
         }
 
-        fun removeActionTaskListener(actionTaskListener: ActionTaskListener) {
+        fun removeActionTaskListener(actionTaskListener: DatabaseJobManager.ActionTaskListener) {
             DatabaseJobManager.getInstance().removeActionTaskListener(actionTaskListener)
         }
     }
-
-    typealias DatabaseListener = DatabaseJobManager.DatabaseListener
-    typealias DatabaseInfoListener = DatabaseJobManager.DatabaseInfoListener
-    typealias ActionTaskListener = DatabaseJobManager.ActionTaskListener
 
     override fun onCreate() {
         super.onCreate()

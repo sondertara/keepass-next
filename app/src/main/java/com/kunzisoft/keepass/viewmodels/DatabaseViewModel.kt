@@ -25,6 +25,7 @@ import android.os.Bundle
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.kunzisoft.keepass.database.ContextualDatabase
+import com.kunzisoft.keepass.database.DatabaseJobManager
 import com.kunzisoft.keepass.database.DatabaseTaskProvider
 import com.kunzisoft.keepass.database.MainCredential
 import com.kunzisoft.keepass.database.ProgressMessage
@@ -79,7 +80,7 @@ class DatabaseViewModel(application: Application): AndroidViewModel(application)
         mDatabaseTaskProvider.onStartActionRequested = { bundle, actionTask ->
             mActionState.value = ActionState.OnDatabaseActionRequested(bundle, actionTask)
         }
-        mDatabaseTaskProvider.databaseInfoListener = object : DatabaseTaskNotificationService.DatabaseInfoListener {
+        mDatabaseTaskProvider.databaseInfoListener = object : DatabaseJobManager.DatabaseInfoListener {
             override fun onDatabaseInfoChanged(
                 previousDatabaseInfo: SnapFileDatabaseInfo,
                 newDatabaseInfo: SnapFileDatabaseInfo,
@@ -95,7 +96,7 @@ class DatabaseViewModel(application: Application): AndroidViewModel(application)
                 )
             }
         }
-        mDatabaseTaskProvider.actionTaskListener = object : DatabaseTaskNotificationService.ActionTaskListener {
+        mDatabaseTaskProvider.actionTaskListener = object : DatabaseJobManager.ActionTaskListener {
             override fun onActionStarted(
                 database: ContextualDatabase,
                 progressMessage: ProgressMessage

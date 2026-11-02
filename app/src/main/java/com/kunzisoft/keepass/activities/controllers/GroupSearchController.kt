@@ -27,8 +27,6 @@ import com.google.android.material.chip.ChipGroup
 import com.kunzisoft.keepass.R
 import com.kunzisoft.keepass.activities.GroupActivity
 import com.kunzisoft.keepass.activities.fragments.SearchFragment
-import com.kunzisoft.keepass.credentialprovider.EntrySelectionHelper
-import com.kunzisoft.keepass.credentialprovider.EntrySelectionHelper.retrieveAutoSearch
 import com.kunzisoft.keepass.credentialprovider.EntrySelectionHelper.retrieveSearchInfo
 import com.kunzisoft.keepass.database.search.SearchParameters
 import com.kunzisoft.keepass.model.VaultCategory
@@ -171,7 +169,8 @@ class GroupSearchController(
 
     fun manageIntent(intent: Intent?) {
         intent?.let {
-            val searchInfo = if (it.retrieveAutoSearch()) it.retrieveSearchInfo() else null
+            val autoSearch = it.getBooleanExtra(AUTO_SEARCH_KEY, false)
+            val searchInfo = if (autoSearch) it.retrieveSearchInfo() else it.retrieveSearchInfo()
             val searchQuery = if (Intent.ACTION_SEARCH == it.action)
                 it.getStringExtra(SearchManager.QUERY) else null
             if (!searchQuery.isNullOrBlank()) {
@@ -197,6 +196,7 @@ class GroupSearchController(
 
     companion object {
         const val SEARCH_FRAGMENT_TAG = "SEARCH_FRAGMENT_TAG"
+        private const val AUTO_SEARCH_KEY = "AUTO_SEARCH"
         private const val PREFS_NAME = "keepassdx_search_history"
         private const val KEY_SEARCH_HISTORY = "recent_queries"
         const val MAX_HISTORY_ITEMS = 10
@@ -267,7 +267,7 @@ class GroupSearchController(
             return Intent(context, GroupActivity::class.java).apply {
                 action = Intent.ACTION_SEARCH
                 putExtra(SearchManager.QUERY, query)
-                EntrySelectionHelper.addAutoSearch(this, autoSearch)
+                putExtra(AUTO_SEARCH_KEY, autoSearch)
             }
         }
     }

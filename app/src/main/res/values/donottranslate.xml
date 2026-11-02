@@ -25,9 +25,9 @@
     *******************
     -->
 
-    <string name="app_name" translatable="false">KeePassDX</string>
+    <string name="app_name" translatable="false">KeePass Next</string>
     <string name="app_name_part1" translatable="false">KeePass</string>
-    <string name="app_name_part2" translatable="false">DX</string>
+    <string name="app_name_part2" translatable="false"> Next</string>
     <string name="app_name_part3" translatable="false">Pro</string>
 
     <string name="play_store_url" translatable="false">https://play.google.com/store/apps/details?id=%1$s</string>

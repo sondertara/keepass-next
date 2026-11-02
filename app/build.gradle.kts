@@ -16,13 +16,13 @@ android {
     val gmsPackage = "com.google.android.gms"
 
     defaultConfig {
-        applicationId = "com.kunzisoft.keepass"
+        applicationId = "com.sondertara.keepassnext"
         minSdk = 30
         targetSdk = 36
         versionCode = 45600
         versionName = "4.5.6"
 
-        testApplicationId = "com.kunzisoft.keepass.tests"
+        testApplicationId = "com.sondertara.keepassnext.tests"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField("String", "GOOGLE_PLAY_SERVICES_PACKAGE", "\"$gmsPackage\"")
@@ -51,7 +51,6 @@ android {
     productFlavors {
         create("libre") {
             dimension = "version"
-            applicationIdSuffix = ".libre"
             buildConfigField("String", "BUILD_VERSION", "\"libre\"")
             buildConfigField("boolean", "CLOSED_STORE", "false")
             buildConfigField(

@@ -65,22 +65,22 @@ jobs:
       - name: Prepare APK Output
         run: |
           mkdir -p build-output
-          find app/build/outputs/apk/libre/debug/ -name "*.apk" -exec cp {} build-output/KeePassDX-Custom-libre-debug.apk \;
+          find app/build/outputs/apk/libre/debug/ -name "*.apk" -exec cp {} build-output/KeePassNext-libre-debug.apk \;
           echo "Built APK files:"
           ls -lh build-output/
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: KeePassDX-Custom-APK
-          path: build-output/KeePassDX-Custom-libre-debug.apk
+          name: KeePassNext-APK
+          path: build-output/KeePassNext-libre-debug.apk
           retention-days: 30
 
       - name: Create GitHub Release (on tag)
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: build-output/KeePassDX-Custom-libre-debug.apk
+          files: build-output/KeePassNext-libre-debug.apk
           name: Release ${{ github.ref_name }}
           draft: false
           prerelease: false

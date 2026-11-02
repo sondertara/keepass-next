@@ -53,17 +53,7 @@ android {
             dimension = "version"
             buildConfigField("String", "BUILD_VERSION", "\"libre\"")
             buildConfigField("boolean", "CLOSED_STORE", "false")
-            buildConfigField(
-                "String[]", "STYLES_DISABLED",
-                "{\"KeepassDXStyle_Red\"," +
-                    "\"KeepassDXStyle_Red_Night\"," +
-                    "\"KeepassDXStyle_Reply\"," +
-                    "\"KeepassDXStyle_Reply_Night\"," +
-                    "\"KeepassDXStyle_Purple\"," +
-                    "\"KeepassDXStyle_Purple_Dark\"," +
-                    "\"KeepassDXStyle_Dynamic_Light\"," +
-                    "\"KeepassDXStyle_Dynamic_Night\"}"
-            )
+            buildConfigField("String[]", "STYLES_DISABLED", "{}")
             buildConfigField("String[]", "ICON_PACKS_DISABLED", "{}")
         }
         create("free") {

@@ -47,18 +47,14 @@ import com.kunzisoft.keepass.R
 import com.kunzisoft.keepass.credentialprovider.TypeMode
 import com.kunzisoft.keepass.credentialprovider.activity.AutofillLauncherActivity
 import com.kunzisoft.keepass.database.ContextualDatabase
-import com.kunzisoft.keepass.database.DatabaseTaskProvider
 import com.kunzisoft.keepass.database.element.DateInstant
-import com.kunzisoft.keepass.database.helper.SearchHelper
 import com.kunzisoft.keepass.events.VaultEvent
 import com.kunzisoft.keepass.events.VaultEventBus
 import com.kunzisoft.keepass.events.VaultEventBusImpl
 import com.kunzisoft.keepass.model.CreditCard
 import com.kunzisoft.keepass.model.RegisterInfo
 import com.kunzisoft.keepass.model.SearchInfo
-import com.kunzisoft.keepass.plugins.ClipboardOtpPluginAdapter
-import com.kunzisoft.keepass.plugins.MagicKeyboardPluginAdapter
-import com.kunzisoft.keepass.plugins.VaultPlugin
+import com.kunzisoft.keepass.plugins.VaultPluginManager
 import com.kunzisoft.keepass.repository.CredentialRepository
 import com.kunzisoft.keepass.repository.CredentialRepositoryImpl
 import com.kunzisoft.keepass.repository.VaultRepository
@@ -76,16 +72,12 @@ import org.joda.time.Instant
 
 class KeeAutofillService : AutofillService() {
 
-    private var mDatabaseTaskProvider: DatabaseTaskProvider? = null
-    private var mDatabase: ContextualDatabase? = null
-
     private val eventBus: VaultEventBus = VaultEventBusImpl.instance
     private lateinit var appSettingsRepository: AppSettingsRepository
     private lateinit var vaultRepository: VaultRepository
     private lateinit var credentialRepository: CredentialRepository
 
-    private var magicKeyboardPlugin: VaultPlugin? = null
-    private var clipboardOtpPlugin: VaultPlugin? = null
+    private var pluginManager: VaultPluginManager? = null
     private var serviceScope: CoroutineScope? = null
 
     override fun onCreate() {
@@ -93,30 +85,20 @@ class KeeAutofillService : AutofillService() {
 
         appSettingsRepository = AppSettingsRepositoryImpl.getInstance(this)
         vaultRepository = VaultRepositoryImpl.getInstance()
-        credentialRepository = CredentialRepositoryImpl.getInstance(vaultRepository)
+        credentialRepository = CredentialRepositoryImpl.getInstance(vaultRepository) { appSettingsRepository }
 
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
         serviceScope = scope
 
         // Decoupled side-effect plugins triggered via domain events
-        magicKeyboardPlugin = MagicKeyboardPluginAdapter(this, eventBus, appSettingsRepository).also {
-            it.start(scope)
-        }
-        clipboardOtpPlugin = ClipboardOtpPluginAdapter(this, eventBus, appSettingsRepository).also {
-            it.start(scope)
-        }
-
-        mDatabaseTaskProvider = DatabaseTaskProvider(this)
-        mDatabaseTaskProvider?.registerProgressTask()
-        mDatabaseTaskProvider?.onDatabaseRetrieved = { database ->
-            this.mDatabase = database
+        pluginManager = VaultPluginManager.createDefault(this, eventBus, appSettingsRepository).also {
+            it.startAll(scope)
         }
     }
 
     override fun onDestroy() {
-        mDatabaseTaskProvider?.unregisterProgressTask()
-        magicKeyboardPlugin?.stop()
-        clipboardOtpPlugin?.stop()
+        pluginManager?.stopAll()
+        pluginManager = null
         serviceScope?.cancel()
         serviceScope = null
 
@@ -169,43 +151,40 @@ class KeeAutofillService : AutofillService() {
                         latestStructure,
                         inlineSuggestionsRequest
                     )
-                    SearchHelper.checkAutoSearchInfo(
-                        context = this,
-                        database = mDatabase,
-                        searchInfo = searchInfo,
-                        onItemsFound = { openedDatabase, items ->
-                            if (isCancelled) return@checkAutoSearchInfo
+                    when (val result = credentialRepository.queryCredentials(searchInfo, context = this)) {
+                        is CredentialRepository.CredentialResult.Success -> {
+                            if (isCancelled) return@let
 
                             // Dispatch domain event: plugins handle MagicKeyboard / Clipboard OTP notifications
-                            eventBus.tryEmit(VaultEvent.CredentialsRetrieved(items, TypeMode.AUTOFILL))
+                            eventBus.tryEmit(VaultEvent.CredentialsRetrieved(result.entries, TypeMode.AUTOFILL))
 
                             callback.onSuccess(
                                 AutofillHelper.buildResponse(
                                     context = this,
-                                    database = openedDatabase,
-                                    entriesInfo = items,
+                                    database = vaultRepository.database,
+                                    entriesInfo = result.entries,
                                     parseResult = parseResult,
                                     autofillComponent = autofillComponent
                                 )
                             )
-                        },
-                        onItemNotFound = { openedDatabase ->
-                            if (isCancelled) return@checkAutoSearchInfo
+                        }
+                        is CredentialRepository.CredentialResult.Empty -> {
+                            if (isCancelled) return@let
                             // Show UI if no search result
                             showUIForEntrySelection(
-                                parseResult, openedDatabase,
+                                parseResult, vaultRepository.database,
                                 searchInfo, autofillComponent, callback
                             )
-                        },
-                        onDatabaseClosed = {
-                            if (isCancelled) return@checkAutoSearchInfo
+                        }
+                        is CredentialRepository.CredentialResult.Locked -> {
+                            if (isCancelled) return@let
                             // Show UI if database not open
                             showUIForEntrySelection(
                                 parseResult, null,
                                 searchInfo, autofillComponent, callback
                             )
                         }
-                    )
+                    }
                 }
             }
         }

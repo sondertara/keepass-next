@@ -78,8 +78,8 @@ class VaultRepositoryTest {
 
     @Test
     fun lockedVault_returnsNullAndEmptyForQueries() {
-        val dummyGroupId = GroupId()
-        val dummyEntryId = EntryId()
+        val dummyGroupId: GroupId = NodeIdUUID()
+        val dummyEntryId: EntryId = NodeIdUUID()
 
         // Vault with null database
         val nullDbRepo = VaultRepositoryImpl(
@@ -112,8 +112,8 @@ class VaultRepositoryTest {
 
     @Test
     fun lockedVault_mutationsFailSafely() = runBlocking {
-        val dummyGroupId = GroupId()
-        val dummyEntryId = EntryId()
+        val dummyGroupId: GroupId = NodeIdUUID()
+        val dummyEntryId: EntryId = NodeIdUUID()
 
         val nullDbRepo = VaultRepositoryImpl(
             databaseProvider = { null },
@@ -152,12 +152,13 @@ class VaultRepositoryTest {
 
         assertTrue(repo.isUnlocked)
         assertSame(testDb, repo.database)
+        assertNotNull(repo.getRootGroup())
     }
 
     @Test
     fun unlockedVault_mutationsSerializeViaJobManager() = runBlocking {
-        val dummyGroupId = GroupId()
-        val dummyEntryId = EntryId()
+        val dummyGroupId: GroupId = NodeIdUUID()
+        val dummyEntryId: EntryId = NodeIdUUID()
 
         val testDb = ContextualDatabase.getInstance().apply {
             loaded = true

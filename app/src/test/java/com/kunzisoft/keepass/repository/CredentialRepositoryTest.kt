@@ -22,6 +22,8 @@ package com.kunzisoft.keepass.repository
 import com.kunzisoft.keepass.database.ContextualDatabase
 import com.kunzisoft.keepass.database.element.EntryId
 import com.kunzisoft.keepass.database.element.GroupId
+import com.kunzisoft.keepass.database.element.node.EmptyNodeFilter
+import com.kunzisoft.keepass.database.element.node.NodeFilter
 import com.kunzisoft.keepass.database.element.node.NodeIdUUID
 import com.kunzisoft.keepass.database.search.SearchParameters
 import com.kunzisoft.keepass.model.EntryInfo
@@ -29,6 +31,9 @@ import com.kunzisoft.keepass.model.GroupInfo
 import com.kunzisoft.keepass.model.Passkey
 import com.kunzisoft.keepass.model.SearchInfo
 import com.kunzisoft.keepass.model.SortedNodeInfo
+import com.kunzisoft.keepass.settings.AppSettingsRepository
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -36,7 +41,6 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
-import org.junit.Before
 import org.junit.Test
 
 class CredentialRepositoryTest {
@@ -50,7 +54,11 @@ class CredentialRepositoryTest {
         override fun getRootGroup(): GroupInfo? = null
         override fun getGroup(groupId: GroupId): GroupInfo? = null
         override fun getEntry(entryId: EntryId, raw: Boolean): EntryInfo? = null
-        override fun getChildren(groupId: GroupId): List<SortedNodeInfo> = emptyList()
+        override fun getChildren(
+            groupId: GroupId,
+            recursiveNumberOfEntries: Boolean,
+            nodeFilter: NodeFilter
+        ): List<SortedNodeInfo> = emptyList()
         override fun search(parameters: SearchParameters, max: Int): List<EntryInfo> = searchResults
         override suspend fun addEntry(entryInfo: EntryInfo, parentGroupId: GroupId): Result<EntryId> = Result.success(entryInfo.nodeId)
         override suspend fun updateEntry(entryInfo: EntryInfo): Result<Unit> = Result.success(Unit)
@@ -58,6 +66,36 @@ class CredentialRepositoryTest {
         override suspend fun addGroup(groupInfo: GroupInfo, parentGroupId: GroupId): Result<GroupId> = Result.success(groupInfo.nodeId)
         override suspend fun updateGroup(groupInfo: GroupInfo): Result<Unit> = Result.success(Unit)
         override suspend fun deleteGroup(groupId: GroupId): Result<Unit> = Result.success(Unit)
+    }
+
+    private class FakeAppSettingsRepository(
+        override var isSearchSubDomainsEnabled: Boolean = false
+    ) : AppSettingsRepository {
+        override var isAutofillSuggestionsEnabled: Boolean = true
+        override val autofillSuggestionsEnabledFlow: StateFlow<Boolean> = MutableStateFlow(true)
+        override var isAutofillInlineSuggestionsEnabled: Boolean = true
+        override val autofillInlineSuggestionsEnabledFlow: StateFlow<Boolean> = MutableStateFlow(true)
+        override var isAskToSaveData: Boolean = false
+        override val askToSaveDataFlow: StateFlow<Boolean> = MutableStateFlow(false)
+        override var isAutofillSharedToMagikeyboard: Boolean = false
+        override val autofillSharedToMagikeyboardFlow: StateFlow<Boolean> = MutableStateFlow(false)
+        override var isAutoSwitchToMagikeyboard: Boolean = false
+        override val autoSwitchToMagikeyboardFlow: StateFlow<Boolean> = MutableStateFlow(false)
+        override val searchSubDomainsFlow: StateFlow<Boolean> = MutableStateFlow(isSearchSubDomainsEnabled)
+        override var applicationIdBlocklist: Set<String> = emptySet()
+        override val applicationIdBlocklistFlow: StateFlow<Set<String>> = MutableStateFlow(emptySet())
+        override var webDomainBlocklist: Set<String> = emptySet()
+        override val webDomainBlocklistFlow: StateFlow<Set<String>> = MutableStateFlow(emptySet())
+        override fun isAutofillAllowed(applicationId: String?, webDomain: String?): Boolean = true
+        override var defaultDatabasePath: String? = null
+        override var rememberDatabaseLocations: Boolean = true
+        override val rememberDatabaseLocationsFlow: StateFlow<Boolean> = MutableStateFlow(true)
+        override var showRecentFiles: Boolean = true
+        override val showRecentFilesFlow: StateFlow<Boolean> = MutableStateFlow(true)
+        override var appTimeoutMillis: Long = 300000L
+        override val appTimeoutMillisFlow: StateFlow<Long> = MutableStateFlow(300000L)
+        override var appTimeoutSeconds: Int = 300
+        override val settingsChangedFlow: SharedFlow<String> get() = throw UnsupportedOperationException()
     }
 
     @After
@@ -89,6 +127,27 @@ class CredentialRepositoryTest {
     }
 
     @Test
+    fun queryCredentials_nullOrEmptySearch_returnsEmpty() {
+        val fakeDb = ContextualDatabase.getInstance().apply { loaded = true }
+        val fakeVault = FakeVaultRepository(isUnlocked = true, database = fakeDb)
+        val repo = CredentialRepositoryImpl(fakeVault)
+
+        // null SearchInfo
+        assertTrue(repo.queryCredentials(null) is CredentialRepository.CredentialResult.Empty)
+
+        // manual selection enabled
+        val manualSearch = SearchInfo().apply {
+            applicationId = "com.example.app"
+            manualSelection = true
+        }
+        assertTrue(repo.queryCredentials(manualSearch) is CredentialRepository.CredentialResult.Empty)
+
+        // only null values
+        val emptySearch = SearchInfo()
+        assertTrue(repo.queryCredentials(emptySearch) is CredentialRepository.CredentialResult.Empty)
+    }
+
+    @Test
     fun queryCredentials_vaultUnlocked_noResults_returnsEmpty() {
         val fakeDb = ContextualDatabase.getInstance().apply { loaded = true }
         val fakeVault = FakeVaultRepository(
@@ -109,13 +168,13 @@ class CredentialRepositoryTest {
     fun queryCredentials_vaultUnlocked_hasResults_returnsSuccessRanked() {
         val fakeDb = ContextualDatabase.getInstance().apply { loaded = true }
         val entry1 = EntryInfo().apply {
-            nodeId = EntryId()
+            nodeId = NodeIdUUID()
             title = "My App"
             username = "alice"
             url = "https://example.com"
         }
         val entry2 = EntryInfo().apply {
-            nodeId = EntryId()
+            nodeId = NodeIdUUID()
             title = "Another App"
             username = "bob"
         }
@@ -134,6 +193,39 @@ class CredentialRepositoryTest {
         assertTrue(result is CredentialRepository.CredentialResult.Success)
         val success = result as CredentialRepository.CredentialResult.Success
         assertEquals(2, success.entries.size)
+    }
+
+    @Test
+    fun queryCredentials_respectsSearchSubDomainsSetting() {
+        var observedSearchSubDomain = false
+        val fakeDb = ContextualDatabase.getInstance().apply { loaded = true }
+        val fakeVault = object : VaultRepository {
+            override val isUnlocked: Boolean = true
+            override val database: ContextualDatabase = fakeDb
+            override val dataModifiedFlow: StateFlow<Boolean>? = null
+            override fun getRootGroup(): GroupInfo? = null
+            override fun getGroup(groupId: GroupId): GroupInfo? = null
+            override fun getEntry(entryId: EntryId, raw: Boolean): EntryInfo? = null
+            override fun getChildren(groupId: GroupId, recursiveNumberOfEntries: Boolean, nodeFilter: NodeFilter): List<SortedNodeInfo> = emptyList()
+            override fun search(parameters: SearchParameters, max: Int): List<EntryInfo> {
+                observedSearchSubDomain = parameters.searchBySubDomain
+                return listOf(EntryInfo())
+            }
+            override suspend fun addEntry(entryInfo: EntryInfo, parentGroupId: GroupId): Result<EntryId> = Result.success(entryInfo.nodeId)
+            override suspend fun updateEntry(entryInfo: EntryInfo): Result<Unit> = Result.success(Unit)
+            override suspend fun deleteEntry(entryId: EntryId): Result<Unit> = Result.success(Unit)
+            override suspend fun addGroup(groupInfo: GroupInfo, parentGroupId: GroupId): Result<GroupId> = Result.success(groupInfo.nodeId)
+            override suspend fun updateGroup(groupInfo: GroupInfo): Result<Unit> = Result.success(Unit)
+            override suspend fun deleteGroup(groupId: GroupId): Result<Unit> = Result.success(Unit)
+        }
+
+        val fakeSettings = FakeAppSettingsRepository(isSearchSubDomainsEnabled = true)
+        val repo = CredentialRepositoryImpl(fakeVault) { fakeSettings }
+
+        val searchInfo = SearchInfo().apply { webDomain = "login.example.com" }
+        repo.queryCredentials(searchInfo)
+
+        assertTrue(observedSearchSubDomain)
     }
 
     @Test

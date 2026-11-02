@@ -57,8 +57,7 @@ object PreferencesUtil {
     }
 
     fun getDefaultDatabasePath(context: Context): String? {
-        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-        return prefs.getString(context.getString(R.string.default_database_path_key), "")
+        return AppSettingsRepositoryImpl.getInstance(context).defaultDatabasePath
     }
 
     fun saveNodeSort(
@@ -90,15 +89,11 @@ object PreferencesUtil {
     }
 
     fun rememberDatabaseLocations(context: Context): Boolean {
-        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-        return prefs.getBoolean(context.getString(R.string.remember_database_locations_key),
-            context.resources.getBoolean(R.bool.remember_database_locations_default))
+        return AppSettingsRepositoryImpl.getInstance(context).rememberDatabaseLocations
     }
 
     fun showRecentFiles(context: Context): Boolean {
-        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-        return prefs.getBoolean(context.getString(R.string.show_recent_files_key),
-            context.resources.getBoolean(R.bool.show_recent_files_default))
+        return AppSettingsRepositoryImpl.getInstance(context).showRecentFiles
     }
 
     fun hideBrokenLocations(context: Context): Boolean {
@@ -126,9 +121,7 @@ object PreferencesUtil {
     }
 
     fun searchSubDomains(context: Context): Boolean {
-        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-        return prefs.getBoolean(context.getString(R.string.subdomain_search_key),
-            context.resources.getBoolean(R.bool.subdomain_search_default))
+        return AppSettingsRepositoryImpl.getInstance(context).isSearchSubDomainsEnabled
     }
 
     fun showEntryColors(context: Context): Boolean {
@@ -461,15 +454,8 @@ object PreferencesUtil {
      * App timeout selected in milliseconds
      */
     fun getAppTimeout(context: Context): Long {
-        return try {
-            val timeout = PreferenceManager.getDefaultSharedPreferences(context)
-                .getString(context.getString(R.string.app_timeout_key),
-                context.getString(R.string.timeout_default)
-                )?.toLong() ?: TimeoutHelper.DEFAULT_TIMEOUT
-            if (timeout <= NEVER) NEVER else timeout
-        } catch (_: NumberFormatException) {
-            TimeoutHelper.DEFAULT_TIMEOUT
-        }
+        val timeout = AppSettingsRepositoryImpl.getInstance(context).appTimeoutMillis
+        return if (timeout <= NEVER) NEVER else timeout
     }
 
     fun getClipboardTimeout(context: Context): Long {
@@ -671,9 +657,7 @@ object PreferencesUtil {
     }
 
     fun isAutoSwitchToMagikeyboardEnable(context: Context): Boolean {
-        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-        return prefs.getBoolean(context.getString(R.string.keyboard_auto_switch_key),
-            context.resources.getBoolean(R.bool.keyboard_auto_switch_default))
+        return AppSettingsRepositoryImpl.getInstance(context).isAutoSwitchToMagikeyboard
     }
 
     fun isKeyboardPreviousDatabaseCredentialsEnable(context: Context): Boolean {
@@ -786,9 +770,7 @@ object PreferencesUtil {
     }
 
     fun isAutofillInlineSuggestionsEnable(context: Context): Boolean {
-        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-        return prefs.getBoolean(context.getString(R.string.autofill_inline_suggestions_key),
-            context.resources.getBoolean(R.bool.autofill_inline_suggestions_default))
+        return AppSettingsRepositoryImpl.getInstance(context).isAutofillInlineSuggestionsEnabled
     }
 
     fun isAutofillManualSelectionEnable(context: Context): Boolean {

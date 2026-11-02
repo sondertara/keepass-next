@@ -23,6 +23,8 @@ import com.kunzisoft.keepass.database.ContextualDatabase
 import com.kunzisoft.keepass.database.DatabaseJobManager
 import com.kunzisoft.keepass.database.element.EntryId
 import com.kunzisoft.keepass.database.element.GroupId
+import com.kunzisoft.keepass.database.element.node.EmptyNodeFilter
+import com.kunzisoft.keepass.database.element.node.NodeFilter
 import com.kunzisoft.keepass.database.search.SearchParameters
 import com.kunzisoft.keepass.model.EntryInfo
 import com.kunzisoft.keepass.model.GroupInfo
@@ -70,7 +72,11 @@ interface VaultRepository {
     /**
      * Retrieves all child nodes (groups and entries) belonging to the specified parent group.
      */
-    fun getChildren(groupId: GroupId): List<SortedNodeInfo>
+    fun getChildren(
+        groupId: GroupId,
+        recursiveNumberOfEntries: Boolean = false,
+        nodeFilter: NodeFilter = EmptyNodeFilter
+    ): List<SortedNodeInfo>
 
     /**
      * Performs a domain search across the vault using given parameters.
@@ -143,10 +149,14 @@ class VaultRepositoryImpl(
         return db.getEntryInfoById(entryId, raw)
     }
 
-    override fun getChildren(groupId: GroupId): List<SortedNodeInfo> {
+    override fun getChildren(
+        groupId: GroupId,
+        recursiveNumberOfEntries: Boolean,
+        nodeFilter: NodeFilter
+    ): List<SortedNodeInfo> {
         val db = database ?: return emptyList()
         if (!db.loaded) return emptyList()
-        return db.getSortedChildrenFrom(groupId)
+        return db.getSortedChildrenOf(groupId, recursiveNumberOfEntries, nodeFilter)
     }
 
     override fun search(parameters: SearchParameters, max: Int): List<EntryInfo> {
@@ -166,7 +176,7 @@ class VaultRepositoryImpl(
             database = db,
             actionTask = "ADD_ENTRY",
             isSavingAction = true
-        ) {
+        ) { _ ->
             val parent = db.getGroupById(parentGroupId) ?: db.rootGroup
             val newEntry = db.createEntry(entryInfo)
             if (newEntry != null && parent != null) {
@@ -191,7 +201,7 @@ class VaultRepositoryImpl(
             database = db,
             actionTask = "UPDATE_ENTRY",
             isSavingAction = true
-        ) {
+        ) { _ ->
             val oldEntry = db.getEntryById(entryInfo.nodeId)
             if (oldEntry != null) {
                 db.updateEntry(oldEntry, entryInfo)
@@ -214,7 +224,7 @@ class VaultRepositoryImpl(
             database = db,
             actionTask = "DELETE_ENTRY",
             isSavingAction = true
-        ) {
+        ) { _ ->
             val entry = db.getEntryById(entryId)
             if (entry != null) {
                 db.deleteEntry(entry)
@@ -236,7 +246,7 @@ class VaultRepositoryImpl(
             database = db,
             actionTask = "ADD_GROUP",
             isSavingAction = true
-        ) {
+        ) { _ ->
             val parent = db.getGroupById(parentGroupId) ?: db.rootGroup
             val newGroup = db.createGroup(groupInfo)
             if (newGroup != null && parent != null) {
@@ -261,7 +271,7 @@ class VaultRepositoryImpl(
             database = db,
             actionTask = "UPDATE_GROUP",
             isSavingAction = true
-        ) {
+        ) { _ ->
             val oldGroup = db.getGroupById(groupInfo.nodeId)
             if (oldGroup != null) {
                 db.updateGroup(oldGroup, groupInfo)
@@ -284,7 +294,7 @@ class VaultRepositoryImpl(
             database = db,
             actionTask = "DELETE_GROUP",
             isSavingAction = true
-        ) {
+        ) { _ ->
             val group = db.getGroupById(groupId)
             if (group != null) {
                 db.deleteGroup(group)

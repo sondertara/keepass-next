@@ -22,7 +22,9 @@ package com.kunzisoft.keepass.settings
 import android.content.Context
 import android.content.SharedPreferences
 import android.content.res.Resources
+import com.kunzisoft.keepass.R
 import com.kunzisoft.keepass.credentialprovider.autofill.StructureParser
+import com.kunzisoft.keepass.timeout.TimeoutHelper
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -248,5 +250,72 @@ class AppSettingsRepositoryTest {
         }
 
         assertTrue(emittedKey.startsWith("key_"))
+    }
+
+    @Test
+    fun appTimeoutMillis_handlesStringSerializationAndFallback() {
+        // Default when not set
+        assertEquals(TimeoutHelper.DEFAULT_TIMEOUT, repository.appTimeoutMillis)
+        assertEquals(TimeoutHelper.DEFAULT_TIMEOUT, repository.appTimeoutMillisFlow.value)
+
+        // Set valid millisecond value
+        repository.appTimeoutMillis = 60000L
+        assertEquals(60000L, repository.appTimeoutMillis)
+        assertEquals(60000L, repository.appTimeoutMillisFlow.value)
+        assertEquals(60, repository.appTimeoutSeconds)
+        // Verify underlying storage is string format for Android ListPreference compatibility
+        assertEquals("60000", fakePrefs.getString("key_${R.string.app_timeout_key}", null))
+
+        // Set via appTimeoutSeconds
+        repository.appTimeoutSeconds = 120
+        assertEquals(120, repository.appTimeoutSeconds)
+        assertEquals(120000L, repository.appTimeoutMillis)
+        assertEquals(120000L, repository.appTimeoutMillisFlow.value)
+
+        // Corrupt or non-numeric string stored in prefs falls back gracefully
+        fakePrefs.edit().putString("key_${R.string.app_timeout_key}", "not_a_valid_number").commit()
+        assertEquals(TimeoutHelper.DEFAULT_TIMEOUT, repository.appTimeoutMillis)
+    }
+
+    @Test
+    fun searchSubDomains_updatesPropertyAndFlow() {
+        assertEquals(false, repository.isSearchSubDomainsEnabled)
+        assertEquals(false, repository.searchSubDomainsFlow.value)
+
+        repository.isSearchSubDomainsEnabled = true
+        assertEquals(true, repository.isSearchSubDomainsEnabled)
+        assertEquals(true, repository.searchSubDomainsFlow.value)
+    }
+
+    @Test
+    fun reactiveStateFlows_updateWhenPropertiesOrPreferencesChange() {
+        repository.isAutofillSuggestionsEnabled = false
+        assertEquals(false, repository.autofillSuggestionsEnabledFlow.value)
+
+        repository.isAutofillInlineSuggestionsEnabled = false
+        assertEquals(false, repository.autofillInlineSuggestionsEnabledFlow.value)
+
+        repository.isAskToSaveData = true
+        assertEquals(true, repository.askToSaveDataFlow.value)
+
+        repository.isAutofillSharedToMagikeyboard = true
+        assertEquals(true, repository.autofillSharedToMagikeyboardFlow.value)
+
+        repository.isAutoSwitchToMagikeyboard = true
+        assertEquals(true, repository.autoSwitchToMagikeyboardFlow.value)
+
+        repository.rememberDatabaseLocations = false
+        assertEquals(false, repository.rememberDatabaseLocationsFlow.value)
+
+        repository.showRecentFiles = false
+        assertEquals(false, repository.showRecentFilesFlow.value)
+
+        val appBlocklist = setOf("com.blocked.test")
+        repository.applicationIdBlocklist = appBlocklist
+        assertEquals(appBlocklist, repository.applicationIdBlocklistFlow.value)
+
+        val domainBlocklist = setOf("blocked.test.org")
+        repository.webDomainBlocklist = domainBlocklist
+        assertEquals(domainBlocklist, repository.webDomainBlocklistFlow.value)
     }
 }

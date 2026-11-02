@@ -19,6 +19,7 @@
  */
 package com.kunzisoft.keepass.repository
 
+import android.content.Context
 import com.kunzisoft.keepass.credentialprovider.autofill.AutofillMatchingEngine
 import com.kunzisoft.keepass.database.search.SearchParameters
 import com.kunzisoft.keepass.model.EntryInfo
@@ -27,6 +28,9 @@ import com.kunzisoft.keepass.model.PasskeyInfoHelper
 import com.kunzisoft.keepass.model.SearchInfo
 import com.kunzisoft.keepass.otp.OtpElement
 import com.kunzisoft.keepass.otp.OtpEntryFields
+import com.kunzisoft.keepass.settings.AppSettingsRepository
+import com.kunzisoft.keepass.settings.PreferencesUtil
+import com.kunzisoft.keepass.timeout.TimeoutHelper
 
 /**
  * Clean domain repository for credential resolution, matching, Passkey extraction, and OTP token generation.
@@ -45,7 +49,7 @@ interface CredentialRepository {
     /**
      * Executes intelligent credential lookup based on [SearchInfo] with ranking and heuristic fallback.
      */
-    fun queryCredentials(searchInfo: SearchInfo): CredentialResult
+    fun queryCredentials(searchInfo: SearchInfo?, context: Context? = null): CredentialResult
 
     /**
      * Extracts Passkey credential info from the entry if configured.
@@ -87,19 +91,32 @@ interface CredentialRepository {
  * Standard implementation of [CredentialRepository].
  */
 class CredentialRepositoryImpl(
-    private val vaultRepository: VaultRepository = VaultRepositoryImpl.getInstance()
+    private val vaultRepository: VaultRepository = VaultRepositoryImpl.getInstance(),
+    private val appSettingsRepositoryProvider: () -> AppSettingsRepository? = { null }
 ) : CredentialRepository {
 
-    override fun queryCredentials(searchInfo: SearchInfo): CredentialRepository.CredentialResult {
+    override fun queryCredentials(searchInfo: SearchInfo?, context: Context?): CredentialRepository.CredentialResult {
         if (!vaultRepository.isUnlocked) {
             return CredentialRepository.CredentialResult.Locked
         }
         val db = vaultRepository.database ?: return CredentialRepository.CredentialResult.Locked
 
+        // Check timeout if context provided
+        if (context != null && !TimeoutHelper.checkTime(context)) {
+            return CredentialRepository.CredentialResult.Locked
+        }
+
+        if (searchInfo == null || searchInfo.manualSelection || searchInfo.containsOnlyNullValues()) {
+            return CredentialRepository.CredentialResult.Empty
+        }
+
+        val searchSubDomains = appSettingsRepositoryProvider()?.isSearchSubDomainsEnabled
+            ?: (context?.let { PreferencesUtil.searchSubDomains(it) } ?: false)
+
         // Build SearchParameters for direct matching
         val searchParams = SearchParameters().apply {
             searchQuery = if (searchInfo.isDomainSearch && !searchInfo.webDomain.isNullOrEmpty()) {
-                searchInfo.webDomain
+                searchInfo.webDomain ?: ""
             } else {
                 searchInfo.toString()
             }
@@ -112,7 +129,7 @@ class CredentialRepositoryImpl(
             searchInAppIds = searchInfo.isAppIdSearch
             searchInUrls = searchInfo.isDomainSearch
             searchByDomain = true
-            searchBySubDomain = true
+            searchBySubDomain = searchSubDomains
             searchInRelyingParty = searchInfo.isPasskeySearch
             credentialIds = searchInfo.optionsString()
             searchInNotes = false
@@ -173,9 +190,12 @@ class CredentialRepositoryImpl(
         @Volatile
         private var instance: CredentialRepository? = null
 
-        fun getInstance(vaultRepository: VaultRepository = VaultRepositoryImpl.getInstance()): CredentialRepository {
+        fun getInstance(
+            vaultRepository: VaultRepository = VaultRepositoryImpl.getInstance(),
+            appSettingsRepositoryProvider: () -> AppSettingsRepository? = { null }
+        ): CredentialRepository {
             return instance ?: synchronized(this) {
-                instance ?: CredentialRepositoryImpl(vaultRepository).also { instance = it }
+                instance ?: CredentialRepositoryImpl(vaultRepository, appSettingsRepositoryProvider).also { instance = it }
             }
         }
 

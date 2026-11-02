@@ -23,11 +23,15 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.preference.PreferenceManager
 import com.kunzisoft.keepass.R
-import com.kunzisoft.keepass.credentialprovider.autofill.StructureParser.Companion.APPLICATION_ID_POPUP_WINDOW
+import com.kunzisoft.keepass.credentialprovider.autofill.StructureParser
+import com.kunzisoft.keepass.timeout.TimeoutHelper
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * Clean domain repository abstracting user and application configuration settings.
@@ -37,12 +41,28 @@ interface AppSettingsRepository {
 
     // Autofill & Credential Provider Settings
     var isAutofillSuggestionsEnabled: Boolean
+    val autofillSuggestionsEnabledFlow: StateFlow<Boolean>
+
     var isAutofillInlineSuggestionsEnabled: Boolean
+    val autofillInlineSuggestionsEnabledFlow: StateFlow<Boolean>
+
     var isAskToSaveData: Boolean
+    val askToSaveDataFlow: StateFlow<Boolean>
+
     var isAutofillSharedToMagikeyboard: Boolean
+    val autofillSharedToMagikeyboardFlow: StateFlow<Boolean>
+
     var isAutoSwitchToMagikeyboard: Boolean
+    val autoSwitchToMagikeyboardFlow: StateFlow<Boolean>
+
+    var isSearchSubDomainsEnabled: Boolean
+    val searchSubDomainsFlow: StateFlow<Boolean>
+
     var applicationIdBlocklist: Set<String>
+    val applicationIdBlocklistFlow: StateFlow<Set<String>>
+
     var webDomainBlocklist: Set<String>
+    val webDomainBlocklistFlow: StateFlow<Set<String>>
 
     /**
      * Determines whether autofill operations are allowed for the given target application or web domain.
@@ -51,8 +71,16 @@ interface AppSettingsRepository {
 
     // Database & Session Settings
     var defaultDatabasePath: String?
+
     var rememberDatabaseLocations: Boolean
+    val rememberDatabaseLocationsFlow: StateFlow<Boolean>
+
     var showRecentFiles: Boolean
+    val showRecentFilesFlow: StateFlow<Boolean>
+
+    var appTimeoutMillis: Long
+    val appTimeoutMillisFlow: StateFlow<Long>
+
     var appTimeoutSeconds: Int
 
     /**
@@ -80,18 +108,6 @@ class AppSettingsRepositoryImpl(
     )
     override val settingsChangedFlow: SharedFlow<String> = _settingsChangedFlow.asSharedFlow()
 
-    private val preferenceChangeListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-        key?.let { _settingsChangedFlow.tryEmit(it) }
-    }
-
-    init {
-        try {
-            sharedPreferences.registerOnSharedPreferenceChangeListener(preferenceChangeListener)
-        } catch (_: Exception) {
-            // Ignored in minimal unit test harnesses
-        }
-    }
-
     private fun getKey(resId: Int): String {
         return try {
             context.getString(resId)
@@ -108,6 +124,109 @@ class AppSettingsRepositoryImpl(
         }
     }
 
+    // Reactive StateFlow backing properties
+    private val _autofillSuggestionsEnabledFlow by lazy {
+        MutableStateFlow(isAutofillSuggestionsEnabled)
+    }
+    override val autofillSuggestionsEnabledFlow: StateFlow<Boolean> by lazy {
+        _autofillSuggestionsEnabledFlow.asStateFlow()
+    }
+
+    private val _autofillInlineSuggestionsEnabledFlow by lazy {
+        MutableStateFlow(isAutofillInlineSuggestionsEnabled)
+    }
+    override val autofillInlineSuggestionsEnabledFlow: StateFlow<Boolean> by lazy {
+        _autofillInlineSuggestionsEnabledFlow.asStateFlow()
+    }
+
+    private val _askToSaveDataFlow by lazy {
+        MutableStateFlow(isAskToSaveData)
+    }
+    override val askToSaveDataFlow: StateFlow<Boolean> by lazy {
+        _askToSaveDataFlow.asStateFlow()
+    }
+
+    private val _autofillSharedToMagikeyboardFlow by lazy {
+        MutableStateFlow(isAutofillSharedToMagikeyboard)
+    }
+    override val autofillSharedToMagikeyboardFlow: StateFlow<Boolean> by lazy {
+        _autofillSharedToMagikeyboardFlow.asStateFlow()
+    }
+
+    private val _autoSwitchToMagikeyboardFlow by lazy {
+        MutableStateFlow(isAutoSwitchToMagikeyboard)
+    }
+    override val autoSwitchToMagikeyboardFlow: StateFlow<Boolean> by lazy {
+        _autoSwitchToMagikeyboardFlow.asStateFlow()
+    }
+
+    private val _searchSubDomainsFlow by lazy {
+        MutableStateFlow(isSearchSubDomainsEnabled)
+    }
+    override val searchSubDomainsFlow: StateFlow<Boolean> by lazy {
+        _searchSubDomainsFlow.asStateFlow()
+    }
+
+    private val _rememberDatabaseLocationsFlow by lazy {
+        MutableStateFlow(rememberDatabaseLocations)
+    }
+    override val rememberDatabaseLocationsFlow: StateFlow<Boolean> by lazy {
+        _rememberDatabaseLocationsFlow.asStateFlow()
+    }
+
+    private val _showRecentFilesFlow by lazy {
+        MutableStateFlow(showRecentFiles)
+    }
+    override val showRecentFilesFlow: StateFlow<Boolean> by lazy {
+        _showRecentFilesFlow.asStateFlow()
+    }
+
+    private val _appTimeoutMillisFlow by lazy {
+        MutableStateFlow(appTimeoutMillis)
+    }
+    override val appTimeoutMillisFlow: StateFlow<Long> by lazy {
+        _appTimeoutMillisFlow.asStateFlow()
+    }
+
+    private val _applicationIdBlocklistFlow by lazy {
+        MutableStateFlow(applicationIdBlocklist)
+    }
+    override val applicationIdBlocklistFlow: StateFlow<Set<String>> by lazy {
+        _applicationIdBlocklistFlow.asStateFlow()
+    }
+
+    private val _webDomainBlocklistFlow by lazy {
+        MutableStateFlow(webDomainBlocklist)
+    }
+    override val webDomainBlocklistFlow: StateFlow<Set<String>> by lazy {
+        _webDomainBlocklistFlow.asStateFlow()
+    }
+
+    private val preferenceChangeListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        when (key) {
+            getKey(R.string.autofill_suggestions_key) -> _autofillSuggestionsEnabledFlow.value = isAutofillSuggestionsEnabled
+            getKey(R.string.autofill_inline_suggestions_key) -> _autofillInlineSuggestionsEnabledFlow.value = isAutofillInlineSuggestionsEnabled
+            getKey(R.string.autofill_ask_to_save_data_key) -> _askToSaveDataFlow.value = isAskToSaveData
+            getKey(R.string.autofill_share_magikeyboard_key) -> _autofillSharedToMagikeyboardFlow.value = isAutofillSharedToMagikeyboard
+            getKey(R.string.keyboard_auto_switch_key) -> _autoSwitchToMagikeyboardFlow.value = isAutoSwitchToMagikeyboard
+            getKey(R.string.subdomain_search_key) -> _searchSubDomainsFlow.value = isSearchSubDomainsEnabled
+            getKey(R.string.remember_database_locations_key) -> _rememberDatabaseLocationsFlow.value = rememberDatabaseLocations
+            getKey(R.string.show_recent_files_key) -> _showRecentFilesFlow.value = showRecentFiles
+            getKey(R.string.app_timeout_key) -> _appTimeoutMillisFlow.value = appTimeoutMillis
+            getKey(R.string.autofill_application_id_blocklist_key) -> _applicationIdBlocklistFlow.value = applicationIdBlocklist
+            getKey(R.string.autofill_web_domain_blocklist_key) -> _webDomainBlocklistFlow.value = webDomainBlocklist
+        }
+        key?.let { _settingsChangedFlow.tryEmit(it) }
+    }
+
+    init {
+        try {
+            sharedPreferences.registerOnSharedPreferenceChangeListener(preferenceChangeListener)
+        } catch (_: Exception) {
+            // Ignored in minimal unit test harnesses
+        }
+    }
+
     override var isAutofillSuggestionsEnabled: Boolean
         get() = sharedPreferences.getBoolean(
             getKey(R.string.autofill_suggestions_key),
@@ -115,6 +234,7 @@ class AppSettingsRepositoryImpl(
         )
         set(value) {
             sharedPreferences.edit()?.putBoolean(getKey(R.string.autofill_suggestions_key), value)?.apply()
+            _autofillSuggestionsEnabledFlow.value = value
         }
 
     override var isAutofillInlineSuggestionsEnabled: Boolean
@@ -124,6 +244,7 @@ class AppSettingsRepositoryImpl(
         )
         set(value) {
             sharedPreferences.edit()?.putBoolean(getKey(R.string.autofill_inline_suggestions_key), value)?.apply()
+            _autofillInlineSuggestionsEnabledFlow.value = value
         }
 
     override var isAskToSaveData: Boolean
@@ -133,6 +254,7 @@ class AppSettingsRepositoryImpl(
         )
         set(value) {
             sharedPreferences.edit()?.putBoolean(getKey(R.string.autofill_ask_to_save_data_key), value)?.apply()
+            _askToSaveDataFlow.value = value
         }
 
     override var isAutofillSharedToMagikeyboard: Boolean
@@ -142,6 +264,7 @@ class AppSettingsRepositoryImpl(
         )
         set(value) {
             sharedPreferences.edit()?.putBoolean(getKey(R.string.autofill_share_magikeyboard_key), value)?.apply()
+            _autofillSharedToMagikeyboardFlow.value = value
         }
 
     override var isAutoSwitchToMagikeyboard: Boolean
@@ -151,6 +274,17 @@ class AppSettingsRepositoryImpl(
         )
         set(value) {
             sharedPreferences.edit()?.putBoolean(getKey(R.string.keyboard_auto_switch_key), value)?.apply()
+            _autoSwitchToMagikeyboardFlow.value = value
+        }
+
+    override var isSearchSubDomainsEnabled: Boolean
+        get() = sharedPreferences.getBoolean(
+            getKey(R.string.subdomain_search_key),
+            getDefaultBool(R.bool.subdomain_search_default, false)
+        )
+        set(value) {
+            sharedPreferences.edit()?.putBoolean(getKey(R.string.subdomain_search_key), value)?.apply()
+            _searchSubDomainsFlow.value = value
         }
 
     override var applicationIdBlocklist: Set<String>
@@ -161,6 +295,7 @@ class AppSettingsRepositoryImpl(
         }
         set(value) {
             sharedPreferences.edit()?.putStringSet(getKey(R.string.autofill_application_id_blocklist_key), value)?.apply()
+            _applicationIdBlocklistFlow.value = value
         }
 
     override var webDomainBlocklist: Set<String>
@@ -171,10 +306,11 @@ class AppSettingsRepositoryImpl(
         }
         set(value) {
             sharedPreferences.edit()?.putStringSet(getKey(R.string.autofill_web_domain_blocklist_key), value)?.apply()
+            _webDomainBlocklistFlow.value = value
         }
 
     override fun isAutofillAllowed(applicationId: String?, webDomain: String?): Boolean {
-        if (applicationId?.contains(APPLICATION_ID_POPUP_WINDOW) == true) {
+        if (applicationId?.contains(StructureParser.APPLICATION_ID_POPUP_WINDOW) == true) {
             return false
         }
         val appBlocklist = applicationIdBlocklist
@@ -208,6 +344,7 @@ class AppSettingsRepositoryImpl(
         )
         set(value) {
             sharedPreferences.edit()?.putBoolean(getKey(R.string.remember_database_locations_key), value)?.apply()
+            _rememberDatabaseLocationsFlow.value = value
         }
 
     override var showRecentFiles: Boolean
@@ -217,24 +354,40 @@ class AppSettingsRepositoryImpl(
         )
         set(value) {
             sharedPreferences.edit()?.putBoolean(getKey(R.string.show_recent_files_key), value)?.apply()
+            _showRecentFilesFlow.value = value
         }
 
-    override var appTimeoutSeconds: Int
+    override var appTimeoutMillis: Long
         get() {
             val key = getKey(R.string.app_timeout_key)
             return try {
-                sharedPreferences.getInt(key, 300)
-            } catch (_: Exception) {
-                // In case it was stored as string preference
-                try {
-                    sharedPreferences.getString(key, "300")?.toIntOrNull() ?: 300
-                } catch (_: Exception) {
-                    300
+                val str = sharedPreferences.getString(key, null)
+                if (str != null) {
+                    str.toLongOrNull() ?: TimeoutHelper.DEFAULT_TIMEOUT
+                } else {
+                    try {
+                        sharedPreferences.getLong(key, TimeoutHelper.DEFAULT_TIMEOUT)
+                    } catch (_: Exception) {
+                        try {
+                            sharedPreferences.getInt(key, TimeoutHelper.DEFAULT_TIMEOUT.toInt()).toLong()
+                        } catch (_: Exception) {
+                            TimeoutHelper.DEFAULT_TIMEOUT
+                        }
+                    }
                 }
+            } catch (_: Exception) {
+                TimeoutHelper.DEFAULT_TIMEOUT
             }
         }
         set(value) {
-            sharedPreferences.edit()?.putInt(getKey(R.string.app_timeout_key), value)?.apply()
+            sharedPreferences.edit()?.putString(getKey(R.string.app_timeout_key), value.toString())?.apply()
+            _appTimeoutMillisFlow.value = value
+        }
+
+    override var appTimeoutSeconds: Int
+        get() = (appTimeoutMillis / 1000).toInt()
+        set(value) {
+            appTimeoutMillis = value.toLong() * 1000
         }
 
     companion object {

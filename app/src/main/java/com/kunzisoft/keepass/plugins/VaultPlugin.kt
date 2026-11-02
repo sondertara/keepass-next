@@ -33,8 +33,41 @@ import kotlinx.coroutines.launch
  * Common lifecycle contract for external plugin adapters listening to vault events.
  */
 interface VaultPlugin {
+    val id: String
+        get() = this::class.java.simpleName
+
     fun start(scope: CoroutineScope)
     fun stop()
+}
+
+/**
+ * Manager coordinating multiple [VaultPlugin] lifecycle instances.
+ */
+class VaultPluginManager(
+    private val plugins: List<VaultPlugin> = emptyList()
+) {
+    fun startAll(scope: CoroutineScope) {
+        plugins.forEach { it.start(scope) }
+    }
+
+    fun stopAll() {
+        plugins.forEach { it.stop() }
+    }
+
+    companion object {
+        fun createDefault(
+            context: Context,
+            eventBus: VaultEventBus,
+            settingsRepository: AppSettingsRepository
+        ): VaultPluginManager {
+            return VaultPluginManager(
+                listOf(
+                    MagicKeyboardPluginAdapter(context, eventBus, settingsRepository),
+                    ClipboardOtpPluginAdapter(context, eventBus, settingsRepository)
+                )
+            )
+        }
+    }
 }
 
 /**

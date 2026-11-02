@@ -56,7 +56,7 @@ class App : Application() {
         pluginManager = VaultPluginManager.createDefault(
             context = this,
             eventBus = VaultEventBusImpl.instance,
-            appSettingsRepository = appSettingsRepository
+            settingsRepository = appSettingsRepository
         ).also {
             it.startAll(applicationScope)
         }

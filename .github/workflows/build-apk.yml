@@ -1,9 +1,8 @@
-name: Build KeePassDX Custom APK
+name: Build KeePass Next APK
 
 on:
   push:
     branches:
-      - custom-main
       - main
     tags:
       - 'v*'
@@ -76,11 +75,21 @@ jobs:
           path: build-output/KeePassNext-libre-debug.apk
           retention-days: 30
 
+      - name: Clean Up Legacy Releases
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for id in $(gh api "repos/${{ github.repository }}/releases?per_page=100" --jq '.[] | select(.tag_name == "build-failure" or (.tag_name | endswith("-custom")) or .draft == true) | .id'); do
+            echo "Deleting legacy release ID: $id"
+            gh api -X DELETE "repos/${{ github.repository }}/releases/$id" || true
+          done
+
       - name: Create GitHub Release (on tag)
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: build-output/KeePassNext-libre-debug.apk
-          name: Release ${{ github.ref_name }}
+          name: KeePass Next ${{ github.ref_name }}
           draft: false
           prerelease: false

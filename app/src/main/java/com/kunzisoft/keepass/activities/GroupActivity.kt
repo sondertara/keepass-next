@@ -58,6 +58,7 @@ import com.kunzisoft.keepass.importer.ui.ImportWizardActivity
 import com.kunzisoft.keepass.activities.dialogs.NewEntryTypeBottomSheetDialogFragment
 import com.kunzisoft.keepass.model.EntryType
 import com.kunzisoft.keepass.model.VaultCategory
+import com.kunzisoft.keepass.model.VaultNodeFilter
 import com.kunzisoft.keepass.otp.scanner.OtpEntryQuickCreator
 import com.kunzisoft.keepass.otp.scanner.QrCodeDecoder
 import com.kunzisoft.keepass.otp.scanner.QrScanActivity
@@ -1082,7 +1083,27 @@ class GroupActivity : VaultSessionActivity() {
 
         // Update view
         mBreadcrumbAdapter?.iconDrawableFactory = database.iconDrawableFactory
+        refreshCategoryChipsVisibility(database)
         invalidateOptionsMenu()
+    }
+
+    private fun refreshCategoryChipsVisibility(database: ContextualDatabase?) {
+        if (database == null || !database.loaded) return
+        val root = database.rootGroup ?: return
+        lifecycleScope.launch(Dispatchers.Default) {
+            val flattened = VaultNodeFilter.getFlattenedEntries(database, root)
+            val available = mutableSetOf<VaultCategory>()
+            for (entry in flattened) {
+                for (cat in VaultCategory.values()) {
+                    if (cat != VaultCategory.ALL && VaultNodeFilter.matchesCategory(entry, cat)) {
+                        available.add(cat)
+                    }
+                }
+            }
+            withContext(Dispatchers.Main) {
+                searchController.updateCategoryChipsVisibility(filterChipGroup, available)
+            }
+        }
     }
 
     override fun onDatabaseActionFinished(
@@ -1224,6 +1245,7 @@ class GroupActivity : VaultSessionActivity() {
                 )
             }
         }
+        refreshCategoryChipsVisibility(database)
     }
 
     private fun finishNodeAction() {

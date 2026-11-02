@@ -167,6 +167,29 @@ class GroupSearchController(
         chipGroup?.check(targetId)
     }
 
+    /**
+     * Dynamically updates category chip visibility based on which categories actually have entries.
+     */
+    fun updateCategoryChipsVisibility(chipGroup: ChipGroup?, availableCategories: Set<VaultCategory>) {
+        if (chipGroup == null) return
+        val categoryChipMap = mapOf(
+            VaultCategory.PASSWORDS to R.id.chip_filter_passwords,
+            VaultCategory.TOTP to R.id.chip_filter_totp,
+            VaultCategory.PASSKEYS to R.id.chip_filter_passkeys,
+            VaultCategory.CREDIT_CARD to R.id.chip_filter_cards,
+            VaultCategory.SECURE_NOTE to R.id.chip_filter_notes,
+            VaultCategory.EMAIL to R.id.chip_filter_email,
+            VaultCategory.WIFI to R.id.chip_filter_wifi,
+            VaultCategory.ID_CARD to R.id.chip_filter_id_card,
+            VaultCategory.BANK to R.id.chip_filter_bank,
+            VaultCategory.CRYPTOCURRENCY to R.id.chip_filter_crypto
+        )
+        categoryChipMap.forEach { (category, chipId) ->
+            chipGroup.findViewById<android.view.View>(chipId)?.visibility =
+                if (availableCategories.contains(category)) android.view.View.VISIBLE else android.view.View.GONE
+        }
+    }
+
     fun manageIntent(intent: Intent?) {
         intent?.let {
             val autoSearch = it.getBooleanExtra(AUTO_SEARCH_KEY, false)

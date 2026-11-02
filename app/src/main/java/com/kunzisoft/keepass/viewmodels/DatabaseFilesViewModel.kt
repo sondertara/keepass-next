@@ -47,14 +47,19 @@ class DatabaseFilesViewModel(application: Application) : AndroidViewModel(applic
         if (!mDefaultDatabaseAlreadyChecked) {
             mDefaultDatabaseAlreadyChecked = true
             val context = getApplication<App>().applicationContext
-            PreferencesUtil.getDefaultDatabasePath(context)?.parseUri()?.let { databaseFileUri ->
-                if (FileDatabaseInfo(context, databaseFileUri).exists) {
-                    action.invoke(databaseFileUri)
-                } else {
-                    Log.e(TAG, "Unable to automatically load a non-accessible file")
+            val defaultUri = PreferencesUtil.getDefaultDatabasePath(context)?.parseUri()
+            if (defaultUri != null && FileDatabaseInfo(context, defaultUri).exists) {
+                action.invoke(defaultUri)
+                return
+            }
+            // Fallback: automatically promote the most recent existing database from history
+            mFileDatabaseHistoryAction?.getDatabaseFileList { list ->
+                val fallback = list.firstOrNull { it.databaseFileExists && it.databaseUri != null }
+                fallback?.databaseUri?.let { uri ->
+                    PreferencesUtil.saveDefaultDatabasePath(context, uri)
+                    _defaultDatabase.value = uri
+                    action.invoke(uri)
                 }
-            } ?: run {
-                Log.i(TAG, "No default database to prepare")
             }
         }
     }

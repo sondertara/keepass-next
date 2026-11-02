@@ -28,7 +28,11 @@ class TemplateBuilder {
 
     private val urlAttribute = TemplateAttribute(
         label = TemplateField.LABEL_URL,
-        type = TemplateAttributeType.TEXT
+        type = TemplateAttributeType.TEXT,
+        protected = false,
+        options = TemplateAttributeOption().apply {
+            setLink(true)
+        }
     )
     private val usernameAttribute = TemplateAttribute(
         label = TemplateField.LABEL_USERNAME,
@@ -94,7 +98,11 @@ class TemplateBuilder {
     private val passwordAttribute = TemplateAttribute(
         label = TemplateField.LABEL_PASSWORD,
         type = TemplateAttributeType.TEXT,
-        protected = true
+        protected = true,
+        options = TemplateAttributeOption().apply {
+            setNumberLines(3)
+            associatePasswordGenerator()
+        }
     )
     private val ssidAttribute = TemplateAttribute(
         label = TemplateField.LABEL_SSID,
@@ -166,10 +174,15 @@ class TemplateBuilder {
             val sections = mutableListOf<TemplateSection>()
             val mainSection = TemplateSection(mutableListOf<TemplateAttribute>().apply {
                 add(emailAddressAttribute)
-                add(urlAttribute)
                 add(passwordAttribute)
+                add(otpTokenAttribute)
+                add(urlAttribute)
+            })
+            val detailsSection = TemplateSection(mutableListOf<TemplateAttribute>().apply {
+                add(notesAttribute)
             })
             sections.add(mainSection)
+            sections.add(detailsSection)
             return Template(
                 UUID_EMAIL,
                 TemplateField.LABEL_EMAIL,
@@ -185,7 +198,11 @@ class TemplateBuilder {
                 add(passwordAttribute)
                 add(wirelessTypeAttribute)
             })
+            val detailsSection = TemplateSection(mutableListOf<TemplateAttribute>().apply {
+                add(notesAttribute)
+            })
             sections.add(mainSection)
+            sections.add(detailsSection)
             return Template(
                 UUID_WIFI,
                 TemplateField.LABEL_WIRELESS,
@@ -217,7 +234,11 @@ class TemplateBuilder {
                 add(dateOfIssueAttribute)
                 add(expirationDateAttribute)
             })
+            val detailsSection = TemplateSection(mutableListOf<TemplateAttribute>().apply {
+                add(notesAttribute)
+            })
             sections.add(mainSection)
+            sections.add(detailsSection)
             return Template(
                 UUID_ID_CARD,
                 TemplateField.LABEL_ID_CARD,
@@ -230,12 +251,16 @@ class TemplateBuilder {
             val sections = mutableListOf<TemplateSection>()
             val mainSection = TemplateSection(mutableListOf<TemplateAttribute>().apply {
                 add(numberAttribute)
-                add(cvvAttribute)
-                add(pinAttribute)
                 add(holderAttribute)
                 add(expirationDateAttribute)
+                add(cvvAttribute)
+                add(pinAttribute)
+            })
+            val detailsSection = TemplateSection(mutableListOf<TemplateAttribute>().apply {
+                add(notesAttribute)
             })
             sections.add(mainSection)
+            sections.add(detailsSection)
             return Template(
                 UUID_CREDIT_CARD,
                 TemplateField.LABEL_DEBIT_CREDIT_CARD,
@@ -257,8 +282,12 @@ class TemplateBuilder {
                 add(bicAttribute)
                 add(ibanAttribute)
             }, TemplateField.LABEL_ACCOUNT)
+            val detailsSection = TemplateSection(mutableListOf<TemplateAttribute>().apply {
+                add(notesAttribute)
+            })
             sections.add(mainSection)
             sections.add(ibanSection)
+            sections.add(detailsSection)
             return Template(
                 UUID_BANK,
                 TemplateField.LABEL_BANK,
@@ -275,7 +304,11 @@ class TemplateBuilder {
                 add(privateKeyAttribute)
                 add(seedAttribute)
             })
+            val detailsSection = TemplateSection(mutableListOf<TemplateAttribute>().apply {
+                add(notesAttribute)
+            })
             sections.add(mainSection)
+            sections.add(detailsSection)
             return Template(
                 UUID_CRYPTO,
                 TemplateField.LABEL_CRYPTOCURRENCY,
@@ -287,10 +320,9 @@ class TemplateBuilder {
         get() {
             val sections = mutableListOf<TemplateSection>()
             val mainSection = TemplateSection(mutableListOf<TemplateAttribute>().apply {
-                add(passkeyUsernameAttribute)
-                add(passkeyRelyingPartyAttribute)
-                add(passkeyCredentialIdAttribute)
-                add(passkeyPrivateKeyAttribute)
+                add(usernameAttribute)
+                add(urlAttribute)
+                add(notesAttribute)
             })
             sections.add(mainSection)
             return Template(

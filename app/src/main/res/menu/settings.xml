@@ -19,6 +19,12 @@
 -->
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
+        <item android:id="@+id/menu_qr_scan"
+            android:icon="@drawable/ic_qr_code_scanner_24dp"
+            android:title="@string/scan_qr_code"
+            android:orderInCategory="5"
+            app:iconTint="?attr/colorControlNormal"
+            app:showAsAction="always" />
         <item android:id="@+id/menu_app_settings"
             android:icon="@drawable/ic_settings_white_24dp"
             android:title="@string/settings"

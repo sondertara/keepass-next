@@ -29,6 +29,7 @@ import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceFragmentCompat
 import com.kunzisoft.keepass.R
+import com.kunzisoft.keepass.activities.FileDatabaseSelectActivity
 import com.kunzisoft.keepass.database.ContextualDatabase
 import com.kunzisoft.keepass.viewmodels.DatabaseViewModel
 import kotlinx.coroutines.launch
@@ -72,13 +73,20 @@ class MainPreferenceFragment : PreferenceFragmentCompat() {
             ?.isEnabled = isDatabaseLoaded
 
         findPreference<PreferenceCategory>(getString(R.string.settings_database_category_key))
-            ?.isVisible = isDatabaseLoaded
+            ?.isVisible = true
     }
 
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
         setPreferencesFromResource(R.xml.preferences, rootKey)
 
         // add listeners for non-default actions
+        findPreference<Preference>(getString(R.string.settings_database_switch_key))?.apply {
+            onPreferenceClickListener = Preference.OnPreferenceClickListener {
+                FileDatabaseSelectActivity.launchForManage(requireContext())
+                false
+            }
+        }
+
         findPreference<Preference>(getString(R.string.settings_app_key))?.apply {
             onPreferenceClickListener = Preference.OnPreferenceClickListener {
                 mCallback?.onNestedPreferenceSelected(NestedSettingsFragment.Screen.APPLICATION)

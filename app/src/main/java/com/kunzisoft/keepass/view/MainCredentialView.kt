@@ -28,11 +28,13 @@ import android.text.TextWatcher
 import android.util.AttributeSet
 import android.view.KeyEvent
 import android.view.LayoutInflater
+import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.widget.CompoundButton
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.TextView
+import androidx.core.view.isVisible
 import com.kunzisoft.keepass.R
 import com.kunzisoft.keepass.database.MainCredential
 import com.kunzisoft.keepass.hardware.HardwareKey
@@ -52,6 +54,8 @@ class MainCredentialView @JvmOverloads constructor(context: Context,
         private set
     private var checkboxHardwareView: CompoundButton
     private var hardwareKeySelectionView: HardwareKeySelectionView
+    private var advancedCredentialsContainer: View? = null
+    private var toggleAdvancedCredentialsBtn: View? = null
 
     var onConditionToStoreCredentialChanged: ((CredentialStorage, verified: Boolean) -> Unit)? = null
     var onValidateListener: (() -> Unit)? = null
@@ -68,6 +72,14 @@ class MainCredentialView @JvmOverloads constructor(context: Context,
         keyFileSelectionView = findViewById(R.id.keyfile_selection)
         checkboxHardwareView = findViewById(R.id.hardware_key_checkbox)
         hardwareKeySelectionView = findViewById(R.id.hardware_key_selection)
+        advancedCredentialsContainer = findViewById(R.id.advanced_credentials_container)
+        toggleAdvancedCredentialsBtn = findViewById(R.id.btn_toggle_advanced_credentials)
+
+        toggleAdvancedCredentialsBtn?.setOnClickListener {
+            advancedCredentialsContainer?.let { container ->
+                container.isVisible = !container.isVisible
+            }
+        }
 
         val onEditorActionListener = object : TextView.OnEditorActionListener {
             override fun onEditorAction(v: TextView?, actionId: Int, event: KeyEvent?): Boolean {
@@ -86,8 +98,15 @@ class MainCredentialView @JvmOverloads constructor(context: Context,
             override fun onTextChanged(charSequence: CharSequence, i: Int, i1: Int, i2: Int) {}
 
             override fun afterTextChanged(editable: Editable) {
-                if (editable.toString().isNotEmpty() && !checkboxPasswordView.isChecked)
-                    checkboxPasswordView.isChecked = true
+                val hasPassword = editable.toString().isNotEmpty()
+                if (checkboxPasswordView.isChecked != hasPassword) {
+                    checkboxPasswordView.isChecked = hasPassword
+                } else {
+                    onConditionToStoreCredentialChanged?.invoke(
+                        mCredentialStorage,
+                        conditionToStoreCredential()
+                    )
+                }
             }
         })
         passwordTextView.setOnKeyListener { _, _, keyEvent ->
@@ -157,6 +176,7 @@ class MainCredentialView @JvmOverloads constructor(context: Context,
             if (checkboxKeyFileView.isChecked)
                 checkboxKeyFileView.isChecked = false
         } else {
+            advancedCredentialsContainer?.isVisible = true
             keyFileSelectionView.uri = uri
             if (!checkboxKeyFileView.isChecked)
                 checkboxKeyFileView.isChecked = true
@@ -169,6 +189,7 @@ class MainCredentialView @JvmOverloads constructor(context: Context,
             if (checkboxHardwareView.isChecked)
                 checkboxHardwareView.isChecked = false
         } else {
+            advancedCredentialsContainer?.isVisible = true
             hardwareKeySelectionView.hardwareKey = hardwareKey
             if (!checkboxHardwareView.isChecked)
                 checkboxHardwareView.isChecked = true

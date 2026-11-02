@@ -20,10 +20,16 @@
 package com.kunzisoft.keepass.app
 
 import android.app.Application
+import android.content.Intent
+import android.content.pm.ShortcutInfo
+import android.content.pm.ShortcutManager
+import android.graphics.drawable.Icon
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
+import com.kunzisoft.keepass.R
 import com.kunzisoft.keepass.activities.stylish.Stylish
+import com.kunzisoft.keepass.otp.scanner.QrScanActivity
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -38,6 +44,25 @@ class App : Application() {
         ProcessLifecycleOwner.get().lifecycle.addObserver(AppLifecycleObserver)
 
         Stylish.load(this)
+        registerQuickScanShortcut()
+    }
+
+    private fun registerQuickScanShortcut() {
+        try {
+            val shortcutManager = getSystemService(ShortcutManager::class.java) ?: return
+            val scanIntent = Intent(Intent.ACTION_VIEW, null, this, QrScanActivity::class.java).apply {
+                putExtra(QrScanActivity.EXTRA_STANDALONE_MODE, true)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            }
+            val scanShortcut = ShortcutInfo.Builder(this, "shortcut_qr_scan")
+                .setShortLabel(getString(R.string.shortcut_qr_scan_short))
+                .setLongLabel(getString(R.string.shortcut_qr_scan_long))
+                .setIcon(Icon.createWithResource(this, R.drawable.ic_qr_code_scanner_24dp))
+                .setIntent(scanIntent)
+                .build()
+            shortcutManager.dynamicShortcuts = listOf(scanShortcut)
+        } catch (_: Exception) {
+        }
     }
 }
 

@@ -97,6 +97,10 @@ class AddNodeButtonView @JvmOverloads constructor(
         this.onFabClickListener = listener
     }
 
+    fun setMainFabLongClickListener(listener: OnLongClickListener?) {
+        addButtonView?.setOnLongClickListener(listener)
+    }
+
     fun setAddGroupClickListener(listener: OnClickListener?) {
         this.onAddGroupClickListener = listener
     }

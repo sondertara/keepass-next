@@ -24,6 +24,7 @@ import android.os.Parcelable
 import com.kunzisoft.keepass.database.element.Tags
 import com.kunzisoft.keepass.database.element.database.DatabaseVersioned
 import com.kunzisoft.keepass.database.element.icon.IconImage
+import com.kunzisoft.keepass.otp.OtpEntryFields.OTP_TOKEN_FIELD
 import com.kunzisoft.keepass.utils.readListCompat
 import com.kunzisoft.keepass.utils.readNullableIntCompat
 import com.kunzisoft.keepass.utils.readParcelableCompat
@@ -175,6 +176,9 @@ class Template : Parcelable {
             TemplateAttributeOption().apply {
                 setNumberLinesToMany()
             })
+        val OTP_ATTRIBUTE = TemplateAttribute(
+            OTP_TOKEN_FIELD,
+            TemplateAttributeType.TEXT)
 
         val STANDARD: Template
             get() {
@@ -182,11 +186,15 @@ class Template : Parcelable {
                 val mainSection = TemplateSection(mutableListOf<TemplateAttribute>().apply {
                     add(USERNAME_ATTRIBUTE)
                     add(PASSWORD_ATTRIBUTE)
+                    add(OTP_ATTRIBUTE)
                     add(URL_ATTRIBUTE)
-                    add(EXPIRATION_ATTRIBUTE)
+                })
+                val detailsSection = TemplateSection(mutableListOf<TemplateAttribute>().apply {
                     add(NOTES_ATTRIBUTE)
+                    add(EXPIRATION_ATTRIBUTE)
                 })
                 sections.add(mainSection)
+                sections.add(detailsSection)
                 return Template(
                     DatabaseVersioned.UUID_ZERO,
                     TemplateField.LABEL_STANDARD,

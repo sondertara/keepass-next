@@ -105,6 +105,12 @@ class EntryFragment: DatabaseFragment() {
 
         mainSection = view.findViewById(R.id.entry_section_main)
         advancedSection = view.findViewById(R.id.entry_section_advanced)
+        val advancedArrow = view.findViewById<View>(R.id.icon_advanced_arrow)
+        view.findViewById<View>(R.id.btn_toggle_advanced_section)?.setOnClickListener {
+            val expand = !advancedSection.isVisible
+            advancedSection.isVisible = expand
+            advancedArrow?.animate()?.rotation(if (expand) 180f else 0f)?.setDuration(200)?.start()
+        }
 
         passkeyCardView = view.findViewById(R.id.entry_passkey_card)
         txtPasskeyRp = view.findViewById(R.id.txt_passkey_card_rp)
@@ -186,16 +192,10 @@ class EntryFragment: DatabaseFragment() {
                                 resetAppTimeoutWhenViewFocusedOrChanged(rootView)
                             }
                             is EntryViewModel.EntryEvent.SectionSelected -> {
-                                when (event.section) {
-                                    EntryViewModel.EntrySection.MAIN -> {
-                                        mainSection.showByFading()
-                                        advancedSection.hideByFading()
-                                    }
-                                    EntryViewModel.EntrySection.ADVANCED -> {
-                                        mainSection.hideByFading()
-                                        advancedSection.showByFading()
-                                    }
-                                }
+                                mainSection.isVisible = true
+                                val expand = event.section == EntryViewModel.EntrySection.ADVANCED
+                                advancedSection.isVisible = expand
+                                advancedArrow?.animate()?.rotation(if (expand) 180f else 0f)?.setDuration(200)?.start()
                             }
                             else -> {}
                         }

@@ -53,6 +53,7 @@ import com.kunzisoft.keepass.credentialprovider.viewmodel.CredentialLauncherView
 import com.kunzisoft.keepass.credentialprovider.viewmodel.PasskeyLauncherViewModel
 import com.kunzisoft.keepass.database.ContextualDatabase
 import com.kunzisoft.keepass.database.element.EntryId
+import com.kunzisoft.keepass.database.helper.SearchHelper
 import com.kunzisoft.keepass.model.AppOrigin
 import com.kunzisoft.keepass.model.SearchInfo
 import com.kunzisoft.keepass.services.DatabaseTaskNotificationService.Companion.ACTION_DATABASE_UPDATE_ENTRY_TASK
@@ -135,23 +136,56 @@ class PasskeyLauncherActivity : AuthenticationLauncherActivity() {
                     }
                     is CredentialLauncherViewModel.CredentialState.LaunchGroupActivityForRegistration -> {
                         val rootGroupId = uiState.database.rootGroup?.nodeId
+                        val registerInfo = uiState.registerInfo
                         if (uiState.database.loaded && !uiState.database.isReadOnly && rootGroupId != null) {
-                            EntryEditActivity.launchForRegistration(
+                            SearchHelper.checkAutoSearchInfo(
                                 context = this@PasskeyLauncherActivity,
                                 database = uiState.database,
-                                nodeId = rootGroupId,
-                                registerInfo = uiState.registerInfo,
-                                typeMode = uiState.typeMode,
-                                registrationType = EntryEditActivity.RegistrationType.CREATE,
-                                entryType = EntryType.PASSKEY,
-                                activityResultLauncher = mPasskeyRegistrationActivityResultLauncher
+                                searchInfo = registerInfo?.searchInfo,
+                                onItemsFound = { _, items ->
+                                    val matchingEntryId = items.firstOrNull {
+                                        !registerInfo?.username.isNullOrBlank()
+                                                && it.username.equals(registerInfo?.username, ignoreCase = true)
+                                                && it.passkey == null
+                                    }?.nodeId ?: items.firstOrNull {
+                                        items.size == 1 && it.passkey == null && registerInfo?.username.isNullOrBlank()
+                                    }?.nodeId
+                                    EntryEditActivity.launchForRegistration(
+                                        context = this@PasskeyLauncherActivity,
+                                        database = uiState.database,
+                                        nodeId = matchingEntryId ?: rootGroupId,
+                                        registerInfo = registerInfo,
+                                        typeMode = uiState.typeMode,
+                                        registrationType = if (matchingEntryId != null)
+                                            EntryEditActivity.RegistrationType.UPDATE
+                                        else
+                                            EntryEditActivity.RegistrationType.CREATE,
+                                        entryType = EntryType.PASSKEY,
+                                        activityResultLauncher = mPasskeyRegistrationActivityResultLauncher
+                                    )
+                                },
+                                onItemNotFound = {
+                                    EntryEditActivity.launchForRegistration(
+                                        context = this@PasskeyLauncherActivity,
+                                        database = uiState.database,
+                                        nodeId = rootGroupId,
+                                        registerInfo = registerInfo,
+                                        typeMode = uiState.typeMode,
+                                        registrationType = EntryEditActivity.RegistrationType.CREATE,
+                                        entryType = EntryType.PASSKEY,
+                                        activityResultLauncher = mPasskeyRegistrationActivityResultLauncher
+                                    )
+                                },
+                                onDatabaseClosed = {
+                                    passkeyLauncherViewModel.cancelResult()
+                                }
                             )
                         } else {
                             GroupActivity.launchForRegistration(
                                 context = this@PasskeyLauncherActivity,
                                 database = uiState.database,
                                 typeMode = uiState.typeMode,
-                                registerInfo = uiState.registerInfo,
+                                registerInfo = registerInfo,
                                 activityResultLauncher = mPasskeyRegistrationActivityResultLauncher
                             )
                         }

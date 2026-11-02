@@ -33,6 +33,7 @@ import android.view.View
 import android.widget.AdapterView
 import android.widget.ProgressBar
 import android.widget.Spinner
+import android.widget.TextView
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
@@ -79,6 +80,8 @@ import com.kunzisoft.keepass.database.element.Field
 import com.kunzisoft.keepass.database.element.GroupId
 import com.kunzisoft.keepass.database.element.node.NodeId
 import com.kunzisoft.keepass.database.element.security.ProtectedString
+import com.kunzisoft.keepass.database.element.template.TemplateField
+import com.kunzisoft.keepass.database.helper.getLocalizedName
 import com.kunzisoft.keepass.education.EntryEditActivityEducation
 import com.kunzisoft.keepass.model.DataTime
 import com.kunzisoft.keepass.model.EntryAttachmentState
@@ -126,6 +129,7 @@ class EntryEditActivity : DatabaseSessionActivity() {
     private var coordinatorError: CoordinatorLayout? = null
     private var coordinatorLayout: CoordinatorLayout? = null
     private var scrollView: NestedScrollView? = null
+    private var titleView: TextView? = null
     private var templateSelectorSpinner: Spinner? = null
     private var entryEditAddToolBar: ToolbarAction? = null
     private var validateButton: View? = null
@@ -200,7 +204,9 @@ class EntryEditActivity : DatabaseSessionActivity() {
         coordinatorLayout = findViewById(R.id.entry_edit_coordinator_layout)
         scrollView = findViewById(R.id.entry_edit_scroll)
         scrollView?.scrollBarStyle = View.SCROLLBARS_INSIDE_INSET
+        titleView = findViewById(R.id.entry_edit_title)
         templateSelectorSpinner = findViewById(R.id.entry_edit_template_selector)
+        templateSelectorSpinner?.visibility = View.GONE
         lockView = findViewById(R.id.lock_button)
         validateButton = findViewById(R.id.entry_edit_validate)
         backButton = findViewById(R.id.entry_edit_back_button)
@@ -259,10 +265,15 @@ class EntryEditActivity : DatabaseSessionActivity() {
                         uiState.templates?.let { templatesData ->
                             val templates = templatesData.templates
                             val defaultTemplate = templatesData.defaultTemplate
+                            titleView?.text = TemplateField.getLocalizedName(
+                                this@EntryEditActivity,
+                                defaultTemplate.title
+                            )
                             val targetIndex = templates.indexOfFirst {
                                 it.uuid == defaultTemplate.uuid || it.title.equals(defaultTemplate.title, ignoreCase = true)
                             }.coerceAtLeast(0)
 
+                            templateSelectorSpinner?.visibility = View.GONE
                             templateSelectorSpinner?.apply {
                                 // Build template selector
                                 if (adapter == null) {

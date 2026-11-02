@@ -30,6 +30,11 @@
 		android:layout_width="match_parent"
 		android:layout_height="wrap_content"/>
 
+	<include
+		android:id="@+id/entry_passkey_card"
+		layout="@layout/view_passkey_card"
+		android:visibility="gone" />
+
 	<androidx.cardview.widget.CardView
 		android:id="@+id/entry_attachments_container"
 		android:layout_width="match_parent"

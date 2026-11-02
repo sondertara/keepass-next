@@ -25,6 +25,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.TextView
 import androidx.core.view.isVisible
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.Lifecycle
@@ -35,6 +36,7 @@ import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.SimpleItemAnimator
 import com.google.android.material.textfield.TextInputLayout
 import com.kunzisoft.keepass.R
+import com.kunzisoft.keepass.activities.dialogs.PasskeyDetailsDialogFragment
 import com.kunzisoft.keepass.activities.dialogs.SetOTPDialogFragment
 import com.kunzisoft.keepass.adapters.EntryAttachmentsItemsAdapter
 import com.kunzisoft.keepass.adapters.TagsProposalAdapter
@@ -45,6 +47,7 @@ import com.kunzisoft.keepass.model.EntryInfo
 import com.kunzisoft.keepass.model.FieldProtection
 import com.kunzisoft.keepass.model.PasskeyEntryFields
 import com.kunzisoft.keepass.model.PasskeyEntryFields.isPasskey
+import com.kunzisoft.keepass.model.PasskeyInfoHelper
 import com.kunzisoft.keepass.model.StreamDirection
 import com.kunzisoft.keepass.otp.OtpEntryFields
 import com.kunzisoft.keepass.otp.OtpEntryFields.isOTP
@@ -67,9 +70,16 @@ class EntryEditFragment: DatabaseFragment() {
 
     private lateinit var rootView: View
     private lateinit var templateView: TemplateEditView
+    private var passkeyCardView: View? = null
+    private var txtPasskeyRp: TextView? = null
+    private var txtPasskeyUsername: TextView? = null
+    private var txtPasskeyAlgorithm: TextView? = null
+    private var txtPasskeyBackup: TextView? = null
+    private var btnPasskeyDetails: View? = null
     private lateinit var attachmentsContainerView: ViewGroup
     private lateinit var attachmentsListView: RecyclerView
     private var attachmentsAdapter: EntryAttachmentsItemsAdapter? = null
+    private var tagsCardView: View? = null
     private lateinit var tagsContainerView: TextInputLayout
     private lateinit var tagsCompletionView: TagsCompletionView
     private var tagsAdapter: FilteredArrayAdapter<String>? = null
@@ -107,8 +117,15 @@ class EntryEditFragment: DatabaseFragment() {
         templateView.setOnSetupOtpClickListener {
             mEntryEditViewModel.setupOtp()
         }
+        passkeyCardView = view.findViewById(R.id.entry_passkey_card)
+        txtPasskeyRp = passkeyCardView?.findViewById(R.id.txt_passkey_card_rp)
+        txtPasskeyUsername = passkeyCardView?.findViewById(R.id.txt_passkey_card_username)
+        txtPasskeyAlgorithm = passkeyCardView?.findViewById(R.id.txt_passkey_card_algorithm)
+        txtPasskeyBackup = passkeyCardView?.findViewById(R.id.txt_passkey_card_backup)
+        btnPasskeyDetails = passkeyCardView?.findViewById(R.id.btn_passkey_card_details)
         attachmentsContainerView = view.findViewById(R.id.entry_attachments_container)
         attachmentsListView = view.findViewById(R.id.entry_attachments_list)
+        tagsCardView = view.findViewById(R.id.entry_tags_container)
         tagsContainerView = view.findViewById(R.id.entry_tags_label)
         tagsCompletionView = view.findViewById(R.id.entry_tags_completion_view)
 
@@ -358,12 +375,38 @@ class EntryEditFragment: DatabaseFragment() {
             threshold = 1
             setAdapter(tagsAdapter)
         }
-        tagsContainerView.visibility = View.GONE
+        val allowTags = database.allowTags
+        tagsCardView?.isVisible = allowTags
+        tagsContainerView.isVisible = allowTags
     }
 
     private fun assignEntryInfo(entryInfo: EntryInfo?) {
         // Populate entry views
         templateView.setEntryInfo(entryInfo)
+
+        // Assign passkey summary card if present
+        val passkey = entryInfo?.passkey
+        if (passkey != null) {
+            passkeyCardView?.isVisible = true
+            txtPasskeyRp?.text = PasskeyInfoHelper.normalizeRelyingParty(passkey.relyingParty)
+            txtPasskeyUsername?.text = passkey.username.ifEmpty { "(No username)" }
+            txtPasskeyAlgorithm?.text = PasskeyInfoHelper.getAlgorithmName(passkey)
+            txtPasskeyBackup?.text = if (passkey.backupEligibility == true) {
+                if (passkey.backupState == true) {
+                    getString(R.string.passkey_backup_synced)
+                } else {
+                    getString(R.string.passkey_backup_eligibility)
+                }
+            } else {
+                getString(R.string.passkey_backup_single_device)
+            }
+            btnPasskeyDetails?.setOnClickListener {
+                PasskeyDetailsDialogFragment.newInstance(passkey)
+                    .show(parentFragmentManager, PasskeyDetailsDialogFragment.TAG)
+            }
+        } else {
+            passkeyCardView?.isVisible = false
+        }
 
         // Set Tags
         entryInfo?.tags?.let { tags ->

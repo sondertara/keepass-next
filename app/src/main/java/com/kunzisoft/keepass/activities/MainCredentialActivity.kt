@@ -135,10 +135,10 @@ class MainCredentialActivity : DatabaseSessionActivity() {
         setContentView(R.layout.activity_main_credential)
 
         toolbar = findViewById(R.id.toolbar)
-        toolbar?.title = getString(R.string.app_name)
+        toolbar?.title = ""
         setSupportActionBar(toolbar)
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
-        supportActionBar?.setDisplayShowHomeEnabled(true)
+        supportActionBar?.setDisplayHomeAsUpEnabled(!isTaskRoot)
+        supportActionBar?.setDisplayShowHomeEnabled(!isTaskRoot)
 
         filenameView = findViewById(R.id.filename)
         logotypeButton = findViewById(R.id.activity_password_logotype)
@@ -147,6 +147,10 @@ class MainCredentialActivity : DatabaseSessionActivity() {
         confirmButtonView = findViewById(R.id.activity_password_open_button)
         infoContainerView = findViewById(R.id.activity_password_info_container)
         coordinatorLayout = findViewById(R.id.activity_password_coordinator_layout)
+
+        infoContainerView?.setOnClickListener {
+            FileDatabaseSelectActivity.launchForManage(this)
+        }
 
         mainCredentialView.keyFileSelectionView.setOpenFileClickListener(this, openFileResultLauncher)
 
@@ -426,7 +430,9 @@ class MainCredentialActivity : DatabaseSessionActivity() {
 
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
+        setIntent(intent)
         getUriFromIntent(intent)
+        mDeviceUnlockViewModel.connect(mMainCredentialViewModel.databaseFileUri)
     }
 
     private val credentialStorageListener = object: MainCredentialView.CredentialStorageListener {
@@ -720,6 +726,7 @@ class MainCredentialActivity : DatabaseSessionActivity() {
             hardwareKey: HardwareKey?
         ) {
             buildAndLaunchIntent(activity, databaseFile, keyFile, hardwareKey) { intent ->
+                intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 activity.startActivity(intent)
             }
         }

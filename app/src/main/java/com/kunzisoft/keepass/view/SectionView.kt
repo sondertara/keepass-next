@@ -80,4 +80,12 @@ class SectionView @JvmOverloads constructor(context: Context,
         containerSectionView.removeAllViews()
         visibility = View.GONE
     }
+
+    fun refreshVisibility() {
+        val hasVisibleChild = (0 until containerSectionView.childCount).any { index ->
+            val child = containerSectionView.getChildAt(index)
+            child.visibility == View.VISIBLE && (child !is GenericFieldView || child.isFieldVisible)
+        }
+        visibility = if (hasVisibleChild) View.VISIBLE else View.GONE
+    }
 }

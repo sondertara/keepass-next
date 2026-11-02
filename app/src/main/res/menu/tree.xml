@@ -19,10 +19,22 @@
 -->
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item android:id="@+id/menu_qr_scan"
+        android:icon="@drawable/ic_qr_code_scanner_24dp"
+        android:title="@string/scan_qr_code"
+        android:orderInCategory="20"
+        app:iconTint="?attr/colorControlNormal"
+        app:showAsAction="always" />
     <item android:id="@+id/menu_sort"
         android:icon="@drawable/ic_sort_white_24dp"
         android:title="@string/sort_menu"
         android:orderInCategory="41"
+        app:iconTint="?attr/colorControlNormal"
+        app:showAsAction="ifRoom" />
+    <item android:id="@+id/menu_lock"
+        android:icon="@drawable/ic_lock_white_24dp"
+        android:title="@string/lock"
+        android:orderInCategory="45"
         app:iconTint="?attr/colorControlNormal"
         app:showAsAction="ifRoom" />
 </menu>

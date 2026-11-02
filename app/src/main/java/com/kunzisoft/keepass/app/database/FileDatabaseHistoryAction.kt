@@ -179,6 +179,7 @@ class FileDatabaseHistoryAction(private val applicationContext: Context) {
                         } else {
                             databaseFileHistoryDao.update(fileDatabaseHistory)
                         }
+                        PreferencesUtil.saveDefaultDatabasePath(applicationContext, databaseUri)
                     } catch (e: Exception) {
                         Log.e(TAG, "Unable to add or update database history", e)
                     }

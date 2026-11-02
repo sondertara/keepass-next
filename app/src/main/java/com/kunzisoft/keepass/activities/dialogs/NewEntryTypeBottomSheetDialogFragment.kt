@@ -103,37 +103,10 @@ class NewEntryTypeBottomSheetDialogFragment : BottomSheetDialogFragment() {
             listener?.onTypeSelected(EntryType.TOTP)
         }
 
-        // 3. Passkey (Expandable actions: Scan FIDO QR, Gallery, Manual)
-        val passkeySubActions = view.findViewById<View>(R.id.layout_passkey_actions)
-        val passkeyArrow = view.findViewById<ImageView>(R.id.icon_passkey_arrow)
+        // 3. Passkey (Directly opens unified QR scanner for cross-device registration/login)
         view.findViewById<View>(R.id.item_type_passkey)?.setOnClickListener {
-            if (passkeySubActions != null) {
-                if (passkeySubActions.visibility == View.VISIBLE) {
-                    passkeySubActions.visibility = View.GONE
-                    passkeyArrow?.animate()?.rotation(0f)?.setDuration(200)?.start()
-                } else {
-                    passkeySubActions.visibility = View.VISIBLE
-                    passkeyArrow?.animate()?.rotation(180f)?.setDuration(200)?.start()
-                }
-            } else {
-                dismiss()
-                listener?.onTypeSelected(EntryType.PASSKEY)
-            }
-        }
-
-        view.findViewById<View>(R.id.btn_passkey_scan)?.setOnClickListener {
             dismiss()
             listener?.onTotpScanQr()
-        }
-
-        view.findViewById<View>(R.id.btn_passkey_gallery)?.setOnClickListener {
-            dismiss()
-            listener?.onTotpPickImage()
-        }
-
-        view.findViewById<View>(R.id.btn_passkey_manual)?.setOnClickListener {
-            dismiss()
-            listener?.onTypeSelected(EntryType.PASSKEY)
         }
 
         // 4. Credit Card

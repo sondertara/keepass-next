@@ -26,8 +26,10 @@ import com.kunzisoft.keepass.database.element.template.TemplateAttributeType
 import com.kunzisoft.keepass.database.element.template.TemplateEngine
 import com.kunzisoft.keepass.database.element.template.TemplateEngine.Companion.addTemplateDecorator
 import com.kunzisoft.keepass.database.element.template.TemplateField
+import com.kunzisoft.keepass.model.AppOriginEntryField
 import com.kunzisoft.keepass.model.EntryInfo
 import com.kunzisoft.keepass.model.FieldProtection
+import com.kunzisoft.keepass.model.PasskeyEntryFields
 import com.kunzisoft.keepass.otp.OtpElement
 import com.kunzisoft.keepass.otp.OtpEntryFields
 import com.kunzisoft.keepass.settings.PreferencesUtil
@@ -444,9 +446,25 @@ abstract class TemplateAbstractView<
                     putCustomField(customField, false)
                 }
             }
+            refreshSectionsVisibility()
             return emptyCustomFields
         }
         return emptyList()
+    }
+
+    protected fun isInternalHiddenCustomField(name: String): Boolean {
+        return name.startsWith("KPEX_PASSKEY_")
+                || name.equals(PasskeyEntryFields.PASSKEY_FIELD, ignoreCase = true)
+                || name.equals(OtpEntryFields.OTP_FIELD, ignoreCase = true)
+                || name.startsWith(AppOriginEntryField.APPLICATION_SIGNATURE_FIELD_NAME)
+    }
+
+    protected fun refreshSectionsVisibility() {
+        for (i in 0 until templateContainerView.childCount) {
+            (templateContainerView.getChildAt(i) as? SectionView)?.refreshVisibility()
+        }
+        customFieldsContainerView.refreshVisibility()
+        notReferencedFieldsContainerView.refreshVisibility()
     }
 
     protected fun getUrlFromView(): String? {
@@ -678,7 +696,11 @@ abstract class TemplateAbstractView<
             } else {
                 val newCustomView = buildViewForCustomField(customField)
                 newCustomView?.let {
+                    if (isInternalHiddenCustomField(customField.name)) {
+                        newCustomView.visibility = GONE
+                    }
                     customFieldsContainerView.addView(newCustomView)
+                    customFieldsContainerView.refreshVisibility()
                     val fieldId = ViewField(
                         newCustomView,
                         customField
@@ -687,7 +709,7 @@ abstract class TemplateAbstractView<
                     if (indexOldItem >= 0)
                         mViewFields.removeAt(indexOldItem)
                     mViewFields.add(indexOldItem, fieldId)
-                    if (focus)
+                    if (focus && newCustomView.visibility == VISIBLE)
                         newCustomView.requestFocus()
                 }
                 true

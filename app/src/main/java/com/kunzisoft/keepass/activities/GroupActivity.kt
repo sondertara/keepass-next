@@ -119,6 +119,7 @@ import com.kunzisoft.keepass.model.GroupInfo
 import com.kunzisoft.keepass.model.NodeInfo
 import com.kunzisoft.keepass.model.RegisterInfo
 import com.kunzisoft.keepass.model.SearchInfo
+import com.kunzisoft.keepass.otp.scanner.QrCodeResultRouter
 import com.kunzisoft.keepass.services.DatabaseTaskNotificationService.Companion.ACTION_DATABASE_COPY_NODES_TASK
 import com.kunzisoft.keepass.services.DatabaseTaskNotificationService.Companion.ACTION_DATABASE_MOVE_NODES_TASK
 import com.kunzisoft.keepass.services.DatabaseTaskNotificationService.Companion.ACTION_DATABASE_TOUCH_ENTRY_TASK
@@ -306,6 +307,10 @@ class GroupActivity : DatabaseSessionActivity() {
             lockAndExit()
         }
 
+        findViewById<View>(R.id.search_pill_click_area)?.setOnClickListener {
+            mSearchViewModel.activateSearch()
+        }
+
         toolbar?.title = ""
         setSupportActionBar(toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
@@ -324,6 +329,9 @@ class GroupActivity : DatabaseSessionActivity() {
             inflateMenu(R.menu.contribute)
             setNavigationItemSelectedListener { menuItem ->
                 when (menuItem.itemId) {
+                    R.id.menu_qr_scan -> {
+                        mScanOtpLauncher.launch(Intent(this@GroupActivity, QrScanActivity::class.java))
+                    }
                     R.id.menu_app_settings -> {
                         // To avoid flickering when launch settings in a LockingActivity
                         SettingsActivity.launch(this@GroupActivity, true)
@@ -729,16 +737,34 @@ class GroupActivity : DatabaseSessionActivity() {
             }
         }
 
-        // Add listeners to the add button
+        // Add listeners to the add button (Context-aware FAB + long-press full sheet)
         val onFabAddAction: (View) -> Unit = {
             if (mSpecialMode == SpecialMode.REGISTRATION || mSpecialMode == SpecialMode.SELECTION) {
                 launchCreateEntry(if (mTypeMode == TypeMode.PASSKEY) EntryType.PASSKEY else EntryType.PASSWORD)
             } else {
-                showNewEntryTypeBottomSheet()
+                when (mGroupViewModel.vaultCategory.value) {
+                    VaultCategory.ALL -> showNewEntryTypeBottomSheet()
+                    VaultCategory.PASSWORDS -> launchCreateEntry(EntryType.PASSWORD)
+                    VaultCategory.TOTP -> launchCreateEntry(EntryType.TOTP)
+                    VaultCategory.PASSKEYS -> launchScanQrForOtp()
+                    VaultCategory.CREDIT_CARD -> launchCreateEntry(EntryType.CREDIT_CARD)
+                    VaultCategory.SECURE_NOTE -> launchCreateEntry(EntryType.SECURE_NOTE)
+                    VaultCategory.EMAIL -> launchCreateEntry(EntryType.EMAIL)
+                    VaultCategory.WIFI -> launchCreateEntry(EntryType.WIFI)
+                    VaultCategory.ID_CARD -> launchCreateEntry(EntryType.ID_CARD)
+                    VaultCategory.BANK -> launchCreateEntry(EntryType.BANK)
+                    VaultCategory.CRYPTOCURRENCY -> launchCreateEntry(EntryType.CRYPTOCURRENCY)
+                }
             }
         }
+        val onFabLongClickAction = View.OnLongClickListener {
+            showNewEntryTypeBottomSheet()
+            true
+        }
         addNodeButtonView?.addButtonView?.setOnClickListener(onFabAddAction)
+        addNodeButtonView?.addButtonView?.setOnLongClickListener(onFabLongClickAction)
         addNodeButtonView?.setMainFabClickListener(onFabAddAction)
+        addNodeButtonView?.setMainFabLongClickListener(onFabLongClickAction)
         addNodeButtonView?.setAddEntryClickListener(onFabAddAction)
         addNodeButtonView?.setAddGroupClickListener {
             launchDialogForGroupCreation()
@@ -948,20 +974,8 @@ class GroupActivity : DatabaseSessionActivity() {
 
     private fun handleScannedOtpResult(qrText: String) {
         val trimmedQr = qrText.trim()
-        if (trimmedQr.startsWith("fido:/", ignoreCase = true)) {
-            try {
-                val fidoIntent = Intent(Intent.ACTION_VIEW, Uri.parse(trimmedQr)).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                startActivity(fidoIntent)
-            } catch (e: Exception) {
-                Log.e(this.javaClass.name, "Failed to launch FIDO intent", e)
-                Toast.makeText(
-                    this,
-                    "当前系统未安装支持 FIDO (fido:/) 跨设备握手的系统组件",
-                    Toast.LENGTH_LONG
-                ).show()
-            }
+        if (QrCodeResultRouter.isFidoQr(trimmedQr)) {
+            QrCodeResultRouter.launchFidoQr(this, trimmedQr)
             return
         }
 
@@ -1241,14 +1255,10 @@ class GroupActivity : DatabaseSessionActivity() {
     override fun onResume() {
         super.onResume()
 
-        // Show the lock button
-        lockView?.visibility = if (PreferencesUtil.showLockDatabaseButton(this)) {
-            View.VISIBLE
-        } else {
-            View.GONE
-        }
-        // Padding if lock button visible
+        // Lock action is now integrated into the top search pill bar and drawer
+        lockView?.visibility = View.GONE
         toolbarAction?.updateButtonPaddingStart()
+        invalidateOptionsMenu()
 
         loadGroup()
     }
@@ -1279,6 +1289,8 @@ class GroupActivity : DatabaseSessionActivity() {
             inflater.inflate(R.menu.search, menu)
             inflater.inflate(R.menu.tree, menu)
             inflater.inflate(R.menu.database, menu)
+            menu.findItem(R.id.menu_search)?.isVisible = false
+            menu.findItem(R.id.menu_lock)?.isVisible = PreferencesUtil.showLockDatabaseButton(this)
             if (!mGroupViewModel.saveDatabaseActionAllowed()) {
                 menu.findItem(R.id.menu_save_database)?.isVisible = false
             }
@@ -1385,8 +1397,16 @@ class GroupActivity : DatabaseSessionActivity() {
                 mSearchViewModel.activateSearch()
                 return true
             }
+            R.id.menu_qr_scan -> {
+                mScanOtpLauncher.launch(Intent(this, QrScanActivity::class.java))
+                return true
+            }
             R.id.menu_sort -> {
                 requestSort()
+                return true
+            }
+            R.id.menu_lock -> {
+                lockAndExit()
                 return true
             }
             R.id.menu_save_database -> {
@@ -1721,27 +1741,27 @@ class GroupActivity : DatabaseSessionActivity() {
                         if (!database.isReadOnly) {
                             val rootGroupId = database.rootGroup?.nodeId
                             val launcher = if (intentSenderMode) activityResultLauncher else null
-                            if (typeMode == TypeMode.PASSKEY && rootGroupId != null) {
-                                EntryEditActivity.launchForRegistration(
-                                    context = activity,
-                                    database = database,
-                                    nodeId = rootGroupId,
-                                    registerInfo = registerInfo,
-                                    typeMode = typeMode,
-                                    registrationType = EntryEditActivity.RegistrationType.CREATE,
-                                    entryType = EntryType.PASSKEY,
-                                    activityResultLauncher = launcher
-                                )
-                                onLaunchActivitySpecialMode()
-                            } else if (rootGroupId != null) {
+                            if (rootGroupId != null) {
                                 val isOtpLink = registerInfo?.searchInfo?.otpString != null
-                                val targetEntryType = if (isOtpLink) EntryType.TOTP else EntryType.PASSWORD
+                                val isPasskey = typeMode == TypeMode.PASSKEY
+                                val targetEntryType = when {
+                                    isPasskey -> EntryType.PASSKEY
+                                    isOtpLink -> EntryType.TOTP
+                                    else -> EntryType.PASSWORD
+                                }
                                 SearchHelper.checkAutoSearchInfo(
                                     context = activity,
                                     database = database,
                                     searchInfo = registerInfo?.searchInfo,
                                     onItemsFound = { _, items ->
                                         val matchingEntryId = when {
+                                            isPasskey -> items.firstOrNull {
+                                                !registerInfo?.username.isNullOrBlank()
+                                                        && it.username.equals(registerInfo?.username, ignoreCase = true)
+                                                        && it.passkey == null
+                                            }?.nodeId ?: items.firstOrNull {
+                                                items.size == 1 && it.passkey == null && registerInfo?.username.isNullOrBlank()
+                                            }?.nodeId
                                             isOtpLink && items.size == 1 -> items.first().nodeId
                                             !registerInfo?.username.isNullOrBlank() -> items.firstOrNull {
                                                 it.username.equals(registerInfo?.username, ignoreCase = true)

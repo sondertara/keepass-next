@@ -31,6 +31,7 @@ import android.view.MenuItem
 import android.view.View
 import android.widget.ImageView
 import android.widget.ProgressBar
+import android.widget.TextView
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.viewModels
 import androidx.appcompat.widget.Toolbar
@@ -100,6 +101,7 @@ class EntryActivity : DatabaseSessionActivity() {
     private var collapsingToolbarLayout: CollapsingToolbarLayout? = null
     private var appBarLayout: AppBarLayout? = null
     private var titleIconView: ImageView? = null
+    private var headerTitleView: TextView? = null
     private var historyView: View? = null
     private var tagsListView: RecyclerView? = null
     private var entryContentTab: TabLayout? = null
@@ -159,11 +161,14 @@ class EntryActivity : DatabaseSessionActivity() {
         collapsingToolbarLayout = findViewById(R.id.toolbar_layout)
         appBarLayout = findViewById(R.id.app_bar)
         titleIconView = findViewById(R.id.entry_icon)
+        headerTitleView = findViewById(R.id.entry_header_title)
         historyView = findViewById(R.id.history_container)
         tagsListView = findViewById(R.id.entry_tags_list_view)
         entryContentTab = findViewById(R.id.entry_content_tab)
+        entryContentTab?.visibility = View.GONE
         entryProgress = findViewById(R.id.entry_progress)
         lockView = findViewById(R.id.lock_button)
+        lockView?.visibility = View.GONE
         loadingView = findViewById(R.id.loading)
         editFab = findViewById(R.id.entry_edit_fab)
 
@@ -255,8 +260,9 @@ class EntryActivity : DatabaseSessionActivity() {
                         val entryInfo = entryState.entryInfo
                         // Assign title text
                         val entryTitle = entryInfo?.title?.ifEmpty { entryInfo.nodeId.toString() } ?: ""
-                        collapsingToolbarLayout?.title = entryTitle
-                        toolbar?.title = entryTitle
+                        headerTitleView?.text = entryTitle
+                        collapsingToolbarLayout?.title = ""
+                        toolbar?.title = ""
                         // Assign tags
                         val tags = entryInfo?.tags ?: Tags()
                         tagsListView?.visibility = if (tags.isEmpty()) View.GONE else View.VISIBLE
@@ -274,12 +280,7 @@ class EntryActivity : DatabaseSessionActivity() {
                             }
                         }
                         // Toolbar customization
-                        val toolbarColor = entryState.toolbarColor
-                        val onToolbarColor = entryState.onToolbarColor
-                        collapsingToolbarLayout?.setBackgroundColor(toolbarColor)
-                        collapsingToolbarLayout?.contentScrim = (toolbarColor).toDrawable()
-                        toolbar?.changeControlColor(onToolbarColor)
-                        collapsingToolbarLayout?.changeTitleColor(onToolbarColor)
+                        toolbar?.changeControlColor(mEntryViewModel.colorOnSurface)
                         // Manage FAB visibility
                         editFab?.visibility = if (!entryState.isReadOnly
                             && entryState.showFloatingActionButton) View.VISIBLE else View.GONE
@@ -460,12 +461,7 @@ class EntryActivity : DatabaseSessionActivity() {
     override fun onResume() {
         super.onResume()
 
-        // Show the lock button
-        lockView?.visibility = if (PreferencesUtil.showLockDatabaseButton(this)) {
-            View.VISIBLE
-        } else {
-            View.GONE
-        }
+        lockView?.visibility = View.GONE
 
         // To show the attachment download progress
         mAttachmentFileBinderManager.apply {

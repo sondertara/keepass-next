@@ -68,6 +68,7 @@ import com.kunzisoft.keepass.settings.PreferencesUtil
 import com.kunzisoft.keepass.tasks.ActionRunnable
 import com.kunzisoft.keepass.utils.AppUtil.isContributingUser
 import com.kunzisoft.keepass.utils.DexUtil
+import com.kunzisoft.keepass.utils.LOCK_ACTION
 import com.kunzisoft.keepass.utils.MagikeyboardUtil
 import com.kunzisoft.keepass.utils.MenuUtil
 import com.kunzisoft.keepass.utils.UriUtil.openUrl
@@ -99,6 +100,7 @@ class FileDatabaseSelectActivity : DatabaseSessionActivity() {
     private var mFileDatabaseHistoryAction: FileDatabaseHistoryAction? = null
 
     private var mDatabaseFileUri: Uri? = null
+    private var mIsForceSelect: Boolean = false
 
     private var openDatabaseFileResultLauncher: ExternalFileHelper.OpenFileResultLauncher = registerOpenFile { uri ->
         uri?.let {
@@ -137,9 +139,15 @@ class FileDatabaseSelectActivity : DatabaseSessionActivity() {
         setContentView(R.layout.activity_file_selection)
         coordinatorLayout = findViewById(R.id.activity_file_selection_coordinator_layout)
 
+        mIsForceSelect = intent.getBooleanExtra(EXTRA_FORCE_SELECT, false)
+
         val toolbar = findViewById<Toolbar>(R.id.toolbar)
-        toolbar.title = ""
+        toolbar.title = if (mIsForceSelect) getString(R.string.menu_database_switch_title) else ""
         setSupportActionBar(toolbar)
+        if (mIsForceSelect) {
+            supportActionBar?.setDisplayHomeAsUpEnabled(true)
+            supportActionBar?.setDisplayShowHomeEnabled(true)
+        }
 
         // Special title
         specialTitle = findViewById(R.id.file_selection_title_part_3)
@@ -181,9 +189,11 @@ class FileDatabaseSelectActivity : DatabaseSessionActivity() {
         }
         fileDatabaseHistoryRecyclerView.adapter = mAdapterDatabaseHistory
 
-        // Load default database the first time
-        databaseFilesViewModel.doForDefaultDatabase { databaseFileUri ->
-            launchMainCredentialActivityWithPath(databaseFileUri)
+        // Load default database the first time (unless user explicitly opened vault switcher)
+        if (!mIsForceSelect) {
+            databaseFilesViewModel.doForDefaultDatabase { databaseFileUri ->
+                launchMainCredentialActivityWithPath(databaseFileUri)
+            }
         }
 
         // Retrieve the database URI provided by file manager after an orientation change
@@ -249,7 +259,9 @@ class FileDatabaseSelectActivity : DatabaseSessionActivity() {
     }
 
     override fun onDatabaseRetrieved(database: ContextualDatabase) {
-        launchGroupActivityIfLoaded(database)
+        if (!mIsForceSelect) {
+            launchGroupActivityIfLoaded(database)
+        }
     }
 
     override fun onDatabaseActionFinished(
@@ -261,11 +273,15 @@ class FileDatabaseSelectActivity : DatabaseSessionActivity() {
             // Launch activity
             when (actionTask) {
                 ACTION_DATABASE_CREATE_TASK -> {
+                    PreferencesUtil.saveDefaultDatabasePath(this@FileDatabaseSelectActivity, database.fileUri)
                     GroupActivity.launch(
                         this@FileDatabaseSelectActivity,
                         database,
                         false
                     )
+                    if (mSpecialMode == SpecialMode.DEFAULT) {
+                        finish()
+                    }
                 }
                 ACTION_DATABASE_LOAD_TASK -> {
                     launchGroupActivityIfLoaded(database)
@@ -289,6 +305,10 @@ class FileDatabaseSelectActivity : DatabaseSessionActivity() {
 
     private fun launchMainCredentialActivity(databaseUri: Uri, keyFile: Uri?, hardwareKey: HardwareKey?) {
         try {
+            PreferencesUtil.saveDefaultDatabasePath(this, databaseUri)
+            if (mIsForceSelect && mDatabase?.loaded == true && mDatabase?.fileUri != databaseUri) {
+                sendBroadcast(Intent(LOCK_ACTION))
+            }
             EntrySelectionHelper.doSpecialAction(
                 intent = this.intent,
                 defaultAction = {
@@ -298,6 +318,11 @@ class FileDatabaseSelectActivity : DatabaseSessionActivity() {
                         keyFile = keyFile,
                         hardwareKey = hardwareKey
                     )
+                    finish()
+                    if (!mIsForceSelect) {
+                        @Suppress("DEPRECATION")
+                        overridePendingTransition(0, 0)
+                    }
                 },
                 searchAction = { searchInfo ->
                     MainCredentialActivity.launchForSearchResult(
@@ -391,6 +416,9 @@ class FileDatabaseSelectActivity : DatabaseSessionActivity() {
     private fun onAssignKeyDialogPositiveClick(mainCredential: MainCredential) {
         try {
             mDatabaseFileUri?.let { databaseUri ->
+                if (mIsForceSelect && mDatabase?.loaded == true) {
+                    sendBroadcast(Intent(LOCK_ACTION))
+                }
                 // Create the new database
                 mDatabaseViewModel.createDatabase(databaseUri, mainCredential)
             }
@@ -447,7 +475,13 @@ class FileDatabaseSelectActivity : DatabaseSessionActivity() {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
-            android.R.id.home -> this.openUrl(R.string.file_manager_explanation_url)
+            android.R.id.home -> {
+                if (mIsForceSelect) {
+                    finish()
+                } else {
+                    this.openUrl(R.string.file_manager_explanation_url)
+                }
+            }
         }
         MenuUtil.onDefaultMenuOptionsItemSelected(this, item)
         return super.onOptionsItemSelected(item)
@@ -457,6 +491,7 @@ class FileDatabaseSelectActivity : DatabaseSessionActivity() {
 
         private const val TAG = "FileDbSelectActivity"
         private const val EXTRA_DATABASE_URI = "EXTRA_DATABASE_URI"
+        const val EXTRA_FORCE_SELECT = "EXTRA_FORCE_SELECT"
 
         /*
          * -------------------------
@@ -466,6 +501,13 @@ class FileDatabaseSelectActivity : DatabaseSessionActivity() {
 
         fun launch(context: Context) {
             context.startActivity(Intent(context, FileDatabaseSelectActivity::class.java))
+        }
+
+        fun launchForManage(context: Context) {
+            val intent = Intent(context, FileDatabaseSelectActivity::class.java).apply {
+                putExtra(EXTRA_FORCE_SELECT, true)
+            }
+            context.startActivity(intent)
         }
 
         /*

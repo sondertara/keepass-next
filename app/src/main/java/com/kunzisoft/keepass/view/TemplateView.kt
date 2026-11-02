@@ -160,6 +160,7 @@ class TemplateView @JvmOverloads constructor(
         // Assign specific OTP dynamic view
         assignOtp(mEntryInfo?.otpModel)
         assignPasskey(mEntryInfo?.passkey)
+        refreshSectionsVisibility()
         return emptyCustomFields
     }
 
@@ -180,6 +181,7 @@ class TemplateView @JvmOverloads constructor(
     private fun assignOtp(otpModel: OtpModel?) {
         otpModel?.let {
             getOtpTokenView()?.apply {
+                isVisible = true
                 setOtpModel(otpModel)
             }
         }

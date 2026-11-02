@@ -211,11 +211,17 @@ class QrScanActivity : AppCompatActivity() {
 
     private fun onScanSuccess(resultText: String) {
         vibrateFeedback()
-        val intent = Intent().apply {
-            putExtra(EXTRA_SCAN_RESULT, resultText)
+        val isStandalone = intent.getBooleanExtra(EXTRA_STANDALONE_MODE, false) || callingActivity == null
+        if (isStandalone) {
+            QrCodeResultRouter.dispatchStandaloneResult(this, resultText)
+            finish()
+        } else {
+            val resultIntent = Intent().apply {
+                putExtra(EXTRA_SCAN_RESULT, resultText)
+            }
+            setResult(RESULT_OK, resultIntent)
+            finish()
         }
-        setResult(RESULT_OK, intent)
-        finish()
     }
 
     private fun vibrateFeedback() {
@@ -244,6 +250,14 @@ class QrScanActivity : AppCompatActivity() {
     companion object {
         private const val TAG = "QrScanActivity"
         const val EXTRA_SCAN_RESULT = "EXTRA_SCAN_RESULT"
+        const val EXTRA_STANDALONE_MODE = "EXTRA_STANDALONE_MODE"
+
+        fun launchStandalone(context: Context) {
+            val intent = Intent(context, QrScanActivity::class.java).apply {
+                putExtra(EXTRA_STANDALONE_MODE, true)
+            }
+            context.startActivity(intent)
+        }
 
         fun registerForScanResult(
             activity: FragmentActivity,

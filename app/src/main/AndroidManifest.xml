@@ -46,6 +46,12 @@
             <category android:name="android.intent.category.BROWSABLE" />
             <data android:scheme="https" />
         </intent>
+        <!-- FIDO / Passkey hybrid transport QR -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="fido" />
+        </intent>
         <!-- Keyboard switcher -->
         <intent>
             <action android:name="com.android.keyboard.SWITCH_KEYBOARD" />
@@ -379,6 +385,16 @@
             <meta-data
                 android:name="android.credentials.provider"
                 android:resource="@xml/provider" />
+        </service>
+        <service
+            android:name="com.kunzisoft.keepass.otp.scanner.QrScanTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_qr_code_scanner_24dp"
+            android:label="@string/shortcut_qr_scan_long"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
         </service>
 
         <receiver

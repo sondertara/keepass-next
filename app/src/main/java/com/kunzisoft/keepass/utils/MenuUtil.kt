@@ -26,6 +26,7 @@ import android.view.MenuInflater
 import android.view.MenuItem
 import com.kunzisoft.keepass.R
 import com.kunzisoft.keepass.activities.AboutActivity
+import com.kunzisoft.keepass.otp.scanner.QrScanActivity
 import com.kunzisoft.keepass.settings.SettingsActivity
 import com.kunzisoft.keepass.utils.AppUtil.openContributionLink
 
@@ -40,6 +41,9 @@ object MenuUtil {
                                          item: MenuItem,
                                          timeoutEnable: Boolean = false) {
         when (item.itemId) {
+            R.id.menu_qr_scan -> {
+                QrScanActivity.launchStandalone(activity)
+            }
             R.id.menu_contribute -> {
                 activity.openContributionLink()
             }

@@ -129,7 +129,7 @@ class VaultRepositoryImpl(
 ) : VaultRepository {
 
     override val database: ContextualDatabase?
-        get() = databaseProvider()
+        get() = databaseProvider()?.takeIf { it.loaded }
 
     override val isUnlocked: Boolean
         get() = database?.loaded == true

@@ -422,9 +422,22 @@ class KeeAutofillService : AutofillService() {
 
         fun Context.showAutofillDeviceSettings() {
             try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    try {
+                        startActivity(
+                            Intent(Settings.ACTION_CREDENTIAL_PROVIDER_SETTINGS).apply {
+                                data = "package:$packageName".toUri()
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                        )
+                        return
+                    } catch (e: Exception) {
+                        Log.w(TAG, "ACTION_CREDENTIAL_PROVIDER_SETTINGS unavailable, falling back to autofill settings", e)
+                    }
+                }
                 startActivity(
                     Intent(Settings.ACTION_REQUEST_SET_AUTOFILL_SERVICE).apply {
-                        data = "package:${KeeAutofillService::class.java.canonicalName}".toUri()
+                        data = "package:$packageName".toUri()
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     }
                 )

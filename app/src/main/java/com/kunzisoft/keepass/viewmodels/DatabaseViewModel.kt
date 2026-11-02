@@ -44,27 +44,46 @@ import com.kunzisoft.keepass.model.GroupInfo
 import com.kunzisoft.keepass.model.SnapFileDatabaseInfo
 import com.kunzisoft.keepass.services.DatabaseTaskNotificationService
 import com.kunzisoft.keepass.tasks.ActionRunnable
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 class DatabaseViewModel(application: Application): AndroidViewModel(application) {
 
-    private val mDatabaseState = MutableStateFlow<ContextualDatabase?>(null)
-    val databaseState: StateFlow<ContextualDatabase?> = mDatabaseState.asStateFlow()
+    @Volatile
+    private var currentDb: ContextualDatabase? = null
+
+    private val mDatabaseState = MutableSharedFlow<ContextualDatabase?>(
+        replay = 1,
+        extraBufferCapacity = 16,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    ).apply {
+        tryEmit(null)
+    }
+    val databaseState: SharedFlow<ContextualDatabase?> = mDatabaseState.asSharedFlow()
 
     val sessionState: StateFlow<DatabaseJobManager.VaultSessionState> =
         DatabaseJobManager.getInstance().sessionState
 
     val database: ContextualDatabase?
-        get() = databaseState.value
+        get() = currentDb
 
     private var lastDatabaseLoaded: Boolean? = null
 
-    private val mActionState = MutableStateFlow<ActionState>(ActionState.Wait)
-    val actionState: StateFlow<ActionState> = mActionState.asStateFlow()
+    private val mActionState = MutableSharedFlow<ActionState>(
+        replay = 1,
+        extraBufferCapacity = 64,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    ).apply {
+        tryEmit(ActionState.Wait)
+    }
+    val actionState: SharedFlow<ActionState> = mActionState.asSharedFlow()
 
     private val mDatabaseMetadata = MutableStateFlow<DatabaseMetadata?>(null)
     val databaseMetadata: StateFlow<DatabaseMetadata?> = mDatabaseMetadata.asStateFlow()
@@ -76,7 +95,7 @@ class DatabaseViewModel(application: Application): AndroidViewModel(application)
             val databaseWasReloaded = databaseRetrieved?.wasReloaded == true
             val currentLoaded = databaseRetrieved?.loaded
             if (databaseWasReloaded) {
-                mActionState.value = ActionState.OnDatabaseReloaded
+                mActionState.tryEmit(ActionState.OnDatabaseReloaded)
             }
             if (database == null
                 || database != databaseRetrieved
@@ -85,11 +104,12 @@ class DatabaseViewModel(application: Application): AndroidViewModel(application)
             ) {
                 databaseRetrieved?.wasReloaded = false
                 lastDatabaseLoaded = currentLoaded
-                mDatabaseState.value = databaseRetrieved
+                currentDb = databaseRetrieved
+                mDatabaseState.tryEmit(databaseRetrieved)
             }
         }
         mDatabaseTaskProvider.onStartActionRequested = { bundle, actionTask ->
-            mActionState.value = ActionState.OnDatabaseActionRequested(bundle, actionTask)
+            mActionState.tryEmit(ActionState.OnDatabaseActionRequested(bundle, actionTask))
         }
         mDatabaseTaskProvider.databaseInfoListener = object : DatabaseJobManager.DatabaseInfoListener {
             override fun onDatabaseInfoChanged(
@@ -97,10 +117,12 @@ class DatabaseViewModel(application: Application): AndroidViewModel(application)
                 newDatabaseInfo: SnapFileDatabaseInfo,
                 readOnlyDatabase: Boolean
             ) {
-                mActionState.value = ActionState.OnDatabaseInfoChanged(
-                    previousDatabaseInfo,
-                    newDatabaseInfo,
-                    readOnlyDatabase
+                mActionState.tryEmit(
+                    ActionState.OnDatabaseInfoChanged(
+                        previousDatabaseInfo,
+                        newDatabaseInfo,
+                        readOnlyDatabase
+                    )
                 )
                 mDatabaseMetadata.value = mDatabaseMetadata.value?.copy(
                     path = newDatabaseInfo.fileUri?.toString()
@@ -112,18 +134,18 @@ class DatabaseViewModel(application: Application): AndroidViewModel(application)
                 database: ContextualDatabase,
                 progressMessage: ProgressMessage
             ) {
-                mActionState.value = ActionState.OnDatabaseActionStarted(database, progressMessage)
+                mActionState.tryEmit(ActionState.OnDatabaseActionStarted(database, progressMessage))
             }
 
             override fun onActionUpdated(
                 database: ContextualDatabase,
                 progressMessage: ProgressMessage
             ) {
-                mActionState.value = ActionState.OnDatabaseActionUpdated(database, progressMessage)
+                mActionState.tryEmit(ActionState.OnDatabaseActionUpdated(database, progressMessage))
             }
 
             override fun onActionStopped(database: ContextualDatabase?) {
-                mActionState.value = ActionState.OnDatabaseActionStopped(database)
+                mActionState.tryEmit(ActionState.OnDatabaseActionStopped(database))
             }
 
             override fun onActionFinished(
@@ -131,7 +153,7 @@ class DatabaseViewModel(application: Application): AndroidViewModel(application)
                 actionTask: String,
                 result: ActionRunnable.Result
             ) {
-                mActionState.value = ActionState.OnDatabaseActionFinished(database, actionTask, result)
+                mActionState.tryEmit(ActionState.OnDatabaseActionFinished(database, actionTask, result))
                 when (actionTask) {
                     DatabaseTaskNotificationService.ACTION_DATABASE_UPDATE_NAME_TASK -> {
                         mDatabaseMetadata.value = mDatabaseMetadata.value?.copy(name = database.name)
@@ -201,7 +223,7 @@ class DatabaseViewModel(application: Application): AndroidViewModel(application)
                 if (validCredential) {
                     assignMainCredential(databaseUri, mainCredential)
                 } else {
-                    mActionState.value = ActionState.ShowPasswordEncodingDialog(databaseUri, mainCredential)
+                    mActionState.tryEmit(ActionState.ShowPasswordEncodingDialog(databaseUri, mainCredential))
                 }
             }
         }
@@ -230,7 +252,7 @@ class DatabaseViewModel(application: Application): AndroidViewModel(application)
 
     fun reloadDatabase(fixDuplicateUuid: Boolean, forceReload: Boolean = false) {
         if (!forceReload && database?.dataModifiedSinceLastLoading == true) {
-            mActionState.value = ActionState.ShowDatabaseInfoReloadedDialog(fixDuplicateUuid)
+            mActionState.tryEmit(ActionState.ShowDatabaseInfoReloadedDialog(fixDuplicateUuid))
         } else {
             mDatabaseTaskProvider.startDatabaseReload(fixDuplicateUuid)
         }
@@ -241,13 +263,13 @@ class DatabaseViewModel(application: Application): AndroidViewModel(application)
     }
 
     fun onDatabaseChangeValidated() {
-        mActionState.value = ActionState.Wait
+        mActionState.tryEmit(ActionState.Wait)
         database?.recordInAppSaveCompleted(getApplication())
         mDatabaseTaskProvider.onDatabaseChangeValidated()
     }
 
     fun cancelAction() {
-        mActionState.value = ActionState.Wait
+        mActionState.tryEmit(ActionState.Wait)
     }
 
     /*

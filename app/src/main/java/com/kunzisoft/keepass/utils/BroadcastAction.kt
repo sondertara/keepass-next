@@ -33,7 +33,9 @@ import androidx.core.content.ContextCompat
 import com.kunzisoft.keepass.R
 import com.kunzisoft.keepass.app.AppLifecycleObserver
 import com.kunzisoft.keepass.database.ContextualDatabase
+import com.kunzisoft.keepass.database.DatabaseJobManager
 import com.kunzisoft.keepass.credentialprovider.magikeyboard.MagikeyboardService
+import com.kunzisoft.keepass.services.DatabaseTaskNotificationService
 import com.kunzisoft.keepass.services.KeyboardEntryNotificationService
 import com.kunzisoft.keepass.settings.PreferencesUtil
 import com.kunzisoft.keepass.timeout.TimeoutHelper
@@ -158,8 +160,10 @@ fun Context.closeDatabase(database: ContextualDatabase?) {
     (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager?)?.apply {
         cancelAll()
     }
-    // Clear data
-    database?.clearAndClose(this.getBinaryDir())
+    // Clear data and synchronously reset global session state
+    (database ?: ContextualDatabase.getInstance()).clearAndClose(this.getBinaryDir())
+    DatabaseJobManager.getInstance().checkDatabase(null)
+    stopService(Intent(this, DatabaseTaskNotificationService::class.java))
 
     // Release not useful URI permission
     applicationContext.releaseAllUnnecessaryPermissionUris()

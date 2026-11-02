@@ -255,8 +255,10 @@ class DatabaseSessionController(
                                     if (callback.manageDatabaseInfo() && options.manageDatabaseInfo) {
                                         showDatabaseInfoReloadedDialog(uiState.fixDuplicateUuid)
                                     }
+                                    databaseViewModel.cancelAction()
                                 }
                                 is DatabaseViewModel.ActionState.OnDatabaseActionRequested -> {
+                                    databaseViewModel.cancelAction()
                                     startDatabasePermissionService(uiState.bundle, uiState.actionTask)
                                 }
                                 is DatabaseViewModel.ActionState.OnDatabaseActionStarted -> {
@@ -282,6 +284,7 @@ class DatabaseSessionController(
                                         uiState.databaseUri,
                                         uiState.mainCredential
                                     )
+                                    databaseViewModel.cancelAction()
                                 }
                             }
                         }
@@ -595,13 +598,20 @@ class DatabaseSessionController(
                 .setMessage(R.string.discard_changes)
                 .setNegativeButton(android.R.string.cancel, null)
                 .setPositiveButton(R.string.lock) { _, _ ->
-                    activity.sendBroadcast(Intent(LOCK_ACTION))
-                    activity.finish()
+                    performLockAndExit()
                 }.create().show()
         } else {
-            activity.sendBroadcast(Intent(LOCK_ACTION))
-            activity.finish()
+            performLockAndExit()
         }
+    }
+
+    private fun performLockAndExit() {
+        exitLock = true
+        activity.closeDatabase(database ?: ContextualDatabase.getInstance())
+        activity.sendBroadcast(Intent(LOCK_ACTION).apply {
+            setPackage(activity.packageName)
+        })
+        activity.finish()
     }
 
     private fun showDatabaseActionToast(@StringRes stringId: Int) {

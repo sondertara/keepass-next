@@ -230,7 +230,9 @@ open class DatabaseTaskNotificationService : LockNotificationService(), Progress
         val isMainAction = intentAction != ACTION_CHALLENGE_RESPONDED
 
         if (actionRunnable != null) {
-            DatabaseJobManager.getInstance().currentDatabase = database
+            if (database.loaded) {
+                DatabaseJobManager.getInstance().currentDatabase = database
+            }
             mainScope.launch {
                 try {
                     DatabaseJobManager.getInstance().executeAction(

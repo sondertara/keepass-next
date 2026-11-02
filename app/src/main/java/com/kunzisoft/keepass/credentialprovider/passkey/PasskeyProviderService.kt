@@ -86,10 +86,10 @@ class PasskeyProviderService : CredentialProviderService() {
         super.onCreate()
 
         mDatabaseTaskProvider = DatabaseTaskProvider(this)
-        mDatabaseTaskProvider?.registerProgressTask()
         mDatabaseTaskProvider?.onDatabaseRetrieved = { database ->
-            this.mDatabase = database
+            this.mDatabase = database?.takeIf { it.loaded }
         }
+        mDatabaseTaskProvider?.registerProgressTask()
 
         defaultIcon = Icon.createWithResource(
             this@PasskeyProviderService,

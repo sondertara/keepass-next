@@ -137,11 +137,11 @@ class MagikeyboardService : InputMethodService(),
         super.onCreate()
 
         mDatabaseTaskProvider = DatabaseTaskProvider(this)
-        mDatabaseTaskProvider?.registerProgressTask()
         mDatabaseTaskProvider?.onDatabaseRetrieved = { database ->
-            this.mDatabase = database
+            this.mDatabase = database?.takeIf { it.loaded }
             assignKeyboardView()
         }
+        mDatabaseTaskProvider?.registerProgressTask()
         // Remove the entry and lock the keyboard when the lock signal is receive
         lockReceiver = object : LockReceiver({
             removeSearchInfo()

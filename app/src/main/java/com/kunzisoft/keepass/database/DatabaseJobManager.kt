@@ -167,17 +167,19 @@ class DatabaseJobManager(
     var currentDatabase: ContextualDatabase?
         get() = _databaseState.value
         set(value) {
-            _databaseState.value = value
-            _sessionState.value = if (value != null && value.loaded) {
-                VaultSessionState.Unlocked(value)
+            val loadedDb = value?.takeIf { it.loaded }
+            _databaseState.value = loadedDb
+            _sessionState.value = if (loadedDb != null) {
+                VaultSessionState.Unlocked(loadedDb)
             } else {
                 VaultSessionState.Locked
             }
         }
 
     fun refreshSessionState(database: ContextualDatabase? = currentDatabase) {
-        currentDatabase = database
-        databaseListeners.forEach { it.onDatabaseRetrieved(database) }
+        val loadedDb = database?.takeIf { it.loaded }
+        currentDatabase = loadedDb
+        databaseListeners.forEach { it.onDatabaseRetrieved(loadedDb) }
     }
 
     // Challenge-response launcher hook
@@ -406,9 +408,8 @@ class DatabaseJobManager(
         _isSavingState.value = _savingJobsCount.value > 0
 
         try {
-            if (database != null) {
+            if (database != null && database.loaded) {
                 currentDatabase = database
-                _databaseState.value = database
             }
 
             if (isMainAction) {

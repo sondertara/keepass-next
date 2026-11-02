@@ -19,8 +19,8 @@ android {
         applicationId = "com.sondertara.keepassnext"
         minSdk = 30
         targetSdk = 36
-        versionCode = 45600
-        versionName = "4.5.6"
+        versionCode = 100
+        versionName = "0.1.0"
 
         testApplicationId = "com.sondertara.keepassnext.tests"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

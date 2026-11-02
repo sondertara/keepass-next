@@ -798,9 +798,7 @@ object PreferencesUtil {
     }
 
     fun isAutofillSharedToMagikeyboardEnable(context: Context): Boolean {
-        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-        return prefs.getBoolean(context.getString(R.string.autofill_share_magikeyboard_key),
-            context.resources.getBoolean(R.bool.autofill_share_magikeyboard_default))
+        return AppSettingsRepositoryImpl.getInstance(context).isAutofillSharedToMagikeyboard
     }
 
     fun isAutofillSaveSearchInfoEnable(context: Context): Boolean {
@@ -810,15 +808,11 @@ object PreferencesUtil {
     }
 
     fun askToSaveAutofillData(context: Context): Boolean {
-        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-        return prefs.getBoolean(context.getString(R.string.autofill_ask_to_save_data_key),
-            context.resources.getBoolean(R.bool.autofill_ask_to_save_data_default))
+        return AppSettingsRepositoryImpl.getInstance(context).isAskToSaveData
     }
 
     fun isAutofillSuggestionsEnable(context: Context): Boolean {
-        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-        return prefs.getBoolean(context.getString(R.string.autofill_suggestions_key),
-            context.resources.getBoolean(R.bool.autofill_suggestions_default))
+        return AppSettingsRepositoryImpl.getInstance(context).isAutofillSuggestionsEnabled
     }
 
     /**
@@ -832,10 +826,7 @@ object PreferencesUtil {
     }
 
     fun applicationIdBlocklist(context: Context): Set<String> {
-        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-        return prefs.getStringSet(context.getString(R.string.autofill_application_id_blocklist_key),
-            getDefaultApplicationIdBlocklist(context.resources))
-            ?: emptySet()
+        return AppSettingsRepositoryImpl.getInstance(context).applicationIdBlocklist
     }
 
     /**
@@ -847,10 +838,7 @@ object PreferencesUtil {
     }
 
     fun webDomainBlocklist(context: Context): Set<String> {
-        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-        return prefs.getStringSet(context.getString(R.string.autofill_web_domain_blocklist_key),
-            getDefaultWebDomainBlocklist(context.resources))
-            ?: emptySet()
+        return AppSettingsRepositoryImpl.getInstance(context).webDomainBlocklist
     }
 
     fun addApplicationIdToBlocklist(context: Context, applicationId: String) {

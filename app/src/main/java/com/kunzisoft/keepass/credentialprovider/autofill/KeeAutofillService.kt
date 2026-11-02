@@ -35,10 +35,8 @@ import android.service.autofill.FillResponse
 import android.service.autofill.InlinePresentation
 import android.service.autofill.Presentations
 import android.service.autofill.SaveCallback
-import android.service.autofill.SaveInfo
 import android.service.autofill.SaveRequest
 import android.util.Log
-import android.view.autofill.AutofillId
 import android.view.autofill.AutofillManager
 import android.widget.RemoteViews
 import androidx.autofill.inline.UiVersions
@@ -48,61 +46,81 @@ import androidx.core.net.toUri
 import com.kunzisoft.keepass.R
 import com.kunzisoft.keepass.credentialprovider.TypeMode
 import com.kunzisoft.keepass.credentialprovider.activity.AutofillLauncherActivity
-import com.kunzisoft.keepass.credentialprovider.autofill.StructureParser.Companion.APPLICATION_ID_POPUP_WINDOW
-import com.kunzisoft.keepass.credentialprovider.magikeyboard.MagikeyboardService
 import com.kunzisoft.keepass.database.ContextualDatabase
 import com.kunzisoft.keepass.database.DatabaseTaskProvider
 import com.kunzisoft.keepass.database.element.DateInstant
 import com.kunzisoft.keepass.database.helper.SearchHelper
+import com.kunzisoft.keepass.events.VaultEvent
+import com.kunzisoft.keepass.events.VaultEventBus
+import com.kunzisoft.keepass.events.VaultEventBusImpl
 import com.kunzisoft.keepass.model.CreditCard
 import com.kunzisoft.keepass.model.RegisterInfo
 import com.kunzisoft.keepass.model.SearchInfo
-import com.kunzisoft.keepass.services.ClipboardEntryNotificationService
+import com.kunzisoft.keepass.plugins.ClipboardOtpPluginAdapter
+import com.kunzisoft.keepass.plugins.MagicKeyboardPluginAdapter
+import com.kunzisoft.keepass.plugins.VaultPlugin
+import com.kunzisoft.keepass.repository.CredentialRepository
+import com.kunzisoft.keepass.repository.CredentialRepositoryImpl
+import com.kunzisoft.keepass.repository.VaultRepository
+import com.kunzisoft.keepass.repository.VaultRepositoryImpl
+import com.kunzisoft.keepass.settings.AppSettingsRepository
+import com.kunzisoft.keepass.settings.AppSettingsRepositoryImpl
 import com.kunzisoft.keepass.settings.AutofillSettingsActivity
-import com.kunzisoft.keepass.settings.PreferencesUtil
 import com.kunzisoft.keepass.utils.AppUtil.randomRequestCode
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import org.joda.time.DateTime
 import org.joda.time.Instant
-
 
 class KeeAutofillService : AutofillService() {
 
     private var mDatabaseTaskProvider: DatabaseTaskProvider? = null
     private var mDatabase: ContextualDatabase? = null
-    private var autofillSuggestionsEnabled: Boolean = false
-    private var applicationIdBlocklist: Set<String>? = null
-    private var webDomainBlocklist: Set<String>? = null
-    private var askToSaveData: Boolean = false
-    private var autofillInlineSuggestionsEnabled: Boolean = false
-    private var autofillSharedToMagikeyboard: Boolean = false
-    private var switchToMagikeyboard: Boolean = false
+
+    private val eventBus: VaultEventBus = VaultEventBusImpl.instance
+    private lateinit var appSettingsRepository: AppSettingsRepository
+    private lateinit var vaultRepository: VaultRepository
+    private lateinit var credentialRepository: CredentialRepository
+
+    private var magicKeyboardPlugin: VaultPlugin? = null
+    private var clipboardOtpPlugin: VaultPlugin? = null
+    private var serviceScope: CoroutineScope? = null
 
     override fun onCreate() {
         super.onCreate()
+
+        appSettingsRepository = AppSettingsRepositoryImpl.getInstance(this)
+        vaultRepository = VaultRepositoryImpl.getInstance()
+        credentialRepository = CredentialRepositoryImpl.getInstance(vaultRepository)
+
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+        serviceScope = scope
+
+        // Decoupled side-effect plugins triggered via domain events
+        magicKeyboardPlugin = MagicKeyboardPluginAdapter(this, eventBus, appSettingsRepository).also {
+            it.start(scope)
+        }
+        clipboardOtpPlugin = ClipboardOtpPluginAdapter(this, eventBus, appSettingsRepository).also {
+            it.start(scope)
+        }
 
         mDatabaseTaskProvider = DatabaseTaskProvider(this)
         mDatabaseTaskProvider?.registerProgressTask()
         mDatabaseTaskProvider?.onDatabaseRetrieved = { database ->
             this.mDatabase = database
         }
-
-        getPreferences()
     }
 
     override fun onDestroy() {
         mDatabaseTaskProvider?.unregisterProgressTask()
+        magicKeyboardPlugin?.stop()
+        clipboardOtpPlugin?.stop()
+        serviceScope?.cancel()
+        serviceScope = null
 
         super.onDestroy()
-    }
-
-    private fun getPreferences() {
-        autofillSuggestionsEnabled = PreferencesUtil.isAutofillSuggestionsEnable(this)
-        applicationIdBlocklist = PreferencesUtil.applicationIdBlocklist(this)
-        webDomainBlocklist = PreferencesUtil.webDomainBlocklist(this)
-        askToSaveData = PreferencesUtil.askToSaveAutofillData(this)
-        autofillInlineSuggestionsEnabled = PreferencesUtil.isAutofillInlineSuggestionsEnable(this)
-        autofillSharedToMagikeyboard = PreferencesUtil.isAutofillSharedToMagikeyboardEnable(this)
-        switchToMagikeyboard = PreferencesUtil.isAutoSwitchToMagikeyboardEnable(this)
     }
 
     override fun onFillRequest(
@@ -115,8 +133,6 @@ class KeeAutofillService : AutofillService() {
             isCancelled = true
             Log.w(TAG, "Cancel autofill.")
         }
-
-        getPreferences()
 
         if (request.flags and FillRequest.FLAG_COMPATIBILITY_MODE_REQUEST != 0) {
             Log.d(TAG, "Autofill requested in compatibility mode")
@@ -134,24 +150,17 @@ class KeeAutofillService : AutofillService() {
                 webScheme = parseResult.webScheme
                 webDomain = parseResult.webDomain
             }
-            // Add the search info to the magikeyboard service
-            MagikeyboardService.addSearchInfo(
-                context = application,
-                value = searchInfo,
-                from = TypeMode.AUTOFILL
-            )
+
+            // Dispatch domain event: plugins asynchronously handle side-effects
+            eventBus.tryEmit(VaultEvent.SearchTargetIdentified(searchInfo, TypeMode.AUTOFILL))
 
             // Build search info only if applicationId or webDomain are not blocked
-            if (autofillSuggestionsEnabled && autofillAllowedFor(
-                    applicationId = parseResult.applicationId,
-                    applicationIdBlocklist = applicationIdBlocklist,
-                    webDomain = parseResult.webDomain,
-                    webDomainBlocklist = webDomainBlocklist)
-                ) {
-
+            if (appSettingsRepository.isAutofillSuggestionsEnabled &&
+                appSettingsRepository.isAutofillAllowed(parseResult.applicationId, parseResult.webDomain)
+            ) {
                 if (parseResult.isValid()) {
                     val inlineSuggestionsRequest =
-                        if (autofillInlineSuggestionsEnabled) {
+                        if (appSettingsRepository.isAutofillInlineSuggestionsEnabled) {
                             CompatInlineSuggestionsRequest(request)
                         } else {
                             null
@@ -166,21 +175,10 @@ class KeeAutofillService : AutofillService() {
                         searchInfo = searchInfo,
                         onItemsFound = { openedDatabase, items ->
                             if (isCancelled) return@checkAutoSearchInfo
-                            // Add Autofill entries to Magic Keyboard #2024 #995
-                            if (autofillSharedToMagikeyboard) {
-                                MagikeyboardService.addEntries(
-                                    context = this,
-                                    entryList = items,
-                                    autoSwitchKeyboard = switchToMagikeyboard,
-                                    from = TypeMode.AUTOFILL
-                                )
-                            } else {
-                                // Add OTP to clipboard notification #1347
-                                ClipboardEntryNotificationService.launchOtpNotificationIfAllowed(
-                                    context = this,
-                                    entries = items
-                                )
-                            }
+
+                            // Dispatch domain event: plugins handle MagicKeyboard / Clipboard OTP notifications
+                            eventBus.tryEmit(VaultEvent.CredentialsRetrieved(items, TypeMode.AUTOFILL))
+
                             callback.onSuccess(
                                 AutofillHelper.buildResponse(
                                     context = this,
@@ -224,8 +222,7 @@ class KeeAutofillService : AutofillService() {
         var success = false
         parseResult.allAutofillIds().let { autofillIds ->
             if (autofillIds.isNotEmpty()) {
-                // If the entire Autofill Response is authenticated, AuthActivity is used
-                // to generate Response.
+                // If the entire Autofill Response is authenticated, AuthActivity is used to generate Response.
                 AutofillLauncherActivity.getPendingIntentForSelection(
                     this,
                     searchInfo,
@@ -280,7 +277,7 @@ class KeeAutofillService : AutofillService() {
                     }
 
                     // Tell the autofill framework the interest to save credentials
-                    if (askToSaveData) {
+                    if (appSettingsRepository.isAskToSaveData) {
                         AutofillHelper.buildSaveInfo(parseResult)?.let { saveInfo ->
                             responseBuilder.setSaveInfo(saveInfo)
                         }
@@ -288,7 +285,7 @@ class KeeAutofillService : AutofillService() {
 
                     // Build inline presentation
                     var inlinePresentation: InlinePresentation? = null
-                    if (autofillInlineSuggestionsEnabled) {
+                    if (appSettingsRepository.isAutofillInlineSuggestionsEnabled) {
                         autofillComponent.compatInlineSuggestionsRequest
                             ?.inlineSuggestionsRequest?.let { inlineSuggestionsRequest ->
                             val inlinePresentationSpecs =
@@ -332,7 +329,6 @@ class KeeAutofillService : AutofillService() {
                     val isWebEnvironment = parseResult.isWebView || !parseResult.webDomain.isNullOrBlank()
                     // If database is already unlocked and this is a webpage where no entries matched,
                     // do not show an intrusive dropdown popup that steals focus and dismisses the keyboard!
-                    // Inline chip on keyboard is fine, but if inlinePresentation == null, only attach SaveInfo.
                     val shouldSuppressIntrusiveDropdown = database != null && isWebEnvironment && inlinePresentation == null
                     if (shouldSuppressIntrusiveDropdown) {
                         success = true
@@ -343,7 +339,6 @@ class KeeAutofillService : AutofillService() {
                     // Build response
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                         try {
-                            // Use MenuPresentation instead of DialogPresentation to avoid closing soft keyboard
                             responseBuilder.setAuthentication(
                                 autofillIds,
                                 intentSender,
@@ -391,16 +386,13 @@ class KeeAutofillService : AutofillService() {
 
     override fun onSaveRequest(request: SaveRequest, callback: SaveCallback) {
         var success = false
-        if (askToSaveData) {
+        if (appSettingsRepository.isAskToSaveData) {
             val latestStructure = request.fillContexts.last().structure
             StructureParser(latestStructure).parse(saveValue = true)?.let { parseResult ->
 
-                if (parseResult.isValid() && autofillAllowedFor(
-                        applicationId = parseResult.applicationId,
-                        applicationIdBlocklist = applicationIdBlocklist,
-                        webDomain = parseResult.webDomain,
-                        webDomainBlocklist = webDomainBlocklist)
-                    ) {
+                if (parseResult.isValid() &&
+                    appSettingsRepository.isAutofillAllowed(parseResult.applicationId, parseResult.webDomain)
+                ) {
                     Log.d(TAG, "autofill onSaveRequest password")
 
                     // Build expiration from date or from year and month
@@ -436,6 +428,9 @@ class KeeAutofillService : AutofillService() {
                         }
                     )
 
+                    // Emit domain event for saved entry
+                    eventBus.tryEmit(VaultEvent.EntrySaved(registerInfo))
+
                     AutofillLauncherActivity.getPendingIntentForRegistration(
                         this,
                         registerInfo
@@ -453,7 +448,6 @@ class KeeAutofillService : AutofillService() {
 
     override fun onConnected() {
         Log.d(TAG, "onConnected")
-        getPreferences()
     }
 
     override fun onDisconnected() {
@@ -468,40 +462,7 @@ class KeeAutofillService : AutofillService() {
             webDomain: String?,
             context: Context
         ): Boolean {
-            return autofillAllowedFor(
-                applicationId = applicationId,
-                applicationIdBlocklist = PreferencesUtil.applicationIdBlocklist(context),
-                webDomain = webDomain,
-                webDomainBlocklist = PreferencesUtil.webDomainBlocklist(context)
-            )
-        }
-
-        private fun autofillAllowedFor(
-            applicationId: String?,
-            applicationIdBlocklist: Set<String>?,
-            webDomain: String?,
-            webDomainBlocklist: Set<String>?
-        ): Boolean {
-            return autofillAllowedFor(applicationId, applicationIdBlocklist)
-                    // To prevent unrecognized autofill popup id
-                    && applicationId?.contains(APPLICATION_ID_POPUP_WINDOW) != true
-                    && autofillAllowedFor(webDomain, webDomainBlocklist)
-        }
-
-        private fun autofillAllowedFor(
-            element: String?,
-            blockList: Set<String>?
-        ): Boolean {
-            element?.let { elementNotNull ->
-                if (blockList?.any { appIdBlocked ->
-                            elementNotNull.contains(appIdBlocked)
-                        } == true
-                ) {
-                    Log.d(TAG, "Autofill not allowed for $elementNotNull")
-                    return false
-                }
-            }
-            return true
+            return AppSettingsRepositoryImpl.getInstance(context).isAutofillAllowed(applicationId, webDomain)
         }
 
         fun Context.showAutofillDeviceSettings() {

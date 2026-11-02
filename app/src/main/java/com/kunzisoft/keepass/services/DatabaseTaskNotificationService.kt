@@ -174,7 +174,7 @@ open class DatabaseTaskNotificationService : LockNotificationService(), Progress
     }
 
     fun checkDatabase() {
-        DatabaseJobManager.getInstance().checkDatabase(ContextualDatabase.getInstance())
+        DatabaseJobManager.getInstance().checkDatabase(DatabaseJobManager.getInstance().currentDatabase)
     }
 
     fun checkDatabaseInfo() {

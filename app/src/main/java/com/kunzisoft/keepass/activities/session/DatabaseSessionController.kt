@@ -323,32 +323,36 @@ class DatabaseSessionController(
     }
 
     private fun onDatabaseRetrievedInternal(db: ContextualDatabase) {
-        if (!db.loaded) {
-            activity.finish()
-            return
-        }
-
-        callback.viewToInvalidateTimeout()
-            ?.resetAppTimeoutWhenViewTouchedOrFocused(activity, db.loaded)
-
-        if (timeoutEnable) {
-            if (lockReceiver == null) {
-                lockReceiver = LockReceiver {
-                    activity.closeDatabase(db)
-                    exitLock = true
-                    activity.closeOptionsMenu()
+        if (options.enableTimeout) {
+            if (!db.loaded) {
+                if (timeoutEnable) {
                     activity.finish()
+                    return
                 }
-                activity.registerLockReceiver(lockReceiver)
             }
-            TimeoutHelper.checkTimeAndLockIfTimeout(activity)
-            if (!exitLock) {
-                TimeoutHelper.recordTime(activity, db.loaded)
-            }
-        }
 
-        databaseAllowUserVerification = db.allowUserVerification
-        checkRegister()
+            callback.viewToInvalidateTimeout()
+                ?.resetAppTimeoutWhenViewTouchedOrFocused(activity, db.loaded)
+
+            if (timeoutEnable) {
+                if (lockReceiver == null) {
+                    lockReceiver = LockReceiver {
+                        activity.closeDatabase(db)
+                        exitLock = true
+                        activity.closeOptionsMenu()
+                        activity.finish()
+                    }
+                    activity.registerLockReceiver(lockReceiver)
+                }
+                TimeoutHelper.checkTimeAndLockIfTimeout(activity)
+                if (!exitLock) {
+                    TimeoutHelper.recordTime(activity, db.loaded)
+                }
+            }
+
+            databaseAllowUserVerification = db.allowUserVerification
+            checkRegister()
+        }
         callback.onDatabaseRetrieved(db)
     }
 

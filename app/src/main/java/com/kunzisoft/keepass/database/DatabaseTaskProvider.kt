@@ -224,6 +224,10 @@ class DatabaseTaskProvider(
     }
 
     fun registerProgressTask() {
+        jobManager.addDatabaseListener(databaseListener)
+        databaseInfoListener?.let { jobManager.addDatabaseInfoListener(it) }
+        actionTaskListener?.let { jobManager.addActionTaskListener(it) }
+
         // Register a database task receiver to stop loading dialog when service finish the task
         databaseTaskBroadcastReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
@@ -253,6 +257,10 @@ class DatabaseTaskProvider(
     }
 
     fun unregisterProgressTask() {
+        actionTaskListener?.let { jobManager.removeActionTaskListener(it) }
+        databaseInfoListener?.let { jobManager.removeDatabaseInfoListener(it) }
+        jobManager.removeDatabaseListener(databaseListener)
+
         removeServiceListeners(mBinder)
         mBinder = null
 

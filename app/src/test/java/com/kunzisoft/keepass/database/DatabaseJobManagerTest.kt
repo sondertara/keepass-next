@@ -28,14 +28,19 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.yield
+import com.kunzisoft.keepass.timeout.TimeoutHelper
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
 
@@ -329,5 +334,183 @@ class DatabaseJobManagerTest {
             assertFalse(jobManager.isSavingState.value)
             assertEquals(DatabaseJobManager.DatabaseJobState.Idle, jobManager.jobState.value)
         }
+    }
+
+    @Test
+    fun taskDeduplicationCoalescesConcurrentDuplicates() = runBlocking {
+        val firstStarted = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val proceed = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val executionCount = AtomicInteger(0)
+
+        val job1 = launch {
+            jobManager.executeJob(
+                database = null,
+                actionTask = "RELOAD_ACTION",
+                isSavingAction = false,
+                deduplicate = true,
+                deduplicationKey = "DEDUP_RELOAD"
+            ) {
+                executionCount.incrementAndGet()
+                firstStarted.complete(Unit)
+                proceed.await()
+                ActionRunnable.Result(isSuccess = true, message = "SUCCESS_RESULT")
+            }
+        }
+
+        firstStarted.await()
+
+        val job2 = launch {
+            val res2 = jobManager.executeJob(
+                database = null,
+                actionTask = "RELOAD_ACTION",
+                isSavingAction = false,
+                deduplicate = true,
+                deduplicationKey = "DEDUP_RELOAD"
+            ) {
+                executionCount.incrementAndGet()
+                ActionRunnable.Result(isSuccess = true, message = "SECOND_EXECUTION")
+            }
+            assertTrue(res2.isSuccess)
+            assertEquals("SUCCESS_RESULT", res2.message)
+        }
+
+        proceed.complete(Unit)
+        job1.join()
+        job2.join()
+
+        // Deduplication must ensure taskBlock only ran ONCE
+        assertEquals(1, executionCount.get())
+        assertEquals(0, jobManager.activeJobsCount.value)
+    }
+
+    @Test
+    fun saveSerializationEnforcesMutex() = runBlocking {
+        val save1Started = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val save1Proceed = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val concurrentSavesRunning = AtomicInteger(0)
+        val maxConcurrentSaves = AtomicInteger(0)
+
+        val save1 = launch {
+            jobManager.executeJob(null, "SAVE_1", isSavingAction = true) {
+                val running = concurrentSavesRunning.incrementAndGet()
+                maxConcurrentSaves.updateAndGet { current -> maxOf(current, running) }
+                save1Started.complete(Unit)
+                save1Proceed.await()
+                concurrentSavesRunning.decrementAndGet()
+                ActionRunnable.Result(isSuccess = true)
+            }
+        }
+
+        save1Started.await()
+
+        val save2 = launch {
+            jobManager.executeJob(null, "SAVE_2", isSavingAction = true) {
+                val running = concurrentSavesRunning.incrementAndGet()
+                maxConcurrentSaves.updateAndGet { current -> maxOf(current, running) }
+                concurrentSavesRunning.decrementAndGet()
+                ActionRunnable.Result(isSuccess = true)
+            }
+        }
+
+        yield()
+        // Save 2 should be blocked waiting for Save 1 to release saveMutex
+        assertEquals(1, maxConcurrentSaves.get())
+        assertEquals(1, concurrentSavesRunning.get())
+
+        save1Proceed.complete(Unit)
+        save1.join()
+        save2.join()
+
+        // Max concurrent saves must never exceed 1
+        assertEquals(1, maxConcurrentSaves.get())
+        assertEquals(0, concurrentSavesRunning.get())
+        assertEquals(0, jobManager.savingJobsCount.value)
+        assertFalse(jobManager.isSavingState.value)
+    }
+
+    @Test
+    fun cancellationPropagatesAndCleansUpCounts() = runBlocking {
+        val started = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val job = launch {
+            try {
+                jobManager.executeJob(null, "CANCEL_ME", isSavingAction = true) {
+                    started.complete(Unit)
+                    kotlinx.coroutines.awaitCancellation()
+                }
+                fail("Should have thrown CancellationException")
+            } catch (e: CancellationException) {
+                // Expected
+            }
+        }
+
+        started.await()
+        assertEquals(1, jobManager.activeJobsCount.value)
+        assertEquals(1, jobManager.savingJobsCount.value)
+        assertTrue(jobManager.isSavingState.value)
+
+        job.cancel()
+        job.join()
+
+        // Ensure counts safely decremented despite cancellation
+        assertEquals(0, jobManager.activeJobsCount.value)
+        assertEquals(0, jobManager.savingJobsCount.value)
+        assertFalse(jobManager.isSavingState.value)
+        assertEquals(DatabaseJobManager.DatabaseJobState.Idle, jobManager.jobState.value)
+    }
+
+    @Test
+    fun timeoutSafetyAcrossMultipleMainJobs() = runBlocking {
+        TimeoutHelper.releaseTemporarilyDisableTimeout()
+        assertFalse(TimeoutHelper.temporarilyDisableLock)
+
+        val job1Proceed = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val job2Proceed = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val job1Started = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val job2Started = kotlinx.coroutines.CompletableDeferred<Unit>()
+
+        val c1 = launch {
+            jobManager.executeJob(null, "MAIN_1", isSavingAction = false, isMainAction = true) {
+                job1Started.complete(Unit)
+                job1Proceed.await()
+                ActionRunnable.Result(isSuccess = true)
+            }
+        }
+
+        job1Started.await()
+        assertTrue(TimeoutHelper.temporarilyDisableLock)
+
+        val c2 = launch {
+            jobManager.executeJob(null, "MAIN_2", isSavingAction = false, isMainAction = true) {
+                job2Started.complete(Unit)
+                job2Proceed.await()
+                ActionRunnable.Result(isSuccess = true)
+            }
+        }
+
+        job2Started.await()
+        assertTrue(TimeoutHelper.temporarilyDisableLock)
+
+        // Finish job 1 first: lock MUST remain disabled because job 2 is still running!
+        job1Proceed.complete(Unit)
+        c1.join()
+        assertTrue("Timeout must remain disabled while job 2 is running", TimeoutHelper.temporarilyDisableLock)
+
+        // Finish job 2: now lock should be re-enabled
+        job2Proceed.complete(Unit)
+        c2.join()
+        assertFalse("Timeout must be released after all jobs finish", TimeoutHelper.temporarilyDisableLock)
+    }
+
+    @Test
+    fun savingActionUpdatesDatabaseTimestamp() = runBlocking {
+        val db = ContextualDatabase.getInstance()
+        db.lastInAppSaveTimeMillis = 0L
+
+        val result = jobManager.executeJob(db, "SAVE_TIMESTAMP_TEST", isSavingAction = true) {
+            ActionRunnable.Result(isSuccess = true)
+        }
+
+        assertTrue(result.isSuccess)
+        assertTrue(db.lastInAppSaveTimeMillis > 0L)
     }
 }

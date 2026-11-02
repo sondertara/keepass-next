@@ -30,7 +30,9 @@ import com.kunzisoft.keepass.tasks.ActionRunnable
 import com.kunzisoft.keepass.tasks.ProgressTaskUpdater
 import com.kunzisoft.keepass.timeout.TimeoutHelper
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
@@ -42,7 +44,11 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Domain component managing database asynchronous background tasks,
@@ -160,6 +166,20 @@ class DatabaseJobManager(
     private val databaseListeners = CopyOnWriteArrayList<DatabaseListener>()
     private val databaseInfoListeners = CopyOnWriteArrayList<DatabaseInfoListener>()
     private val actionTaskListeners = CopyOnWriteArrayList<ActionTaskListener>()
+
+    // Task deduplication map: deduplicationKey -> Deferred<ActionRunnable.Result>
+    private val activeJobDeferreds = ConcurrentHashMap<String, Deferred<ActionRunnable.Result>>()
+
+    // Concurrency control: serialize save/write operations to prevent disk data corruption
+    private val saveMutex = Mutex()
+
+    // Concurrency control: track active main jobs to prevent premature timeout re-enabling
+    private val activeMainJobsCount = AtomicInteger(0)
+
+    // Task queue / active task identifiers
+    private val activeJobKeys = CopyOnWriteArrayList<String>()
+
+    fun getActiveJobKeys(): List<String> = activeJobKeys.toList()
 
     // Challenge-response channel
     private var responseChallengeChannel: Channel<ByteArray?>? = null
@@ -307,71 +327,111 @@ class DatabaseJobManager(
 
     /**
      * Executes an [ActionRunnable] within coroutine structured concurrency on [Dispatchers.IO],
-     * managing job counting, timeout pauses, flow transitions, and listener callbacks.
+     * managing job counting, timeout pauses, flow transitions, deduplication, and listener callbacks.
      */
     suspend fun executeAction(
         database: ContextualDatabase?,
         actionTask: String,
         isSavingAction: Boolean,
         isMainAction: Boolean = true,
+        deduplicate: Boolean = false,
+        deduplicationKey: String = actionTask,
         actionRunnable: ActionRunnable
     ): ActionRunnable.Result {
         return executeJob(
             database = database,
             actionTask = actionTask,
             isSavingAction = isSavingAction,
-            isMainAction = isMainAction
+            isMainAction = isMainAction,
+            deduplicate = deduplicate,
+            deduplicationKey = deduplicationKey
         ) {
             actionRunnable.execute()
         }
     }
 
     /**
-     * General coroutine-based job execution function with lifecycle state dispatching.
+     * General coroutine-based job execution function with lifecycle state dispatching,
+     * save serialization (via Mutex), task deduplication, and atomic timeout handling.
      */
     suspend fun executeJob(
         database: ContextualDatabase?,
         actionTask: String,
         isSavingAction: Boolean,
         isMainAction: Boolean = true,
+        deduplicate: Boolean = false,
+        deduplicationKey: String = actionTask,
         taskBlock: suspend (ProgressTaskUpdater) -> ActionRunnable.Result
     ): ActionRunnable.Result {
+        if (deduplicate) {
+            val existing = activeJobDeferreds[deduplicationKey]
+            if (existing != null) {
+                return existing.await()
+            }
+        }
+
+        val deferred = CompletableDeferred<ActionRunnable.Result>()
+        if (deduplicate) {
+            val prev = activeJobDeferreds.putIfAbsent(deduplicationKey, deferred)
+            if (prev != null) {
+                return prev.await()
+            }
+        }
+
         _activeJobsCount.value++
+        activeJobKeys.add(actionTask)
         if (isSavingAction) {
             _savingJobsCount.value++
         }
         _isSavingState.value = _savingJobsCount.value > 0
 
-        if (database != null) {
-            currentDatabase = database
-            _databaseState.value = database
-        }
-
-        if (isMainAction) {
-            try {
-                TimeoutHelper.temporarilyDisableTimeout()
-            } catch (_: Throwable) {}
-
-            _jobState.value = DatabaseJobState.Running(actionTask, isSavingAction, mProgressMessage)
-            val startedEvent = DatabaseJobEvent.Started(database, actionTask, mProgressMessage, isSavingAction)
-            _jobEvents.emit(startedEvent)
+        try {
             if (database != null) {
-                actionTaskListeners.forEach { listener ->
-                    listener.onActionStarted(database, mProgressMessage)
+                currentDatabase = database
+                _databaseState.value = database
+            }
+
+            if (isMainAction) {
+                if (activeMainJobsCount.getAndIncrement() == 0) {
+                    try {
+                        TimeoutHelper.temporarilyDisableTimeout()
+                    } catch (_: Throwable) {}
+                }
+
+                _jobState.value = DatabaseJobState.Running(actionTask, isSavingAction, mProgressMessage)
+                val startedEvent = DatabaseJobEvent.Started(database, actionTask, mProgressMessage, isSavingAction)
+                _jobEvents.emit(startedEvent)
+                if (database != null) {
+                    actionTaskListeners.forEach { listener ->
+                        listener.onActionStarted(database, mProgressMessage)
+                    }
                 }
             }
-        }
 
-        val result: ActionRunnable.Result = try {
-            taskBlock(this)
-        } catch (e: Exception) {
-            try {
-                Log.e(TAG, "Error executing job for action $actionTask", e)
-            } catch (_: Throwable) {}
-            ActionRunnable.Result(isSuccess = false, message = e.message)
-        }
+            val result: ActionRunnable.Result = try {
+                if (isSavingAction) {
+                    saveMutex.withLock {
+                        taskBlock(this)
+                    }
+                } else {
+                    taskBlock(this)
+                }
+            } catch (c: CancellationException) {
+                deferred.cancel(c)
+                throw c
+            } catch (e: Exception) {
+                try {
+                    Log.e(TAG, "Error executing job for action $actionTask", e)
+                } catch (_: Throwable) {}
+                ActionRunnable.Result(isSuccess = false, message = e.message)
+            }
 
-        try {
+            if (result.isSuccess && isSavingAction) {
+                database?.indicateUpToDateData()
+            }
+
+            deferred.complete(result)
+
             if (isMainAction) {
                 try {
                     if (result.data == null) {
@@ -388,15 +448,24 @@ class DatabaseJobManager(
                     }
                 }
             }
+
+            return result
         } finally {
+            if (deduplicate) {
+                activeJobDeferreds.remove(deduplicationKey)
+            }
+            activeJobKeys.remove(actionTask)
             if (isMainAction) {
                 if (isSavingAction) {
                     _savingJobsCount.value = (_savingJobsCount.value - 1).coerceAtLeast(0)
                 }
                 _isSavingState.value = _savingJobsCount.value > 0
-                try {
-                    TimeoutHelper.releaseTemporarilyDisableTimeout()
-                } catch (_: Throwable) {}
+                if (activeMainJobsCount.decrementAndGet() <= 0) {
+                    activeMainJobsCount.set(0)
+                    try {
+                        TimeoutHelper.releaseTemporarilyDisableTimeout()
+                    } catch (_: Throwable) {}
+                }
             }
             _activeJobsCount.value = (_activeJobsCount.value - 1).coerceAtLeast(0)
             if (_activeJobsCount.value == 0) {
@@ -408,8 +477,6 @@ class DatabaseJobManager(
                 }
             }
         }
-
-        return result
     }
 
     // ProgressTaskUpdater implementation

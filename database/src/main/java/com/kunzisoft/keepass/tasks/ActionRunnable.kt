@@ -22,6 +22,7 @@ package com.kunzisoft.keepass.tasks
 import android.os.Bundle
 import android.util.Log
 import com.kunzisoft.keepass.database.exception.DatabaseException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -41,6 +42,8 @@ abstract class ActionRunnable: Runnable {
             onStartRun()
             onActionRun()
             onFinishRun()
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (runException: Exception) {
             setError(runException)
         }

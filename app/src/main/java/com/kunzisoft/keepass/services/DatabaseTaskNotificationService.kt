@@ -52,6 +52,8 @@ import com.kunzisoft.keepass.utils.getParcelableList
 import com.kunzisoft.keepass.utils.getSerializableCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import java.io.Serializable
 
@@ -64,7 +66,7 @@ open class DatabaseTaskNotificationService : LockNotificationService(), Progress
 
     override val notificationId: Int = 575
 
-    private val mainScope = CoroutineScope(Dispatchers.Main)
+    private val mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val actionTaskBinder = ActionTaskBinder()
 
     private var taskRemovedRequested = false
@@ -112,6 +114,12 @@ open class DatabaseTaskNotificationService : LockNotificationService(), Progress
         observeJobEvents()
     }
 
+    override fun onDestroy() {
+        mainScope.cancel()
+        DatabaseJobManager.getInstance().challengeResponseRequester = null
+        super.onDestroy()
+    }
+
     private fun observeJobEvents() {
         mainScope.launch {
             DatabaseJobManager.getInstance().jobEvents.collect { event ->
@@ -129,6 +137,15 @@ open class DatabaseTaskNotificationService : LockNotificationService(), Progress
                     }
                     is DatabaseJobEvent.Finished -> {
                         sendBroadcast(Intent(DATABASE_STOP_TASK_ACTION))
+                        if (event.result.isSuccess && (event.isSavingAction || event.actionTask in listOf(
+                            ACTION_DATABASE_CREATE_TASK,
+                            ACTION_DATABASE_LOAD_TASK,
+                            ACTION_DATABASE_MERGE_TASK,
+                            ACTION_DATABASE_RELOAD_TASK,
+                            ACTION_DATABASE_ASSIGN_CREDENTIAL_TASK
+                        ))) {
+                            saveDatabaseInfo()
+                        }
                         handleJobFinished(event.isSavingAction)
                     }
                     is DatabaseJobEvent.Stopped -> {
@@ -218,13 +235,17 @@ open class DatabaseTaskNotificationService : LockNotificationService(), Progress
 
         if (actionRunnable != null) {
             mainScope.launch {
-                DatabaseJobManager.getInstance().executeAction(
-                    database = database,
-                    actionTask = intentAction ?: "",
-                    isSavingAction = isSavingAction,
-                    isMainAction = isMainAction,
-                    actionRunnable = actionRunnable
-                )
+                try {
+                    DatabaseJobManager.getInstance().executeAction(
+                        database = database,
+                        actionTask = intentAction ?: "",
+                        isSavingAction = isSavingAction,
+                        isMainAction = isMainAction,
+                        actionRunnable = actionRunnable
+                    )
+                } finally {
+                    removeIntentData(intent)
+                }
             }
         }
 
@@ -340,6 +361,34 @@ open class DatabaseTaskNotificationService : LockNotificationService(), Progress
 
     override fun benchmarking() {
         DatabaseJobManager.getInstance().benchmarking()
+    }
+
+    private fun removeIntentData(intent: Intent?) {
+        intent?.action = null
+
+        intent?.removeExtra(DATABASE_TASK_TITLE_KEY)
+        intent?.removeExtra(DATABASE_TASK_MESSAGE_KEY)
+        intent?.removeExtra(DATABASE_TASK_WARNING_KEY)
+
+        intent?.removeExtra(DATABASE_URI_KEY)
+        intent?.removeExtra(MAIN_CREDENTIAL_KEY)
+        intent?.removeExtra(READ_ONLY_KEY)
+        intent?.removeExtra(USER_VERIFICATION_KEY)
+        intent?.removeExtra(CIPHER_DATABASE_KEY)
+        intent?.removeExtra(FIX_DUPLICATE_UUID_KEY)
+        intent?.removeExtra(GROUP_KEY)
+        intent?.removeExtra(ENTRY_KEY)
+        intent?.removeExtra(GROUP_ID_KEY)
+        intent?.removeExtra(ENTRY_ID_KEY)
+        intent?.removeExtra(GROUPS_ID_KEY)
+        intent?.removeExtra(ENTRIES_ID_KEY)
+        intent?.removeExtra(PARENT_ID_KEY)
+        intent?.removeExtra(ENTRY_HISTORY_POSITION_KEY)
+        intent?.removeExtra(SAVE_DATABASE_KEY)
+        intent?.removeExtra(OLD_NODES_KEY)
+        intent?.removeExtra(NEW_NODES_KEY)
+        intent?.removeExtra(OLD_ELEMENT_KEY)
+        intent?.removeExtra(NEW_ELEMENT_KEY)
     }
 
     companion object {

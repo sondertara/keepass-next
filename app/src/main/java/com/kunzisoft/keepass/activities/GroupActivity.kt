@@ -1213,7 +1213,7 @@ class GroupActivity : DatabaseSessionActivity() {
     }
 
     private fun finishNodeAction() {
-        mGroupViewModel.finishNodeAction()
+        selectionCoordinator.clearSelection()
     }
 
     private fun launchDialogToShowGroupInfo(group: GroupInfo) {

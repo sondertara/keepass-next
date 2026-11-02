@@ -20,26 +20,37 @@
 package com.kunzisoft.keepass.activities.controllers
 
 import android.app.SearchManager
+import android.content.Context
 import android.content.Intent
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.chip.ChipGroup
 import com.kunzisoft.keepass.R
+import com.kunzisoft.keepass.activities.GroupActivity
 import com.kunzisoft.keepass.activities.fragments.SearchFragment
+import com.kunzisoft.keepass.credentialprovider.EntrySelectionHelper
 import com.kunzisoft.keepass.credentialprovider.EntrySelectionHelper.retrieveAutoSearch
 import com.kunzisoft.keepass.credentialprovider.EntrySelectionHelper.retrieveSearchInfo
+import com.kunzisoft.keepass.database.search.SearchParameters
 import com.kunzisoft.keepass.model.VaultCategory
 import com.kunzisoft.keepass.viewmodels.GroupViewModel
 import com.kunzisoft.keepass.viewmodels.SearchViewModel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * Controller for group search functionality: search fragment transactions,
- * search intent processing, tag/category filter chips, and debouncing.
+ * search intent processing, tag/category filter chips, debouncing,
+ * search history, and query parameter preparation.
  */
 class GroupSearchController(
     private val activity: AppCompatActivity,
     private val searchViewModel: SearchViewModel,
     private val groupViewModel: GroupViewModel
 ) {
+
+    private var debounceJob: Job? = null
 
     val isSearchActivated: Boolean
         get() = searchViewModel.isSearchActivated
@@ -65,6 +76,27 @@ class GroupSearchController(
                 remove(searchFragment)
             }
         }.commit()
+    }
+
+    /**
+     * Debounces search bar input queries before triggering database search operations.
+     */
+    fun debounceQuery(
+        scope: CoroutineScope,
+        query: String?,
+        delayMs: Long = 300L,
+        onDebounced: (String?) -> Unit
+    ) {
+        debounceJob?.cancel()
+        debounceJob = scope.launch {
+            delay(delayMs)
+            onDebounced(query)
+        }
+    }
+
+    fun cancelDebounce() {
+        debounceJob?.cancel()
+        debounceJob = null
     }
 
     fun setupFilterChips(chipGroup: ChipGroup?) {
@@ -113,11 +145,38 @@ class GroupSearchController(
         }
     }
 
+    /**
+     * Programmatically synchronizes the chip group with a category and flat view setting.
+     */
+    fun selectCategoryChip(chipGroup: ChipGroup?, category: VaultCategory, isFlatView: Boolean) {
+        val targetId = if (isFlatView && category == VaultCategory.ALL) {
+            R.id.chip_flat_view
+        } else {
+            when (category) {
+                VaultCategory.ALL -> R.id.chip_filter_all
+                VaultCategory.PASSWORDS -> R.id.chip_filter_passwords
+                VaultCategory.TOTP -> R.id.chip_filter_totp
+                VaultCategory.PASSKEYS -> R.id.chip_filter_passkeys
+                VaultCategory.CREDIT_CARD -> R.id.chip_filter_cards
+                VaultCategory.SECURE_NOTE -> R.id.chip_filter_notes
+                VaultCategory.EMAIL -> R.id.chip_filter_email
+                VaultCategory.WIFI -> R.id.chip_filter_wifi
+                VaultCategory.ID_CARD -> R.id.chip_filter_id_card
+                VaultCategory.BANK -> R.id.chip_filter_bank
+                VaultCategory.CRYPTOCURRENCY -> R.id.chip_filter_crypto
+            }
+        }
+        chipGroup?.check(targetId)
+    }
+
     fun manageIntent(intent: Intent?) {
         intent?.let {
             val searchInfo = if (it.retrieveAutoSearch()) it.retrieveSearchInfo() else null
             val searchQuery = if (Intent.ACTION_SEARCH == it.action)
                 it.getStringExtra(SearchManager.QUERY) else null
+            if (!searchQuery.isNullOrBlank()) {
+                addSearchHistory(activity, searchQuery)
+            }
             searchViewModel.processSearchData(searchInfo, searchQuery)
             it.action = Intent.ACTION_DEFAULT
             it.removeExtra(SearchManager.QUERY)
@@ -137,6 +196,79 @@ class GroupSearchController(
     }
 
     companion object {
-        const val SEARCH_FRAGMENT_TAG = "SEARCH_FRAGMENT_TAGE"
+        const val SEARCH_FRAGMENT_TAG = "SEARCH_FRAGMENT_TAG"
+        private const val PREFS_NAME = "keepassdx_search_history"
+        private const val KEY_SEARCH_HISTORY = "recent_queries"
+        const val MAX_HISTORY_ITEMS = 10
+
+        /**
+         * Adds a query string to persistent search history (LRU, deduplicated, capped).
+         */
+        fun addSearchHistory(context: Context, query: String) {
+            val trimmed = query.trim()
+            if (trimmed.isEmpty()) return
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val currentList = getSearchHistory(context).toMutableList()
+            currentList.remove(trimmed)
+            currentList.add(0, trimmed)
+            val capped = currentList.take(MAX_HISTORY_ITEMS)
+            prefs.edit().putString(KEY_SEARCH_HISTORY, capped.joinToString("\u0000")).apply()
+        }
+
+        /**
+         * Retrieves the list of recent search queries.
+         */
+        fun getSearchHistory(context: Context): List<String> {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val raw = prefs.getString(KEY_SEARCH_HISTORY, null) ?: return emptyList()
+            return raw.split("\u0000").filter { it.isNotBlank() }
+        }
+
+        /**
+         * Clears all saved search history.
+         */
+        fun clearSearchHistory(context: Context) {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            prefs.edit().remove(KEY_SEARCH_HISTORY).apply()
+        }
+
+        /**
+         * Prepares search parameters with target query and optional scope toggles.
+         */
+        fun prepareSearchParameters(
+            query: String?,
+            baseParameters: SearchParameters = SearchParameters(),
+            searchInTitles: Boolean = true,
+            searchInUsernames: Boolean = true,
+            searchInUrls: Boolean = true,
+            searchInNotes: Boolean = true,
+            searchInPasswords: Boolean = false,
+            searchInTags: Boolean = true
+        ): SearchParameters {
+            return baseParameters.copy().apply {
+                searchQuery = query ?: ""
+                this.searchInTitles = searchInTitles
+                this.searchInUsernames = searchInUsernames
+                this.searchInUrls = searchInUrls
+                this.searchInNotes = searchInNotes
+                this.searchInPasswords = searchInPasswords
+                this.searchInTags = searchInTags
+            }
+        }
+
+        /**
+         * Builds an intent configured for triggering search in GroupActivity.
+         */
+        fun prepareSearchIntent(
+            context: Context,
+            query: String?,
+            autoSearch: Boolean = false
+        ): Intent {
+            return Intent(context, GroupActivity::class.java).apply {
+                action = Intent.ACTION_SEARCH
+                putExtra(SearchManager.QUERY, query)
+                EntrySelectionHelper.addAutoSearch(this, autoSearch)
+            }
+        }
     }
 }

@@ -34,8 +34,8 @@ import com.kunzisoft.keepass.viewmodels.GroupViewModel
 import com.kunzisoft.keepass.viewmodels.GroupViewModel.NodeActionMode
 
 /**
- * Coordinator for contextual action mode (CAB), multi-selection state,
- * and batch operations (delete, move, copy, tagging).
+ * Coordinator for Contextual Action Mode (CAB), multi-selection state,
+ * and batch operations (delete, move, copy, paste, tagging).
  */
 class GroupSelectionCoordinator(
     private val activity: AppCompatActivity,
@@ -50,6 +50,55 @@ class GroupSelectionCoordinator(
 
     val isActionModeActive: Boolean
         get() = activeActionMode != null
+
+    val selectedNodes: List<SortedNodeInfo>
+        get() = groupViewModel.nodeActionState.value.selectedNodes
+
+    val selectedCount: Int
+        get() = selectedNodes.size
+
+    fun isNodeSelected(node: SortedNodeInfo): Boolean =
+        selectedNodes.any { it.nodeId == node.nodeId }
+
+    /**
+     * Toggles selection state of a specific node.
+     */
+    fun toggleSelection(node: SortedNodeInfo) {
+        val current = selectedNodes.toMutableList()
+        val index = current.indexOfFirst { it.nodeId == node.nodeId }
+        if (index >= 0) {
+            current.removeAt(index)
+        } else {
+            current.add(node)
+        }
+        groupViewModel.selectNodes(current)
+    }
+
+    /**
+     * Selects all nodes in the given collection.
+     */
+    fun selectAll(allNodes: List<SortedNodeInfo>) {
+        if (allNodes.isNotEmpty()) {
+            groupViewModel.selectNodes(allNodes)
+        }
+    }
+
+    /**
+     * Inverts the selection within the given collection of nodes.
+     */
+    fun invertSelection(allNodes: List<SortedNodeInfo>) {
+        val selectedIds = selectedNodes.map { it.nodeId }.toSet()
+        val inverted = allNodes.filterNot { it.nodeId in selectedIds }
+        groupViewModel.selectNodes(inverted)
+    }
+
+    /**
+     * Clears all selections and terminates the contextual action mode.
+     */
+    fun clearSelection() {
+        groupViewModel.finishNodeAction()
+        finishActionMode()
+    }
 
     private val actionModeCallback = object : ActionMode.Callback {
         override fun onCreateActionMode(mode: ActionMode?, menu: Menu?): Boolean {
@@ -120,19 +169,19 @@ class GroupSelectionCoordinator(
                     true
                 }
                 R.id.menu_copy -> {
-                    groupViewModel.onCopyNodesClicked()
+                    executeBatchCopy()
                     true
                 }
                 R.id.menu_move -> {
-                    groupViewModel.onMoveNodesClicked()
+                    executeBatchMove()
                     true
                 }
                 R.id.menu_delete -> {
-                    groupViewModel.onDeleteNodesClicked()
+                    executeBatchDelete()
                     true
                 }
                 R.id.menu_paste -> {
-                    groupViewModel.onPasteNodesClicked()
+                    executeBatchPaste()
                     true
                 }
                 else -> false
@@ -143,6 +192,34 @@ class GroupSelectionCoordinator(
             groupViewModel.onActionDestroyed()
             activeActionMode = null
         }
+    }
+
+    /**
+     * Triggers batch deletion of selected nodes.
+     */
+    fun executeBatchDelete() {
+        groupViewModel.onDeleteNodesClicked()
+    }
+
+    /**
+     * Triggers batch move (transitions to PASTE_FROM_MOVE mode).
+     */
+    fun executeBatchMove() {
+        groupViewModel.onMoveNodesClicked()
+    }
+
+    /**
+     * Triggers batch copy (transitions to PASTE_FROM_COPY mode).
+     */
+    fun executeBatchCopy() {
+        groupViewModel.onCopyNodesClicked()
+    }
+
+    /**
+     * Executes paste of previously copied or moved nodes.
+     */
+    fun executeBatchPaste() {
+        groupViewModel.onPasteNodesClicked()
     }
 
     /**
@@ -169,7 +246,7 @@ class GroupSelectionCoordinator(
     /**
      * Batch tagging: apply or append a tag to all selected entries.
      */
-    fun applyBatchTag(tag: String, nodes: List<SortedNodeInfo>) {
+    fun applyBatchTag(tag: String, nodes: List<SortedNodeInfo> = selectedNodes) {
         if (tag.isBlank()) return
         val database = getDatabase() ?: return
         if (database.isReadOnly) return
@@ -179,6 +256,58 @@ class GroupSelectionCoordinator(
                 val currentTags = node.tags.toMutableList()
                 if (!currentTags.contains(tag)) {
                     currentTags.add(tag)
+                    node.tags = currentTags
+                    onUpdateEntry?.invoke(node)
+                }
+            }
+        }
+    }
+
+    /**
+     * Batch untagging: removes a tag from all specified entries.
+     */
+    fun removeBatchTag(tag: String, nodes: List<SortedNodeInfo> = selectedNodes) {
+        if (tag.isBlank()) return
+        val database = getDatabase() ?: return
+        if (database.isReadOnly) return
+
+        nodes.forEach { node ->
+            if (node is EntryInfo) {
+                val currentTags = node.tags.toMutableList()
+                if (currentTags.remove(tag)) {
+                    node.tags = currentTags
+                    onUpdateEntry?.invoke(node)
+                }
+            }
+        }
+    }
+
+    /**
+     * Batch tag modifier: adds and/or removes tags across selected entries.
+     */
+    fun batchTagEntries(
+        tagsToAdd: Set<String> = emptySet(),
+        tagsToRemove: Set<String> = emptySet(),
+        nodes: List<SortedNodeInfo> = selectedNodes
+    ) {
+        if (tagsToAdd.isEmpty() && tagsToRemove.isEmpty()) return
+        val database = getDatabase() ?: return
+        if (database.isReadOnly) return
+
+        nodes.forEach { node ->
+            if (node is EntryInfo) {
+                val currentTags = node.tags.toMutableList()
+                var modified = false
+                tagsToRemove.forEach { toRemove ->
+                    if (currentTags.remove(toRemove)) modified = true
+                }
+                tagsToAdd.forEach { toAdd ->
+                    if (toAdd.isNotBlank() && !currentTags.contains(toAdd)) {
+                        currentTags.add(toAdd)
+                        modified = true
+                    }
+                }
+                if (modified) {
                     node.tags = currentTags
                     onUpdateEntry?.invoke(node)
                 }

@@ -68,13 +68,19 @@ abstract class DatabaseSessionActivity : StylishActivity(), DatabaseSessionHolde
 
     override fun showDatabaseDialog(): Boolean = true
 
-    override fun finishActivityIfReloadRequested(): Boolean = false
+    override fun finishActivityIfReloadRequested(): Boolean =
+        sessionController.options.finishActivityIfReloadRequested
 
-    override fun manageDatabaseInfo(): Boolean = true
+    override fun manageDatabaseInfo(): Boolean =
+        sessionController.options.manageDatabaseInfo
 
     override fun hideHomeButtonIfModeIsNotDefault(): Boolean = true
 
     override fun onDatabaseBackPressed() {
-        finish()
+        if (sessionController.specialMode != com.kunzisoft.keepass.credentialprovider.SpecialMode.DEFAULT) {
+            sessionController.onCancelSpecialMode()
+        } else {
+            finish()
+        }
     }
 }

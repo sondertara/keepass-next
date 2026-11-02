@@ -202,12 +202,14 @@ class DatabaseSessionController(
     override fun onCreate(owner: LifecycleOwner) {
         exitLock = false
 
-        if (options.enableSpecialMode) {
+        if (options.enableSpecialMode || options.enableTimeout) {
             activity.onBackPressedDispatcher.addCallback(activity, object : OnBackPressedCallback(true) {
                 override fun handleOnBackPressed() {
                     handleDatabaseBackPressed()
                 }
             })
+        }
+        if (options.enableSpecialMode) {
             activity.intent?.let {
                 specialMode = it.retrieveSpecialMode()
                 typeMode = it.retrieveTypeMode()
@@ -232,7 +234,7 @@ class DatabaseSessionController(
                             when (uiState) {
                                 is DatabaseViewModel.ActionState.Wait -> {}
                                 is DatabaseViewModel.ActionState.OnDatabaseReloaded -> {
-                                    if (callback.finishActivityIfReloadRequested()) {
+                                    if (options.finishActivityIfReloadRequested || callback.finishActivityIfReloadRequested()) {
                                         activity.finish()
                                     }
                                 }
@@ -309,7 +311,7 @@ class DatabaseSessionController(
         // Database retrieval timeout guard
         if (options.timeoutRetrievalGuard) {
             activity.lifecycleScope.launch {
-                if (callback.finishActivityIfReloadRequested()) {
+                if (options.finishActivityIfReloadRequested || callback.finishActivityIfReloadRequested()) {
                     delay(3000)
                     if (database?.loaded != true) {
                         Log.w(TAG, "Database not loaded after 3 seconds, finishing activity")
@@ -426,6 +428,11 @@ class DatabaseSessionController(
     override fun onDestroy(owner: LifecycleOwner) {
         activity.unregisterLockReceiver(lockReceiver)
         lockReceiver = null
+        toolbarSpecial = null
+        progressTaskDialogFragment?.dismissAllowingStateLoss()
+        progressTaskDialogFragment = null
+        databaseChangedDialogFragment?.dismissAllowingStateLoss()
+        databaseChangedDialogFragment = null
     }
 
     private fun setupSpecialModeToolbar(registerInfo: RegisterInfo?, searchInfo: SearchInfo?) {
@@ -549,11 +556,7 @@ class DatabaseSessionController(
     }
 
     private fun executeBackPressedInternal() {
-        if (specialMode != SpecialMode.DEFAULT) {
-            onCancelSpecialMode()
-        } else {
-            callback.onDatabaseBackPressed()
-        }
+        callback.onDatabaseBackPressed()
     }
 
     private fun checkRegister() {

@@ -26,19 +26,6 @@ import com.kunzisoft.keepass.database.element.template.TemplateBuilder
 import com.kunzisoft.keepass.database.element.template.TemplateField
 import com.kunzisoft.keepass.otp.OtpEntryFields
 
-enum class VaultCategory {
-    ALL,
-    PASSWORDS,
-    TOTP,
-    PASSKEYS,
-    CREDIT_CARD,
-    SECURE_NOTE,
-    EMAIL,
-    WIFI,
-    ID_CARD,
-    BANK,
-    CRYPTOCURRENCY
-}
 
 /**
  * Filter and flattener for vault entries aligned with the 10 official templates.

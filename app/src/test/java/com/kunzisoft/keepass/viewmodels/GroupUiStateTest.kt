@@ -12,7 +12,7 @@ class GroupUiStateTest {
 
     @Test
     fun defaultGroupUiStateProperties() {
-        val state = GroupViewModel.GroupUiState()
+        val state = GroupUiState()
         assertFalse(state.loaded)
         assertNull(state.breadcrumbs)
         assertNull(state.group)
@@ -29,7 +29,7 @@ class GroupUiStateTest {
 
     @Test
     fun copyWithUpdatedCategoryAndFlatView() {
-        val initial = GroupViewModel.GroupUiState()
+        val initial = GroupUiState()
         val updated = initial.copy(
             loaded = true,
             vaultCategory = VaultCategory.PASSKEYS,
@@ -42,19 +42,27 @@ class GroupUiStateTest {
 
     @Test
     fun nodeActionStateTransitions() {
-        val actionState = GroupViewModel.NodeActionState(
+        val actionState = NodeActionState(
             isActive = true,
-            nodeActionMode = GroupViewModel.NodeActionMode.SELECTION,
+            nodeActionMode = NodeActionMode.SELECTION,
             selectedNodes = emptyList()
         )
-        val uiState = GroupViewModel.GroupUiState(nodeActionState = actionState)
+        val uiState = GroupUiState(nodeActionState = actionState)
         assertTrue(uiState.nodeActionState.isActive)
-        assertEquals(GroupViewModel.NodeActionMode.SELECTION, uiState.nodeActionState.nodeActionMode)
+        assertEquals(NodeActionMode.SELECTION, uiState.nodeActionState.nodeActionMode)
     }
 
     @Test
-    fun backwardCompatibilityTypealias() {
-        val aliasState: GroupViewModel.GroupUISTate = GroupViewModel.GroupUiState(loaded = true)
-        assertTrue(aliasState.loaded)
+    fun copyAndImmutabilityPreservation() {
+        val original = GroupUiState(loaded = false, vaultCategory = VaultCategory.ALL)
+        val modified = original.copy(loaded = true, vaultCategory = VaultCategory.BANK)
+
+        // Original remains unchanged
+        assertFalse(original.loaded)
+        assertEquals(VaultCategory.ALL, original.vaultCategory)
+
+        // Modified has updated values
+        assertTrue(modified.loaded)
+        assertEquals(VaultCategory.BANK, modified.vaultCategory)
     }
 }

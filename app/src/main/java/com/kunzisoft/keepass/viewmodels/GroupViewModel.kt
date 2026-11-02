@@ -599,11 +599,7 @@ class GroupViewModel(application: Application): AndroidViewModel(application) {
         }
     }
 
-    data class NodeActionState(
-        val isActive: Boolean = false,
-        val nodeActionMode: NodeActionMode? = null,
-        val selectedNodes: List<SortedNodeInfo> = emptyList()
-    )
+    typealias NodeActionState = com.kunzisoft.keepass.viewmodels.NodeActionState
 
     sealed class GroupEvent {
         object RemoveNodeAction : GroupEvent()
@@ -628,21 +624,8 @@ class GroupViewModel(application: Application): AndroidViewModel(application) {
         val isRecycleBin: Boolean
     )
 
-    data class GroupUiState(
-        val loaded: Boolean = false,
-        val breadcrumbs: List<SortedGroupInfo>? = null,
-        val group: GroupInfo? = null,
-        val children: List<SortedNodeInfo>? = null,
-        val showAddNodeButton: Boolean = false,
-        val showAddGroupButton: Boolean = false,
-        val showAddEntryButton: Boolean = false,
-        val vaultCategory: VaultCategory = VaultCategory.ALL,
-        val isFlatView: Boolean = false,
-        val nodeActionState: NodeActionState = NodeActionState(),
-        val isRecycleBin: Boolean = false
-    )
-
-    typealias GroupUISTate = GroupUiState
+    typealias GroupUiState = com.kunzisoft.keepass.viewmodels.GroupUiState
+    typealias GroupUISTate = com.kunzisoft.keepass.viewmodels.GroupUiState
 
     data class GroupState(
         var groupId: GroupId?,
@@ -662,9 +645,7 @@ class GroupViewModel(application: Application): AndroidViewModel(application) {
         val sortDatabaseParameters: SortNodeEnum.SortDatabaseParameters? = null
     )
 
-    enum class NodeActionMode {
-        SELECTION, PASTE_FROM_COPY, PASTE_FROM_MOVE
-    }
+    typealias NodeActionMode = com.kunzisoft.keepass.viewmodels.NodeActionMode
 
     companion object {
         private val TAG = GroupViewModel::class.java.name

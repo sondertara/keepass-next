@@ -19,36 +19,51 @@
 -->
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
-    <group android:id="@+id/group_merge">
-        <item android:id="@+id/menu_import_vault"
-            android:icon="@drawable/ic_file_download_white_24dp"
-            android:title="@string/menu_import_vault"
-            android:orderInCategory="79"
-            app:iconTint="?attr/colorControlNormal"
-            app:showAsAction="ifRoom" />
-        <item android:id="@+id/menu_deduplication"
-            android:icon="@drawable/ic_list_white_24dp"
-            android:title="@string/menu_deduplication"
-            android:orderInCategory="79"
-            app:iconTint="?attr/colorControlNormal"
-            app:showAsAction="ifRoom" />
-        <item android:id="@+id/menu_merge_from"
-            android:icon="@drawable/ic_merge_from_white_24dp"
-            android:title="@string/menu_merge_from"
-            android:orderInCategory="80"
-            app:iconTint="?attr/colorControlNormal"
-            app:showAsAction="ifRoom" />
-        <item android:id="@+id/menu_save_copy_to"
-            android:icon="@drawable/ic_save_copy_to_white_24dp"
-            android:title="@string/menu_save_copy_to"
-            android:orderInCategory="81"
-            app:iconTint="?attr/colorControlNormal"
-            app:showAsAction="ifRoom" />
+
+    <group android:id="@+id/group_vault_session">
+        <item android:id="@+id/menu_switch_database"
+            android:icon="@drawable/ic_folder_white_24dp"
+            android:title="@string/menu_database_switch_title"
+            app:iconTint="?attr/colorControlNormal" />
         <item android:id="@+id/menu_lock_all"
             android:icon="@drawable/ic_lock_white_24dp"
             android:title="@string/lock"
-            android:orderInCategory="82"
-            app:iconTint="?attr/colorControlNormal"
-            app:showAsAction="ifRoom" />
+            app:iconTint="?attr/colorControlNormal" />
     </group>
+
+    <item android:id="@+id/menu_section_tools"
+        android:title="@string/nav_group_tools">
+        <menu>
+            <item android:id="@+id/menu_import_vault"
+                android:icon="@drawable/ic_file_download_white_24dp"
+                android:title="@string/menu_import_vault"
+                app:iconTint="?attr/colorControlNormal" />
+            <item android:id="@+id/menu_deduplication"
+                android:icon="@drawable/ic_list_white_24dp"
+                android:title="@string/menu_deduplication"
+                app:iconTint="?attr/colorControlNormal" />
+            <item android:id="@+id/menu_save_copy_to"
+                android:icon="@drawable/ic_save_copy_to_white_24dp"
+                android:title="@string/menu_save_copy_to"
+                app:iconTint="?attr/colorControlNormal" />
+            <item android:id="@+id/menu_merge_from"
+                android:icon="@drawable/ic_merge_from_white_24dp"
+                android:title="@string/menu_merge_from"
+                app:iconTint="?attr/colorControlNormal" />
+        </menu>
+    </item>
+
+    <item android:id="@+id/menu_section_system"
+        android:title="@string/nav_group_system">
+        <menu>
+            <item android:id="@+id/menu_app_settings"
+                android:icon="@drawable/ic_settings_white_24dp"
+                android:title="@string/settings"
+                app:iconTint="?attr/colorControlNormal" />
+            <item android:id="@+id/menu_about"
+                android:icon="@drawable/ic_help_white_24dp"
+                android:title="@string/about"
+                app:iconTint="?attr/colorControlNormal" />
+        </menu>
+    </item>
 </menu>

@@ -27,21 +27,13 @@
             android:title="@string/set_credential_provider_service_title"
             android:defaultValue="@bool/settings_credential_provider_enable_default"/>
         <Preference
-            android:key="@string/passkeys_explanation_key"
-            android:icon="@drawable/prefs_info_24dp"
-            android:summary="@string/passkeys_explanation_summary"/>
-        <Preference
             android:key="@string/settings_passkeys_key"
-            android:dependency="@string/settings_credential_provider_enable_key"
-            android:title="@string/passkeys_preference_title" />
-        <Preference
-            android:key="@string/autofill_explanation_key"
-            android:icon="@drawable/prefs_info_24dp"
-            android:summary="@string/autofill_explanation_summary"/>
+            android:title="@string/passkeys_preference_title"
+            android:summary="@string/passkeys_explanation_summary" />
         <Preference
             android:key="@string/settings_autofill_key"
-            android:dependency="@string/settings_credential_provider_enable_key"
-            android:title="@string/autofill_preference_title" />
+            android:title="@string/autofill_preference_title"
+            android:summary="@string/autofill_explanation_summary" />
         <SwitchPreferenceCompat
             android:key="@string/autofill_share_magikeyboard_key"
             android:title="@string/autofill_share_magikeyboard_title"
@@ -51,13 +43,10 @@
 
     <PreferenceCategory
         android:title="@string/keyboard">
-        <Preference
-            android:key="@string/magic_keyboard_explanation_key"
-            android:icon="@drawable/prefs_info_24dp"
-            android:summary="@string/magic_keyboard_explanation_summary"/>
         <SwitchPreferenceCompat
             android:key="@string/magic_keyboard_key"
-            android:title="@string/device_keyboard_setting_title" />
+            android:title="@string/device_keyboard_setting_title"
+            android:summary="@string/magic_keyboard_explanation_summary" />
         <Preference
             android:key="@string/magic_keyboard_preference_key"
             android:dependency="@string/magic_keyboard_key"
@@ -80,10 +69,6 @@
 
     <PreferenceCategory
         android:title="@string/clipboard">
-        <Preference
-            android:key="@string/clipboard_explanation_key"
-            android:icon="@drawable/prefs_info_24dp"
-            android:summary="@string/clipboard_explanation_summary"/>
         <com.kunzisoft.keepass.settings.preference.DurationDialogPreference
             android:key="@string/clipboard_timeout_key"
             android:title="@string/clipboard_timeout"

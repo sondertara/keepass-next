@@ -324,18 +324,14 @@ class GroupActivity : VaultSessionActivity() {
 
         // Menu in drawer
         databaseNavView?.apply {
-            inflateMenu(R.menu.settings)
             inflateMenu(R.menu.database_extra)
-            inflateMenu(R.menu.about)
-            inflateMenu(R.menu.contribute)
             setNavigationItemSelectedListener { menuItem ->
                 when (menuItem.itemId) {
-                    R.id.menu_qr_scan -> {
-                        mScanOtpLauncher.launch(Intent(this@GroupActivity, QrScanActivity::class.java))
+                    R.id.menu_switch_database -> {
+                        FileDatabaseSelectActivity.launchForManage(this@GroupActivity)
                     }
-                    R.id.menu_app_settings -> {
-                        // To avoid flickering when launch settings in a LockingActivity
-                        SettingsActivity.launch(this@GroupActivity, true)
+                    R.id.menu_lock_all -> {
+                        lockAndExit()
                     }
                     R.id.menu_import_vault -> {
                         val currentGroupId = mGroupViewModel.mainGroup?.nodeId ?: mDatabase?.rootGroup?.nodeId
@@ -343,20 +339,6 @@ class GroupActivity : VaultSessionActivity() {
                     }
                     R.id.menu_deduplication -> {
                         DeduplicationActivity.launch(this@GroupActivity)
-                    }
-                    R.id.menu_merge_from -> {
-                        if (mDatabaseAllowUserVerification) {
-                            checkUserVerification(
-                                userVerificationViewModel = mUserVerificationViewModel,
-                                dataToVerify = UserVerificationData(
-                                    actionType = UserVerificationActionType.MERGE_FROM_DATABASE,
-                                    database = mDatabase
-                                )
-                            )
-                        } else {
-                            // Open document picker directly without verification
-                            openFile(openDatabaseToMergeFileResultLauncher)
-                        }
                     }
                     R.id.menu_save_copy_to -> {
                         if (mDatabaseAllowUserVerification) {
@@ -368,20 +350,30 @@ class GroupActivity : VaultSessionActivity() {
                                 )
                             )
                         } else {
-                            // Create document directly without verification
                             createDatabaseBackupFile()
                         }
                     }
-                    R.id.menu_lock_all -> {
-                        lockAndExit()
+                    R.id.menu_merge_from -> {
+                        if (mDatabaseAllowUserVerification) {
+                            checkUserVerification(
+                                userVerificationViewModel = mUserVerificationViewModel,
+                                dataToVerify = UserVerificationData(
+                                    actionType = UserVerificationActionType.MERGE_FROM_DATABASE,
+                                    database = mDatabase
+                                )
+                            )
+                        } else {
+                            openFile(openDatabaseToMergeFileResultLauncher)
+                        }
                     }
-                    R.id.menu_contribute -> {
-                        this@GroupActivity.openContributionLink()
+                    R.id.menu_app_settings -> {
+                        SettingsActivity.launch(this@GroupActivity, true)
                     }
                     R.id.menu_about -> {
                         startActivity(Intent(this@GroupActivity, AboutActivity::class.java))
                     }
                 }
+                drawerLayout?.closeDrawer(GravityCompat.START)
                 false
             }
         }
@@ -1290,16 +1282,15 @@ class GroupActivity : VaultSessionActivity() {
         databaseNavView?.apply {
             //  depending on current mode
             val modeCondition = mSpecialMode == SpecialMode.DEFAULT
-            menu.findItem(R.id.menu_app_settings)?.isVisible = modeCondition
-            menu.findItem(R.id.menu_import_vault)?.isVisible = (mDatabase?.isReadOnly == false) && modeCondition
-            menu.findItem(R.id.menu_deduplication)?.isVisible = (mDatabase?.isReadOnly == false) && modeCondition
-            menu.findItem(R.id.menu_merge_from)?.isVisible = mGroupViewModel.mergeFromDatabaseActionAllowed() && modeCondition
+            val isEditable = (mDatabase?.isReadOnly == false) && modeCondition
+            menu.findItem(R.id.menu_switch_database)?.isVisible = modeCondition
+            menu.findItem(R.id.menu_lock_all)?.isVisible = modeCondition
+            menu.findItem(R.id.menu_import_vault)?.isVisible = isEditable
+            menu.findItem(R.id.menu_deduplication)?.isVisible = isEditable
             menu.findItem(R.id.menu_save_copy_to)?.isVisible = mGroupViewModel.copyToDatabaseActionAllowed() && modeCondition
+            menu.findItem(R.id.menu_merge_from)?.isVisible = mGroupViewModel.mergeFromDatabaseActionAllowed() && modeCondition
+            menu.findItem(R.id.menu_app_settings)?.isVisible = modeCondition
             menu.findItem(R.id.menu_about)?.isVisible = modeCondition
-            menu.findItem(R.id.menu_contribute)?.apply {
-                title = getString(if (BuildConfig.CLOSED_STORE) R.string.get_keepro else R.string.contribute)
-                isVisible = !context.isContributingUser() && modeCondition
-            }
         }
     }
 

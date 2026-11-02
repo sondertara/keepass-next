@@ -22,16 +22,13 @@ package com.kunzisoft.keepass.settings
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
-import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.DialogFragment
 import androidx.fragment.app.FragmentActivity
 import androidx.preference.ListPreference
 import androidx.preference.Preference
 import androidx.preference.TwoStatePreference
-import com.kunzisoft.keepass.BuildConfig
 import com.kunzisoft.keepass.R
-import com.kunzisoft.keepass.activities.dialogs.ProFeatureDialogFragment
 import com.kunzisoft.keepass.activities.dialogs.UnavailableFeatureDialogFragment
 import com.kunzisoft.keepass.activities.stylish.Stylish
 import com.kunzisoft.keepass.app.database.FileDatabaseHistoryAction
@@ -40,12 +37,9 @@ import com.kunzisoft.keepass.credentialprovider.autofill.KeeAutofillService.Comp
 import com.kunzisoft.keepass.credentialprovider.autofill.isCredentialProviderActivated
 import com.kunzisoft.keepass.credentialprovider.magikeyboard.MagikeyboardService.Companion.isMagikeyboardActivated
 import com.kunzisoft.keepass.credentialprovider.magikeyboard.MagikeyboardService.Companion.showKeyboardDeviceSettings
-import com.kunzisoft.keepass.education.Education
 import com.kunzisoft.keepass.icons.IconPackChooser
 import com.kunzisoft.keepass.settings.preference.IconPackListPreference
 import com.kunzisoft.keepass.settings.preferencedialogfragment.DurationDialogFragmentCompat
-import com.kunzisoft.keepass.utils.AppUtil.isContributingUser
-import com.kunzisoft.keepass.utils.UriUtil.openUrl
 import com.kunzisoft.keepass.utils.UriUtil.releaseAllUnnecessaryPermissionUris
 
 
@@ -116,19 +110,12 @@ class NestedAppSettingsFragment : NestedSettingsFragment() {
 
         // Hide Passkeys settings if needed
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            findPreference<Preference>(getString(R.string.passkeys_explanation_key))
-                ?.isVisible = false
             findPreference<Preference>(getString(R.string.settings_passkeys_key))
                 ?.isVisible = false
         }
 
         findPreference<TwoStatePreference>(getString(R.string.settings_credential_provider_enable_key))?.setOnPreferenceClickListener {
             context?.showAutofillDeviceSettings()
-            false
-        }
-
-        findPreference<Preference>(getString(R.string.magic_keyboard_explanation_key))?.setOnPreferenceClickListener {
-            context?.openUrl(R.string.magic_keyboard_explanation_url)
             false
         }
 
@@ -143,29 +130,14 @@ class NestedAppSettingsFragment : NestedSettingsFragment() {
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            findPreference<Preference>(getString(R.string.passkeys_explanation_key))?.setOnPreferenceClickListener {
-                context?.openUrl(R.string.passkeys_explanation_url)
-                false
-            }
-
             findPreference<Preference>(getString(R.string.settings_passkeys_key))?.setOnPreferenceClickListener {
                 startActivity(Intent(context, PasskeysSettingsActivity::class.java))
                 false
             }
         }
 
-        findPreference<Preference>(getString(R.string.autofill_explanation_key))?.setOnPreferenceClickListener {
-            context?.openUrl(R.string.autofill_explanation_url)
-            false
-        }
-
         findPreference<Preference>(getString(R.string.settings_autofill_key))?.setOnPreferenceClickListener {
             startActivity(Intent(context, AutofillSettingsActivity::class.java))
-            false
-        }
-
-        findPreference<Preference>(getString(R.string.clipboard_explanation_key))?.setOnPreferenceClickListener {
-            context?.openUrl(R.string.clipboard_explanation_url)
             false
         }
 
@@ -315,11 +287,6 @@ class NestedAppSettingsFragment : NestedSettingsFragment() {
                 deleteKeysFingerprints?.isEnabled = false
             }
         }
-
-        findPreference<Preference>(getString(R.string.device_unlock_explanation_key))?.setOnPreferenceClickListener {
-            context?.openUrl(R.string.device_unlock_explanation_url)
-            false
-        }
     }
 
     private fun warningMessage(activity: FragmentActivity,
@@ -358,27 +325,13 @@ class NestedAppSettingsFragment : NestedSettingsFragment() {
 
         activity?.let { activity ->
             findPreference<ListPreference>(getString(R.string.setting_style_key))?.setOnPreferenceChangeListener { _, newValue ->
-                var styleEnabled = true
                 val styleIdString = newValue as String
-                if (!activity.isContributingUser()) {
-                    for (themeIdDisabled in BuildConfig.STYLES_DISABLED) {
-                        if (themeIdDisabled == styleIdString) {
-                            styleEnabled = false
-                            ProFeatureDialogFragment().show(
-                                parentFragmentManager,
-                                "pro_feature_dialog"
-                            )
-                        }
-                    }
+                Stylish.assignStyle(activity, styleIdString)
+                // Relaunch the current activity to redraw theme
+                (activity as? SettingsActivity?)?.apply {
+                    reloadActivity()
                 }
-                if (styleEnabled) {
-                    Stylish.assignStyle(activity, styleIdString)
-                    // Relaunch the current activity to redraw theme
-                    (activity as? SettingsActivity?)?.apply {
-                        reloadActivity()
-                    }
-                }
-                styleEnabled
+                true
             }
 
             findPreference<ListPreference>(getString(R.string.setting_style_brightness_key))?.setOnPreferenceChangeListener { _, _ ->
@@ -389,38 +342,9 @@ class NestedAppSettingsFragment : NestedSettingsFragment() {
             }
 
             findPreference<IconPackListPreference>(getString(R.string.setting_icon_pack_choose_key))?.setOnPreferenceChangeListener { _, newValue ->
-                var iconPackEnabled = true
                 val iconPackId = newValue as String
-                if (!activity.isContributingUser()) {
-                    for (iconPackIdDisabled in BuildConfig.ICON_PACKS_DISABLED) {
-                        if (iconPackIdDisabled == iconPackId) {
-                            iconPackEnabled = false
-                            ProFeatureDialogFragment().show(
-                                parentFragmentManager,
-                                "pro_feature_dialog"
-                            )
-                        }
-                    }
-                }
-                if (iconPackEnabled) {
-                    IconPackChooser.setSelectedIconPack(iconPackId)
-                }
-                iconPackEnabled
-            }
-
-            findPreference<Preference>(getString(R.string.reset_education_screens_key))?.setOnPreferenceClickListener {
-                // To allow only one toast
-                if (mCount == 0) {
-                    val sharedPreferences = Education.getEducationSharedPreferences(activity)
-                    val editor = sharedPreferences.edit()
-                    for (resourceId in Education.educationResourcesKeys) {
-                        editor.putBoolean(getString(resourceId), false)
-                    }
-                    editor.apply()
-                    Toast.makeText(context, R.string.reset_education_screens_text, Toast.LENGTH_SHORT).show()
-                }
-                mCount++
-                false
+                IconPackChooser.setSelectedIconPack(iconPackId)
+                true
             }
         }
     }
@@ -441,9 +365,7 @@ class NestedAppSettingsFragment : NestedSettingsFragment() {
             getString(R.string.show_otp_token_key),
             getString(R.string.show_uuid_key),
             getString(R.string.list_size_key),
-            getString(R.string.monospace_font_fields_enable_key),
-            getString(R.string.enable_education_screens_key),
-            getString(R.string.reset_education_screens_key) -> {
+            getString(R.string.monospace_font_fields_enable_key) -> {
                 DATABASE_PREFERENCE_CHANGED = true
             }
         }
@@ -501,16 +423,6 @@ class NestedAppSettingsFragment : NestedSettingsFragment() {
     override fun onPause() {
         warningAlertDialog?.dismiss()
         super.onPause()
-    }
-
-    private var mCount = 0
-    override fun onStop() {
-        super.onStop()
-        activity?.let { activity ->
-            if (mCount == 10 && !BuildConfig.CLOSED_STORE) {
-                Education.setEducationScreenReclickedPerformed(activity)
-            }
-        }
     }
 
     companion object {

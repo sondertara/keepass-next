@@ -26,25 +26,4 @@
         android:icon="@drawable/prefs_autorenew_24dp"
         android:persistent="false" />
 
-    <PreferenceCategory
-        android:title="@string/master_key">
-
-        <com.kunzisoft.keepass.settings.preference.InputTextPreference
-            android:key="@string/settings_database_recommend_changing_master_key_key"
-            android:title="@string/settings_database_recommend_changing_master_key_title"
-            android:enabled="false"
-            android:persistent="false" />
-        <com.kunzisoft.keepass.settings.preference.InputTextPreference
-            android:key="@string/settings_database_force_changing_master_key_key"
-            android:title="@string/settings_database_force_changing_master_key_title"
-            android:enabled="false"
-            android:persistent="false" />
-        <com.kunzisoft.keepass.settings.preference.InputTextPreference
-            android:key="@string/settings_database_force_changing_master_key_next_time_key"
-            android:title="@string/settings_database_force_changing_master_key_next_time_title"
-            android:enabled="false"
-            android:persistent="false" />
-
-    </PreferenceCategory>
-
 </PreferenceScreen>

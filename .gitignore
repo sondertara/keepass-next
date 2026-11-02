@@ -94,3 +94,7 @@ releases/*
 
 # Local scripts
 scripts/*
+
+# MCP codegraph
+.codegraph/
+

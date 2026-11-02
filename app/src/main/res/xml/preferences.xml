@@ -51,12 +51,6 @@
 		android:key="@string/settings_database_category_key"
 		android:title="@string/database">
 		<Preference
-			android:key="@string/settings_database_switch_key"
-			android:title="@string/menu_database_switch_title"
-			android:icon="@drawable/prefs_folder_24dp"
-			android:summary="@string/menu_database_switch_summary"
-			android:persistent="false" />
-		<Preference
 			android:key="@string/settings_database_key"
 			android:title="@string/menu_database_settings"
 			android:icon="@drawable/prefs_data_usage_24dp"

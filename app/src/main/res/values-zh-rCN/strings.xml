@@ -27,7 +27,7 @@
     <string name="app_timeout">超时设置</string>
     <string name="app_timeout_summary">锁定数据库前的空闲时间</string>
     <string name="application">应用</string>
-    <string name="menu_app_settings">应用设置</string>
+    <string name="menu_app_settings">应用与数据管理</string>
     <string name="brackets">括号</string>
     <string name="file_manager_install_description">需要一款接受意图操作 ACTION_CREATE_DOCUMENT 和 ACTION_OPEN_DOCUMENT 的文件管理器来创建、打开和保存数据库文件。</string>
     <string name="clipboard_cleared">剪贴板已清空</string>
@@ -139,7 +139,7 @@
     <string name="keyfile_is_empty">密钥文件为空。</string>
     <string name="list_entries_show_username_title">显示用户名</string>
     <string name="list_entries_show_username_summary">在条目列表上显示用户名</string>
-    <string name="menu_form_filling_settings">表单填充</string>
+    <string name="menu_form_filling_settings">通行密钥与自动填充</string>
     <string name="menu_copy">复制</string>
     <string name="menu_move">移动</string>
     <string name="menu_paste">粘贴</string>
@@ -325,7 +325,7 @@
     <string name="content_description_update_from_list">更新</string>
     <string name="content_description_keyboard_close_fields">关闭字段</string>
     <string name="error_create_database_file">无法使用此密码和密钥文件创建数据库。</string>
-    <string name="menu_device_unlock_settings">设备解锁</string>
+    <string name="menu_device_unlock_settings">安全与设备解锁</string>
     <string name="biometric">生物识别</string>
     <string name="biometric_auto_open_prompt_title">自动打开提示</string>
     <string name="biometric_auto_open_prompt_summary">如数据库设置为使用设备解锁，自动请求使用它</string>
@@ -597,8 +597,8 @@
     <string name="custom_data">自定义数据</string>
     <string name="current_group">当前分组</string>
     <string name="regex">正则表达式</string>
-    <string name="menu_merge_from">合并自…</string>
-    <string name="menu_save_copy_to">保存副本到…</string>
+    <string name="menu_merge_from">从其他密码库合并…</string>
+    <string name="menu_save_copy_to">导出备份副本…</string>
     <string name="inherited">继承</string>
     <string name="content_description_nav_header">导航标题</string>
     <string name="navigation_drawer_close">导航抽屉关闭</string>
@@ -654,9 +654,9 @@
     <string name="screenshot_mode_banner_text">截屏模式</string>
     <string name="html_about_privacy">&lt;strong&gt;不获取用户数据&lt;/strong&gt;，此应用不连接任何服务器，仅在本地运行，并充分尊重用户的隐私。</string>
     <string name="merge_success">合并成功完成</string>
-    <string name="menu_app_settings_summary">搜索、锁定、历史记录、属性</string>
-    <string name="menu_form_filling_settings_summary">键盘、自动填充、剪贴板</string>
-    <string name="menu_device_unlock_settings_summary">生物特征、设备凭据</string>
+    <string name="menu_app_settings_summary">自动保存、搜索、历史记录、配置导入导出</string>
+    <string name="menu_form_filling_settings_summary">通行密钥、自动填充、安全键盘、剪贴板</string>
+    <string name="menu_device_unlock_settings_summary">指纹/面容解锁、自动锁定策略、安全防护</string>
     <string name="menu_database_settings_summary">元数据、回收站、模板、历史记录</string>
     <string name="menu_security_settings_summary">加密、密钥派生函数</string>
     <string name="master_key_settings_summary">更改、延续</string>
@@ -908,4 +908,12 @@
     <string name="dedup_confirm_title">确认批量去重</string>
     <string name="dedup_confirm_message">确定合并这 %1$d 组重复凭证，并将 %2$d 个冗余副本移入回收站吗？</string>
     <string name="template_totp">2FA 验证</string>
+    <string name="nav_group_vault">密码库</string>
+    <string name="nav_group_tools">数据与维护</string>
+    <string name="nav_group_system">系统与设置</string>
+    <string name="security_protection">安全防护</string>
+    <string name="auto_lock_category">自动锁定策略</string>
+    <string name="unlock_methods_category">解锁方式</string>
+    <string name="security_protection_summary">敏感操作验证与防录屏保护</string>
+    <string name="auto_lock_category_summary">空闲超时与息屏锁定</string>
 </resources>

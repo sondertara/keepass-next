@@ -29,8 +29,8 @@ import androidx.lifecycle.lifecycleScope
 import com.kunzisoft.keepass.activities.EntryEditActivity
 import com.kunzisoft.keepass.activities.FileDatabaseSelectActivity
 import com.kunzisoft.keepass.activities.GroupActivity
-import com.kunzisoft.keepass.model.EntryType
-import com.kunzisoft.keepass.activities.legacy.DatabaseModeActivity
+import com.kunzisoft.keepass.activities.session.DatabaseSessionActivity
+import com.kunzisoft.keepass.activities.session.DatabaseSessionOptions
 import com.kunzisoft.keepass.credentialprovider.EntrySelectionHelper.addSearchInfo
 import com.kunzisoft.keepass.credentialprovider.EntrySelectionHelper.setActivityResult
 import com.kunzisoft.keepass.credentialprovider.TypeMode
@@ -38,6 +38,7 @@ import com.kunzisoft.keepass.credentialprovider.magikeyboard.MagikeyboardService
 import com.kunzisoft.keepass.credentialprovider.viewmodel.CredentialLauncherViewModel
 import com.kunzisoft.keepass.credentialprovider.viewmodel.EntrySelectionViewModel
 import com.kunzisoft.keepass.database.ContextualDatabase
+import com.kunzisoft.keepass.model.EntryType
 import com.kunzisoft.keepass.model.SearchInfo
 import com.kunzisoft.keepass.view.toastError
 import kotlinx.coroutines.launch
@@ -46,7 +47,10 @@ import kotlinx.coroutines.launch
  * Activity to search or select entry in database,
  * Commonly used with Magikeyboard
  */
-class EntrySelectionLauncherActivity : DatabaseModeActivity() {
+class EntrySelectionLauncherActivity : DatabaseSessionActivity() {
+
+    override fun createSessionOptions(): DatabaseSessionOptions =
+        DatabaseSessionOptions(enableTimeout = false, manageDatabaseInfo = false, enableSpecialMode = true)
 
     private val entrySelectionViewModel: EntrySelectionViewModel by viewModels()
 

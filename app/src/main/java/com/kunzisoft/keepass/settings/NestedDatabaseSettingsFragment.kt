@@ -40,8 +40,8 @@ import androidx.preference.TwoStatePreference
 import com.kunzisoft.androidclearchroma.ChromaUtil
 import com.kunzisoft.keepass.R
 import com.kunzisoft.keepass.activities.dialogs.SetMainCredentialDialogFragment
-import com.kunzisoft.keepass.activities.legacy.DatabaseRetrieval
-import com.kunzisoft.keepass.activities.legacy.resetAppTimeoutWhenViewTouchedOrFocused
+import com.kunzisoft.keepass.activities.session.DatabaseRetrieval
+import com.kunzisoft.keepass.activities.session.resetAppTimeoutWhenViewTouchedOrFocused
 import com.kunzisoft.keepass.credentialprovider.UserVerificationActionType
 import com.kunzisoft.keepass.credentialprovider.UserVerificationData
 import com.kunzisoft.keepass.credentialprovider.UserVerificationHelper.Companion.checkUserVerification

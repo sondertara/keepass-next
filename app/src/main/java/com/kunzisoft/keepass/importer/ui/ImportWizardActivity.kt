@@ -42,7 +42,8 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.progressindicator.LinearProgressIndicator
 import com.kunzisoft.keepass.R
-import com.kunzisoft.keepass.activities.legacy.DatabaseLockActivity
+import com.kunzisoft.keepass.activities.session.DatabaseSessionActivity
+import com.kunzisoft.keepass.activities.session.DatabaseSessionOptions
 import com.kunzisoft.keepass.database.ContextualDatabase
 import com.kunzisoft.keepass.database.DatabaseTaskProvider.Companion.startDatabaseService
 import com.kunzisoft.keepass.database.element.GroupId
@@ -59,7 +60,10 @@ import kotlinx.coroutines.withContext
 import java.io.ByteArrayInputStream
 import java.io.InputStream
 
-class ImportWizardActivity : DatabaseLockActivity() {
+class ImportWizardActivity : DatabaseSessionActivity() {
+
+    override fun createSessionOptions(): DatabaseSessionOptions =
+        DatabaseSessionOptions(manageDatabaseInfo = false, finishActivityIfReloadRequested = false)
 
     override fun viewToInvalidateTimeout(): View? = findViewById(android.R.id.content)
     override fun finishActivityIfReloadRequested(): Boolean = false

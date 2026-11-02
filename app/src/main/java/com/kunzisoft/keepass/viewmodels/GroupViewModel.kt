@@ -93,8 +93,9 @@ class GroupViewModel(application: Application): AndroidViewModel(application) {
         .map { it.selectedNodes }
         .stateIn(viewModelScope, SharingStarted.Lazily, listOf())
 
-    private val _groupUIState = MutableStateFlow<GroupUISTate>(GroupUISTate())
-    val groupUIState: StateFlow<GroupUISTate> = _groupUIState.asStateFlow()
+    private val _groupUiState = MutableStateFlow(GroupUiState())
+    val groupUiState: StateFlow<GroupUiState> = _groupUiState.asStateFlow()
+    val groupUIState: StateFlow<GroupUiState> get() = groupUiState
 
     private val _viewEvent = MutableSharedFlow<GroupEvent>(replay = 0)
     val viewEvent: SharedFlow<GroupEvent> = _viewEvent.asSharedFlow()
@@ -108,6 +109,7 @@ class GroupViewModel(application: Application): AndroidViewModel(application) {
     fun setVaultCategory(category: VaultCategory) {
         if (_vaultCategory.value != category) {
             _vaultCategory.value = category
+            _groupUiState.update { it.copy(vaultCategory = category) }
             loadGroup()
         }
     }
@@ -115,6 +117,7 @@ class GroupViewModel(application: Application): AndroidViewModel(application) {
     fun setFlatView(enabled: Boolean) {
         if (_isFlatView.value != enabled) {
             _isFlatView.value = enabled
+            _groupUiState.update { it.copy(isFlatView = enabled) }
             loadGroup()
         }
     }
@@ -150,7 +153,7 @@ class GroupViewModel(application: Application): AndroidViewModel(application) {
     ) {
         viewModelScope.launch {
             mDatabase?.let { database ->
-                _groupUIState.update { groupState ->
+                _groupUiState.update { groupState ->
                     groupState.copy(loaded = false)
                 }
                 withContext(Dispatchers.IO) {
@@ -198,15 +201,19 @@ class GroupViewModel(application: Application): AndroidViewModel(application) {
                         val addEntryEnabled = database.allowAddEntryIn(group = group)
                         mAddGroupOrEntryAllowed = addGroupEnabled || addEntryEnabled
                         withContext(Dispatchers.Main) {
-                            _groupUIState.update { groupState ->
-                                groupState.copy(
+                            _groupUiState.update { current ->
+                                current.copy(
                                     loaded = true,
                                     breadcrumbs = breadcrumbs,
                                     group = group,
                                     children = children,
                                     showAddGroupButton = addGroupEnabled,
                                     showAddEntryButton = addEntryEnabled,
-                                    showAddNodeButton = mAddNodeButtonAllowed
+                                    showAddNodeButton = mAddNodeButtonAllowed,
+                                    vaultCategory = _vaultCategory.value,
+                                    isFlatView = _isFlatView.value,
+                                    nodeActionState = _nodeActionState.value,
+                                    isRecycleBin = mRecyclingBinIsCurrentGroup
                                 )
                             }
                             showFromPosition?.let {
@@ -367,9 +374,15 @@ class GroupViewModel(application: Application): AndroidViewModel(application) {
         return true
     }
 
+    private fun updateNodeAction(update: (NodeActionState) -> NodeActionState) {
+        val updated = update(_nodeActionState.value)
+        _nodeActionState.value = updated
+        _groupUiState.update { it.copy(nodeActionState = updated) }
+    }
+
     fun selectNodes(nodes: List<SortedNodeInfo>): Boolean {
         if (nodes.isNotEmpty()) {
-            _nodeActionState.update {
+            updateNodeAction {
                 it.copy(
                     isActive = true,
                     nodeActionMode = NodeActionMode.SELECTION,
@@ -430,7 +443,7 @@ class GroupViewModel(application: Application): AndroidViewModel(application) {
     fun onCopyNodesClicked() {
         val nodes = _nodeActionState.value.selectedNodes
         if (nodes.isNotEmpty()) {
-            _nodeActionState.update {
+            updateNodeAction {
                 it.copy(
                     nodeActionMode = NodeActionMode.PASTE_FROM_COPY
                 )
@@ -444,7 +457,7 @@ class GroupViewModel(application: Application): AndroidViewModel(application) {
     fun onMoveNodesClicked() {
         val nodes = _nodeActionState.value.selectedNodes
         if (nodes.isNotEmpty()) {
-            _nodeActionState.update {
+            updateNodeAction {
                 it.copy(
                     nodeActionMode = NodeActionMode.PASTE_FROM_MOVE
                 )
@@ -483,7 +496,7 @@ class GroupViewModel(application: Application): AndroidViewModel(application) {
                         )
                     )
                 }
-                _nodeActionState.update {
+                updateNodeAction {
                     it.copy(
                         nodeActionMode = null
                     )
@@ -494,7 +507,7 @@ class GroupViewModel(application: Application): AndroidViewModel(application) {
     }
 
     fun onActionCreated() {
-        _groupUIState.update { groupState ->
+        _groupUiState.update { groupState ->
             groupState.copy(showAddNodeButton = false)
         }
     }
@@ -504,7 +517,7 @@ class GroupViewModel(application: Application): AndroidViewModel(application) {
             _viewEvent.emit(GroupEvent.RemoveNodeAction)
         }
         clearNodeAction()
-        _groupUIState.update { groupState ->
+        _groupUiState.update { groupState ->
             groupState.copy(showAddNodeButton = mAddNodeButtonAllowed)
         }
     }
@@ -514,11 +527,13 @@ class GroupViewModel(application: Application): AndroidViewModel(application) {
     }
 
     fun finishNodeAction() {
-        _nodeActionState.update { it.copy(isActive = false) }
+        updateNodeAction { it.copy(isActive = false) }
     }
 
     fun clearNodeAction() {
-        _nodeActionState.value = NodeActionState()
+        val empty = NodeActionState()
+        _nodeActionState.value = empty
+        _groupUiState.update { it.copy(nodeActionState = empty) }
     }
 
     fun databaseActionsAllowed(): Boolean = groupUIState.value.loaded
@@ -613,15 +628,21 @@ class GroupViewModel(application: Application): AndroidViewModel(application) {
         val isRecycleBin: Boolean
     )
 
-    data class GroupUISTate(
+    data class GroupUiState(
         val loaded: Boolean = false,
         val breadcrumbs: List<SortedGroupInfo>? = null,
         val group: GroupInfo? = null,
         val children: List<SortedNodeInfo>? = null,
         val showAddNodeButton: Boolean = false,
         val showAddGroupButton: Boolean = false,
-        val showAddEntryButton: Boolean = false
+        val showAddEntryButton: Boolean = false,
+        val vaultCategory: VaultCategory = VaultCategory.ALL,
+        val isFlatView: Boolean = false,
+        val nodeActionState: NodeActionState = NodeActionState(),
+        val isRecycleBin: Boolean = false
     )
+
+    typealias GroupUISTate = GroupUiState
 
     data class GroupState(
         var groupId: GroupId?,

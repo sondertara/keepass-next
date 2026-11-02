@@ -42,7 +42,8 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.chip.ChipGroup
 import com.google.android.material.progressindicator.LinearProgressIndicator
 import com.kunzisoft.keepass.R
-import com.kunzisoft.keepass.activities.legacy.DatabaseLockActivity
+import com.kunzisoft.keepass.activities.session.DatabaseSessionActivity
+import com.kunzisoft.keepass.activities.session.DatabaseSessionOptions
 import com.kunzisoft.keepass.database.ContextualDatabase
 import com.kunzisoft.keepass.importer.DeduplicationEngine
 import com.kunzisoft.keepass.view.AvatarHelper
@@ -53,7 +54,10 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-class DeduplicationActivity : DatabaseLockActivity() {
+class DeduplicationActivity : DatabaseSessionActivity() {
+
+    override fun createSessionOptions(): DatabaseSessionOptions =
+        DatabaseSessionOptions(manageDatabaseInfo = false, finishActivityIfReloadRequested = false)
 
     override fun viewToInvalidateTimeout(): View? = findViewById(android.R.id.content)
     override fun finishActivityIfReloadRequested(): Boolean = false

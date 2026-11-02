@@ -43,7 +43,7 @@ import com.kunzisoft.keepass.activities.helpers.ExternalFileHelper.createFile
 import com.kunzisoft.keepass.activities.helpers.ExternalFileHelper.openFile
 import com.kunzisoft.keepass.activities.helpers.ExternalFileHelper.registerCreateDatabaseFile
 import com.kunzisoft.keepass.activities.helpers.ExternalFileHelper.registerOpenFile
-import com.kunzisoft.keepass.activities.legacy.DatabaseLockActivity
+import com.kunzisoft.keepass.activities.session.DatabaseSessionActivity
 import com.kunzisoft.keepass.timeout.TimeoutHelper
 import com.kunzisoft.keepass.view.showError
 import com.kunzisoft.keepass.viewmodels.SetMainCredentialViewModel
@@ -53,7 +53,7 @@ import org.joda.time.DateTime
 import java.util.Properties
 
 open class SettingsActivity
-    : DatabaseLockActivity(),
+    : DatabaseSessionActivity(),
         MainPreferenceFragment.Callback {
 
     private val mSettingsViewModel: SettingsViewModel by viewModels()
@@ -93,7 +93,7 @@ open class SettingsActivity
             }
         } catch (e: Exception) {
             Toast.makeText(this, R.string.error_export_app_properties, Toast.LENGTH_LONG).show()
-            Log.e(DatabaseLockActivity.TAG, "Unable to export app settings", e)
+            Log.e("SettingsActivity", "Unable to export app settings", e)
         }
     }
 

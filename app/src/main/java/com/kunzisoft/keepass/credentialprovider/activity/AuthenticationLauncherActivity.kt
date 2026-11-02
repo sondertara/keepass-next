@@ -25,7 +25,8 @@ import androidx.activity.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import com.kunzisoft.keepass.activities.legacy.DatabaseLockActivity
+import com.kunzisoft.keepass.activities.session.DatabaseSessionActivity
+import com.kunzisoft.keepass.activities.session.DatabaseSessionOptions
 import com.kunzisoft.keepass.credentialprovider.EntrySelectionHelper.retrieveSearchInfo
 import com.kunzisoft.keepass.credentialprovider.SpecialMode
 import com.kunzisoft.keepass.credentialprovider.UserVerificationActionType
@@ -44,7 +45,10 @@ import kotlinx.coroutines.launch
  * Abstract class to easily manage credential provider for authentication launcher,
  * Allow to retrieve User Verification in the ceremony
  */
-abstract class AuthenticationLauncherActivity: DatabaseLockActivity() {
+abstract class AuthenticationLauncherActivity: DatabaseSessionActivity() {
+
+    override fun createSessionOptions(): DatabaseSessionOptions =
+        DatabaseSessionOptions(manageDatabaseInfo = false)
 
     protected val userVerificationViewModel: UserVerificationViewModel by viewModels()
 

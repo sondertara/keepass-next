@@ -10,7 +10,8 @@ import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
 import androidx.lifecycle.lifecycleScope
 import com.kunzisoft.keepass.R
-import com.kunzisoft.keepass.activities.legacy.DatabaseModeActivity
+import com.kunzisoft.keepass.activities.session.DatabaseSessionActivity
+import com.kunzisoft.keepass.activities.session.DatabaseSessionOptions
 import com.kunzisoft.keepass.credentialprovider.EntrySelectionHelper.setActivityResult
 import com.kunzisoft.keepass.credentialprovider.viewmodel.CredentialLauncherViewModel
 import com.kunzisoft.keepass.credentialprovider.viewmodel.HardwareKeyLauncherViewModel
@@ -30,7 +31,10 @@ import kotlinx.coroutines.launch
  * Special activity to deal with hardware key drivers,
  * return the response to the database service once finished
  */
-class HardwareKeyActivity: DatabaseModeActivity(){
+class HardwareKeyActivity : DatabaseSessionActivity() {
+
+    override fun createSessionOptions(): DatabaseSessionOptions =
+        DatabaseSessionOptions(enableTimeout = false, manageDatabaseInfo = false, enableSpecialMode = true)
 
     private val mHardwareKeyLauncherViewModel: HardwareKeyLauncherViewModel by viewModels()
 

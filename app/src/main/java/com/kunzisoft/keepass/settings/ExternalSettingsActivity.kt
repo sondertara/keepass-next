@@ -7,9 +7,13 @@ import androidx.appcompat.widget.Toolbar
 import androidx.preference.PreferenceFragmentCompat
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.kunzisoft.keepass.R
-import com.kunzisoft.keepass.activities.legacy.DatabaseModeActivity
+import com.kunzisoft.keepass.activities.session.DatabaseSessionActivity
+import com.kunzisoft.keepass.activities.session.DatabaseSessionOptions
 
-abstract class ExternalSettingsActivity : DatabaseModeActivity() {
+abstract class ExternalSettingsActivity : DatabaseSessionActivity() {
+
+    override fun createSessionOptions(): DatabaseSessionOptions =
+        DatabaseSessionOptions(enableTimeout = false, manageDatabaseInfo = true, enableSpecialMode = true)
 
     private var lockView: FloatingActionButton? = null
 

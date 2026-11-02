@@ -32,14 +32,18 @@ import android.widget.ImageView
 import androidx.appcompat.widget.Toolbar
 import com.igreenwood.loupe.Loupe
 import com.kunzisoft.keepass.R
-import com.kunzisoft.keepass.activities.legacy.DatabaseLockActivity
+import com.kunzisoft.keepass.activities.session.DatabaseSessionActivity
+import com.kunzisoft.keepass.activities.session.DatabaseSessionOptions
 import com.kunzisoft.keepass.database.ContextualDatabase
 import com.kunzisoft.keepass.database.element.Attachment
 import com.kunzisoft.keepass.tasks.BinaryDatabaseManager
 import com.kunzisoft.keepass.utils.getParcelableExtraCompat
 import kotlin.math.max
 
-class ImageViewerActivity : DatabaseLockActivity() {
+class ImageViewerActivity : DatabaseSessionActivity() {
+
+    override fun createSessionOptions(): DatabaseSessionOptions =
+        DatabaseSessionOptions(manageDatabaseInfo = false, finishActivityIfReloadRequested = true, timeoutRetrievalGuard = true)
 
     private var imageContainerView: ViewGroup? = null
     private lateinit var imageView: ImageView

@@ -26,7 +26,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.kunzisoft.androidclearchroma.ChromaUtil
-import com.kunzisoft.keepass.activities.legacy.DatabaseRetrieval
+import com.kunzisoft.keepass.activities.session.DatabaseRetrieval
 import com.kunzisoft.keepass.database.ContextualDatabase
 import com.kunzisoft.keepass.database.crypto.EncryptionAlgorithm
 import com.kunzisoft.keepass.database.crypto.kdf.KdfEngine

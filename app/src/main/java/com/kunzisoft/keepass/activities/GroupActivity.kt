@@ -90,7 +90,9 @@ import com.kunzisoft.keepass.activities.helpers.ExternalFileHelper.createDatabas
 import com.kunzisoft.keepass.activities.helpers.ExternalFileHelper.openFile
 import com.kunzisoft.keepass.activities.helpers.ExternalFileHelper.registerCreateDatabaseFile
 import com.kunzisoft.keepass.activities.helpers.ExternalFileHelper.registerOpenFile
-import com.kunzisoft.keepass.activities.legacy.DatabaseLockActivity
+import com.kunzisoft.keepass.activities.controllers.GroupSearchController
+import com.kunzisoft.keepass.activities.controllers.GroupSelectionCoordinator
+import com.kunzisoft.keepass.activities.session.DatabaseSessionActivity
 import com.kunzisoft.keepass.adapters.BreadcrumbAdapter
 import com.kunzisoft.keepass.credentialprovider.EntrySelectionHelper
 import com.kunzisoft.keepass.credentialprovider.EntrySelectionHelper.addSearchInfo
@@ -157,7 +159,7 @@ import kotlinx.coroutines.launch
 import java.util.EnumSet
 
 
-class GroupActivity : DatabaseLockActivity() {
+class GroupActivity : DatabaseSessionActivity() {
 
     // Views
     private var header: ViewGroup? = null
@@ -195,7 +197,23 @@ class GroupActivity : DatabaseLockActivity() {
 
     private var mBreadcrumbAdapter: BreadcrumbAdapter? = null
 
-    private var activeActionMode: ActionMode? = null
+    val selectionCoordinator by lazy {
+        GroupSelectionCoordinator(
+            activity = this,
+            groupViewModel = mGroupViewModel,
+            getDatabase = { mDatabase },
+            getToolbarAction = { toolbarAction },
+            onUpdateEntry = { updateEntry(it) }
+        )
+    }
+
+    val searchController by lazy {
+        GroupSearchController(
+            activity = this,
+            searchViewModel = mSearchViewModel,
+            groupViewModel = mGroupViewModel
+        )
+    }
 
     // Manage "merge from" and "save to"
     private var openDatabaseToMergeFileResultLauncher: ExternalFileHelper.OpenFileResultLauncher = registerOpenFile { uri ->
@@ -223,98 +241,6 @@ class GroupActivity : DatabaseLockActivity() {
             uri?.let { decodeImageForOtp(it) }
         }
 
-    private val actionModeCallback = object : ActionMode.Callback {
-        override fun onCreateActionMode(mode: ActionMode?, menu: Menu?): Boolean {
-            mGroupViewModel.onActionCreated()
-            return true
-        }
-
-        override fun onPrepareActionMode(mode: ActionMode?, menu: Menu?): Boolean {
-            val database = mDatabase ?: return false
-            val state = mGroupViewModel.nodeActionState.value
-            val nodes = state.selectedNodes
-
-            menu?.clear()
-            when (state.nodeActionMode) {
-                NodeActionMode.SELECTION -> {
-                    mode?.menuInflater?.inflate(R.menu.node_menu, menu)
-
-                    // Open and Edit for a single item
-                    if (nodes.size == 1) {
-                        // Edition
-                        if (database.isReadOnly || mGroupViewModel.containsRecycleBin(
-                                database, nodes.filterIsInstance<NodeInfo>())) {
-                            menu?.removeItem(R.id.menu_edit)
-                        }
-                    } else {
-                        menu?.removeItem(R.id.menu_open)
-                        menu?.removeItem(R.id.menu_edit)
-                    }
-
-                    // Move
-                    if (database.isReadOnly) {
-                        menu?.removeItem(R.id.menu_move)
-                    }
-
-                    // Copy (not allowed for group)
-                    if (database.isReadOnly
-                        || nodes.any { it is GroupInfo }) {
-                        menu?.removeItem(R.id.menu_copy)
-                    }
-
-                    // Deletion
-                    if (database.isReadOnly || mGroupViewModel.containsRecycleBin(
-                            database, nodes.filterIsInstance<NodeInfo>())) {
-                        menu?.removeItem(R.id.menu_delete)
-                    }
-                }
-                NodeActionMode.PASTE_FROM_COPY,
-                NodeActionMode.PASTE_FROM_MOVE -> {
-                    mode?.menuInflater?.inflate(R.menu.node_paste_menu, menu)
-                }
-                null -> {}
-            }
-
-            // Add the number of items selected in title
-            mode?.title = nodes.size.toString()
-            return true
-        }
-
-        override fun onActionItemClicked(mode: ActionMode?, item: MenuItem?): Boolean {
-            return when (item?.itemId) {
-                R.id.menu_open -> {
-                    mGroupViewModel.onOpenNodeClicked()
-                    true
-                }
-                R.id.menu_edit -> {
-                    mGroupViewModel.onEditNodeClicked()
-                    true
-                }
-                R.id.menu_copy -> {
-                    mGroupViewModel.onCopyNodesClicked()
-                    true
-                }
-                R.id.menu_move -> {
-                    mGroupViewModel.onMoveNodesClicked()
-                    true
-                }
-                R.id.menu_delete -> {
-                    mGroupViewModel.onDeleteNodesClicked()
-                    true
-                }
-                R.id.menu_paste -> {
-                    mGroupViewModel.onPasteNodesClicked()
-                    true
-                }
-                else -> false
-            }
-        }
-
-        override fun onDestroyActionMode(mode: ActionMode?) {
-            mGroupViewModel.onActionDestroyed()
-            activeActionMode = null
-        }
-    }
 
     private var mIconSelectionActivityResultLauncher = IconPickerActivity.registerIconSelectionForResult(this) { icon ->
         // To create tree dialog for icon
@@ -353,49 +279,7 @@ class GroupActivity : DatabaseLockActivity() {
         chipFilterPasskeys = findViewById(R.id.chip_filter_passkeys)
         chipFilterTotp = findViewById(R.id.chip_filter_totp)
 
-        filterChipGroup?.setOnCheckedStateChangeListener { _, checkedIds ->
-            if (checkedIds.isEmpty()) return@setOnCheckedStateChangeListener
-            when (checkedIds.first()) {
-                R.id.chip_filter_all -> {
-                    mGroupViewModel.setFlatView(false)
-                    mGroupViewModel.setVaultCategory(VaultCategory.ALL)
-                }
-                R.id.chip_flat_view -> {
-                    mGroupViewModel.setFlatView(true)
-                    mGroupViewModel.setVaultCategory(VaultCategory.ALL)
-                }
-                R.id.chip_filter_passwords -> {
-                    mGroupViewModel.setVaultCategory(VaultCategory.PASSWORDS)
-                }
-                R.id.chip_filter_totp -> {
-                    mGroupViewModel.setVaultCategory(VaultCategory.TOTP)
-                }
-                R.id.chip_filter_passkeys -> {
-                    mGroupViewModel.setVaultCategory(VaultCategory.PASSKEYS)
-                }
-                R.id.chip_filter_cards -> {
-                    mGroupViewModel.setVaultCategory(VaultCategory.CREDIT_CARD)
-                }
-                R.id.chip_filter_notes -> {
-                    mGroupViewModel.setVaultCategory(VaultCategory.SECURE_NOTE)
-                }
-                R.id.chip_filter_email -> {
-                    mGroupViewModel.setVaultCategory(VaultCategory.EMAIL)
-                }
-                R.id.chip_filter_wifi -> {
-                    mGroupViewModel.setVaultCategory(VaultCategory.WIFI)
-                }
-                R.id.chip_filter_id_card -> {
-                    mGroupViewModel.setVaultCategory(VaultCategory.ID_CARD)
-                }
-                R.id.chip_filter_bank -> {
-                    mGroupViewModel.setVaultCategory(VaultCategory.BANK)
-                }
-                R.id.chip_filter_crypto -> {
-                    mGroupViewModel.setVaultCategory(VaultCategory.CRYPTOCURRENCY)
-                }
-            }
-        }
+        searchController.setupFilterChips(filterChipGroup)
         searchView = findViewById(R.id.search_content_view)
         toolbarAction = findViewById(R.id.toolbar_action)
         lockView = findViewById(R.id.lock_button)
@@ -752,19 +636,12 @@ class GroupActivity : DatabaseLockActivity() {
                 }
                 launch {
                     mSearchViewModel.searchActivated.collect { state ->
-                        showSearch(state)
+                        searchController.showSearch(state)
                     }
                 }
                 launch {
                     mGroupViewModel.nodeActionState.collect { state ->
-                        if (state.isActive) {
-                            if (activeActionMode == null) {
-                                activeActionMode = toolbarAction?.startSupportActionMode(actionModeCallback)
-                            }
-                            activeActionMode?.invalidate()
-                        } else {
-                            activeActionMode?.finish()
-                        }
+                        selectionCoordinator.syncWithState(state)
                     }
                 }
                 launch {
@@ -1137,7 +1014,7 @@ class GroupActivity : DatabaseLockActivity() {
         val currentGroupId = mGroupViewModel.mainGroup?.nodeId ?: database.rootGroup?.nodeId ?: return
 
         val newEntry = OtpEntryQuickCreator.createAndSaveEntry(
-            activity = this,
+            context = this,
             parentId = currentGroupId,
             parsedOtp = parsedOtp
         )
@@ -1252,27 +1129,7 @@ class GroupActivity : DatabaseLockActivity() {
     }
 
     private fun showSearch(show: Boolean = true) {
-        val searchFragment =
-            supportFragmentManager.findFragmentByTag(SEARCH_FRAGMENT_TAGE) as? SearchFragment
-                ?: SearchFragment()
-        // Attach fragment to content view
-        supportFragmentManager.beginTransaction().apply {
-            setCustomAnimations(
-                R.anim.slide_in_bottom,
-                R.anim.slide_out_bottom,
-                R.anim.slide_in_bottom,
-                R.anim.slide_out_bottom
-            )
-            if (!searchFragment.isAdded && show) {
-                add(
-                    R.id.search_content_view,
-                    searchFragment,
-                    SEARCH_FRAGMENT_TAGE
-                )
-            } else if (searchFragment.isAdded && !show) {
-                remove(searchFragment)
-            }
-        }.commit()
+        searchController.showSearch(show)
     }
 
     override fun onNewIntent(intent: Intent?) {
@@ -1283,16 +1140,7 @@ class GroupActivity : DatabaseLockActivity() {
     }
 
     private fun manageIntent(intent: Intent?) {
-        intent?.let {
-            // Info search
-            val searchInfo = if (it.retrieveAutoSearch()) it.retrieveSearchInfo() else null
-            // External search
-            val searchQuery = if (Intent.ACTION_SEARCH == it.action)
-                it.getStringExtra(SearchManager.QUERY) else null
-            mSearchViewModel.processSearchData(searchInfo, searchQuery)
-            it.action = Intent.ACTION_DEFAULT
-            it.removeExtra(SearchManager.QUERY)
-        }
+        searchController.manageIntent(intent)
     }
 
     private fun entrySelectedForSelection(entry: EntryInfo) {
@@ -1591,10 +1439,10 @@ class GroupActivity : DatabaseLockActivity() {
                 // Load the main group after remove search
                 loadGroup(clearSearch = true)
             }
-            mSearchViewModel.isSearchActivated -> {
-                mSearchViewModel.deactivateSearch()
+            searchController.isSearchActivated -> {
+                searchController.deactivateSearch()
             }
-            mGroupViewModel.nodeActionState.value.nodeActionMode != null -> {
+            selectionCoordinator.isActionModeActive || mGroupViewModel.nodeActionState.value.nodeActionMode != null -> {
                 // After isSearchActivated to permit search close
                 finishNodeAction()
             }
@@ -1614,7 +1462,7 @@ class GroupActivity : DatabaseLockActivity() {
                 }
             }
             else -> {
-                super.onRegularBackPressed()
+                finish()
             }
         }
     }

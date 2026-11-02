@@ -49,7 +49,8 @@ import com.kunzisoft.keepass.activities.helpers.ExternalFileHelper.openFile
 import com.kunzisoft.keepass.activities.helpers.ExternalFileHelper.registerCreateDatabaseFile
 import com.kunzisoft.keepass.activities.helpers.ExternalFileHelper.registerOpenFile
 import com.kunzisoft.keepass.activities.helpers.ExternalFileHelper.setOpenFileClickListener
-import com.kunzisoft.keepass.activities.legacy.DatabaseModeActivity
+import com.kunzisoft.keepass.activities.session.DatabaseSessionActivity
+import com.kunzisoft.keepass.activities.session.DatabaseSessionOptions
 import com.kunzisoft.keepass.adapters.FileDatabaseHistoryAdapter
 import com.kunzisoft.keepass.app.database.FileDatabaseHistoryAction
 import com.kunzisoft.keepass.credentialprovider.EntrySelectionHelper
@@ -77,7 +78,10 @@ import com.kunzisoft.keepass.viewmodels.SetMainCredentialViewModel
 import kotlinx.coroutines.launch
 import java.io.FileNotFoundException
 
-class FileDatabaseSelectActivity : DatabaseModeActivity() {
+class FileDatabaseSelectActivity : DatabaseSessionActivity() {
+
+    override fun createSessionOptions(): DatabaseSessionOptions =
+        DatabaseSessionOptions(enableTimeout = false, manageDatabaseInfo = false, enableSpecialMode = true)
 
     // Views
     private lateinit var coordinatorLayout: CoordinatorLayout

@@ -50,7 +50,8 @@ import com.kunzisoft.keepass.R
 import com.kunzisoft.keepass.activities.helpers.ExternalFileHelper
 import com.kunzisoft.keepass.activities.helpers.ExternalFileHelper.registerOpenFile
 import com.kunzisoft.keepass.activities.helpers.ExternalFileHelper.setOpenFileClickListener
-import com.kunzisoft.keepass.activities.legacy.DatabaseModeActivity
+import com.kunzisoft.keepass.activities.session.DatabaseSessionActivity
+import com.kunzisoft.keepass.activities.session.DatabaseSessionOptions
 import com.kunzisoft.keepass.app.database.FileDatabaseHistoryAction
 import com.kunzisoft.keepass.biometric.DeviceUnlockFragment
 import com.kunzisoft.keepass.biometric.DeviceUnlockManager
@@ -96,7 +97,10 @@ import java.nio.ByteBuffer
 import java.nio.CharBuffer
 
 
-class MainCredentialActivity : DatabaseModeActivity() {
+class MainCredentialActivity : DatabaseSessionActivity() {
+
+    override fun createSessionOptions(): DatabaseSessionOptions =
+        DatabaseSessionOptions(enableTimeout = false, manageDatabaseInfo = false, enableSpecialMode = true)
 
     // Views
     private var toolbar: Toolbar? = null

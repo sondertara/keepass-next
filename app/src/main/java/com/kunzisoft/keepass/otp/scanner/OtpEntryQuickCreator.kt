@@ -19,9 +19,9 @@
  */
 package com.kunzisoft.keepass.otp.scanner
 
+import android.content.Context
 import android.net.Uri
 import android.os.Bundle
-import com.kunzisoft.keepass.activities.legacy.DatabaseActivity
 import com.kunzisoft.keepass.database.DatabaseTaskProvider.Companion.startDatabaseService
 import com.kunzisoft.keepass.database.element.GroupId
 import com.kunzisoft.keepass.database.element.icon.IconImage
@@ -122,12 +122,12 @@ object OtpEntryQuickCreator {
      * Create EntryInfo and dispatch database task to persist it in the current group.
      */
     fun createAndSaveEntry(
-        activity: DatabaseActivity,
+        context: Context,
         parentId: GroupId,
         parsedOtp: ParsedOtp
     ): EntryInfo {
         val newEntry = buildEntryInfo(parsedOtp)
-        activity.startDatabaseService(
+        context.startDatabaseService(
             Bundle().apply {
                 putParcelable(DatabaseTaskNotificationService.PARENT_ID_KEY, parentId)
                 putParcelable(DatabaseTaskNotificationService.ENTRY_KEY, newEntry)

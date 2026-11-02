@@ -7,8 +7,8 @@ import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import com.kunzisoft.keepass.activities.legacy.DatabaseRetrieval
-import com.kunzisoft.keepass.activities.legacy.resetAppTimeoutWhenViewTouchedOrFocused
+import com.kunzisoft.keepass.activities.session.DatabaseRetrieval
+import com.kunzisoft.keepass.activities.session.resetAppTimeoutWhenViewTouchedOrFocused
 import com.kunzisoft.keepass.database.ContextualDatabase
 import com.kunzisoft.keepass.settings.PreferencesUtil
 import com.kunzisoft.keepass.tasks.ActionRunnable

@@ -22,6 +22,9 @@ package com.kunzisoft.keepass.tasks
 import android.os.Bundle
 import android.util.Log
 import com.kunzisoft.keepass.database.exception.DatabaseException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 
 /**
  * Callback after a task is completed.
@@ -30,13 +33,23 @@ abstract class ActionRunnable: Runnable {
 
     var result: Result = Result()
 
-    override fun run() {
+    /**
+     * Executes the action in structured coroutine context on [Dispatchers.IO].
+     */
+    open suspend fun execute(): Result = withContext(Dispatchers.IO) {
         try {
             onStartRun()
             onActionRun()
             onFinishRun()
         } catch (runException: Exception) {
             setError(runException)
+        }
+        result
+    }
+
+    override fun run() {
+        runBlocking {
+            execute()
         }
     }
 

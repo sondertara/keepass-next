@@ -61,4 +61,23 @@ class ReloadDatabaseRunnable(
     override fun onFinishRun() {
         afterReloadDatabase?.invoke(result)
     }
+
+    /**
+     * Coroutine-based reload execution on Dispatchers.IO.
+     */
+    suspend fun executeReload(): Result = execute()
+
+    companion object {
+        suspend fun executeReload(
+            context: Context,
+            database: ContextualDatabase,
+            progressTaskUpdater: ProgressTaskUpdater? = null
+        ): Result {
+            return ReloadDatabaseRunnable(
+                context = context,
+                mDatabase = database,
+                progressTaskUpdater = progressTaskUpdater
+            ).executeReload()
+        }
+    }
 }

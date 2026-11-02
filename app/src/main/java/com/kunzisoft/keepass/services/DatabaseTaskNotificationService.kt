@@ -28,49 +28,18 @@ import android.os.Bundle
 import android.os.IBinder
 import android.os.Parcelable
 import android.util.Log
-import androidx.annotation.StringRes
 import androidx.media.app.NotificationCompat
 import com.kunzisoft.keepass.R
 import com.kunzisoft.keepass.activities.FileDatabaseSelectActivity
-import com.kunzisoft.keepass.app.database.CipherDatabaseAction
-import com.kunzisoft.keepass.app.database.FileDatabaseHistoryAction
-import com.kunzisoft.keepass.credentialprovider.activity.HardwareKeyActivity
 import com.kunzisoft.keepass.database.ContextualDatabase
-import com.kunzisoft.keepass.database.MainCredential
+import com.kunzisoft.keepass.database.DatabaseJobManager
+import com.kunzisoft.keepass.database.DatabaseJobManager.DatabaseJobEvent
 import com.kunzisoft.keepass.database.ProgressMessage
-import com.kunzisoft.keepass.database.action.BenchmarkKdfRunnable
-import com.kunzisoft.keepass.database.action.CreateDatabaseRunnable
-import com.kunzisoft.keepass.database.action.LoadDatabaseRunnable
-import com.kunzisoft.keepass.database.action.MergeDatabaseRunnable
-import com.kunzisoft.keepass.database.action.ReloadDatabaseRunnable
-import com.kunzisoft.keepass.database.action.RemoveUnlinkedDataDatabaseRunnable
-import com.kunzisoft.keepass.database.action.SaveDatabaseRunnable
-import com.kunzisoft.keepass.database.action.UpdateCompressionBinariesDatabaseRunnable
-import com.kunzisoft.keepass.database.action.UpdateKeyDerivationDatabaseRunnable
-import com.kunzisoft.keepass.database.action.history.DeleteEntryHistoryDatabaseRunnable
-import com.kunzisoft.keepass.database.action.history.RestoreEntryHistoryDatabaseRunnable
-import com.kunzisoft.keepass.database.action.node.ActionNodesValues
-import com.kunzisoft.keepass.database.action.node.AddEntryRunnable
-import com.kunzisoft.keepass.database.action.node.AddGroupRunnable
-import com.kunzisoft.keepass.database.action.node.AfterActionNodesFinish
-import com.kunzisoft.keepass.database.action.node.CopyNodesRunnable
-import com.kunzisoft.keepass.database.action.node.DeleteNodesRunnable
-import com.kunzisoft.keepass.database.action.node.MoveNodesRunnable
-import com.kunzisoft.keepass.database.action.node.TouchEntryRunnable
-import com.kunzisoft.keepass.database.action.node.TouchGroupRunnable
-import com.kunzisoft.keepass.database.action.node.UpdateEntryRunnable
-import com.kunzisoft.keepass.database.action.node.UpdateGroupRunnable
-import com.kunzisoft.keepass.database.crypto.kdf.KdfEngine
-import com.kunzisoft.keepass.database.crypto.kdf.KdfEngine.Companion.DEFAULT_BENCHMARK_TIME
 import com.kunzisoft.keepass.database.element.EntryId
 import com.kunzisoft.keepass.database.element.GroupId
-import com.kunzisoft.keepass.database.element.database.CompressionAlgorithm
-import com.kunzisoft.keepass.hardware.HardwareKey
-import com.kunzisoft.keepass.model.CipherEncryptDatabase
 import com.kunzisoft.keepass.model.EntryInfo
 import com.kunzisoft.keepass.model.GroupInfo
 import com.kunzisoft.keepass.model.SnapFileDatabaseInfo
-import com.kunzisoft.keepass.settings.PreferencesUtil
 import com.kunzisoft.keepass.tasks.ActionRunnable
 import com.kunzisoft.keepass.tasks.ProgressTaskUpdater
 import com.kunzisoft.keepass.timeout.TimeoutHelper
@@ -79,544 +48,263 @@ import com.kunzisoft.keepass.utils.DATABASE_STOP_TASK_ACTION
 import com.kunzisoft.keepass.utils.LOCK_ACTION
 import com.kunzisoft.keepass.utils.closeDatabase
 import com.kunzisoft.keepass.utils.getParcelableCompat
-import com.kunzisoft.keepass.utils.getParcelableExtraCompat
 import com.kunzisoft.keepass.utils.getParcelableList
 import com.kunzisoft.keepass.utils.getSerializableCompat
-import com.kunzisoft.keepass.utils.getSerializableExtraCompat
-import com.kunzisoft.keepass.utils.putParcelableList
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.async
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withContext
 import java.io.Serializable
 
+/**
+ * Focused foreground notification service for database tasks.
+ * Strictly observes [DatabaseJobManager] events and manages foreground notifications
+ * and lifecycle, rather than executing raw business IO logic.
+ */
 open class DatabaseTaskNotificationService : LockNotificationService(), ProgressTaskUpdater {
 
     override val notificationId: Int = 575
 
-    private var mDatabase: ContextualDatabase? = null
-
     private val mainScope = CoroutineScope(Dispatchers.Main)
+    private val actionTaskBinder = ActionTaskBinder()
 
-    private var mDatabaseListeners = mutableListOf<DatabaseListener>()
-    private var mDatabaseInfoListeners = mutableListOf<DatabaseInfoListener>()
-    private var mActionTaskBinder = ActionTaskBinder()
-    private var mActionTaskListeners = mutableListOf<ActionTaskListener>()
-    // Channel to connect asynchronously a response
-    private var mResponseChallengeChannel: Channel<ByteArray?>? = null
+    private var taskRemovedRequested = false
 
-    private var mActionRunning = 0
-    private var mSavingActionsRunning = 0
-    private var mTaskRemovedRequested = false
-    private var mSaveState = false
-
-    private var mProgressMessage: ProgressMessage = ProgressMessage(R.string.database_opened)
-
-    override fun retrieveChannelId(): String {
-        return CHANNEL_DATABASE_ID
-    }
-
-    override fun retrieveChannelName(): String {
-        return getString(R.string.database)
-    }
+    override fun retrieveChannelId(): String = CHANNEL_DATABASE_ID
+    override fun retrieveChannelName(): String = getString(R.string.database)
 
     inner class ActionTaskBinder : Binder() {
-
         fun getService(): DatabaseTaskNotificationService = this@DatabaseTaskNotificationService
 
         fun addDatabaseListener(databaseListener: DatabaseListener) {
-            if (!mDatabaseListeners.contains(databaseListener))
-                mDatabaseListeners.add(databaseListener)
+            DatabaseJobManager.getInstance().addDatabaseListener(databaseListener)
         }
 
         fun removeDatabaseListener(databaseListener: DatabaseListener) {
-            mDatabaseListeners.remove(databaseListener)
+            DatabaseJobManager.getInstance().removeDatabaseListener(databaseListener)
         }
 
         fun addDatabaseFileInfoListener(databaseInfoListener: DatabaseInfoListener) {
-            if (!mDatabaseInfoListeners.contains(databaseInfoListener))
-                mDatabaseInfoListeners.add(databaseInfoListener)
+            DatabaseJobManager.getInstance().addDatabaseInfoListener(databaseInfoListener)
         }
 
         fun removeDatabaseFileInfoListener(databaseInfoListener: DatabaseInfoListener) {
-            mDatabaseInfoListeners.remove(databaseInfoListener)
+            DatabaseJobManager.getInstance().removeDatabaseInfoListener(databaseInfoListener)
         }
 
         fun addActionTaskListener(actionTaskListener: ActionTaskListener) {
-            if (!mActionTaskListeners.contains(actionTaskListener))
-                mActionTaskListeners.add(actionTaskListener)
+            DatabaseJobManager.getInstance().addActionTaskListener(actionTaskListener)
         }
 
         fun removeActionTaskListener(actionTaskListener: ActionTaskListener) {
-            mActionTaskListeners.remove(actionTaskListener)
+            DatabaseJobManager.getInstance().removeActionTaskListener(actionTaskListener)
         }
     }
 
-    interface DatabaseListener {
-        fun onDatabaseRetrieved(database: ContextualDatabase?)
+    typealias DatabaseListener = DatabaseJobManager.DatabaseListener
+    typealias DatabaseInfoListener = DatabaseJobManager.DatabaseInfoListener
+    typealias ActionTaskListener = DatabaseJobManager.ActionTaskListener
+
+    override fun onCreate() {
+        super.onCreate()
+        DatabaseJobManager.getInstance().challengeResponseRequester = { context, key, seed ->
+            com.kunzisoft.keepass.credentialprovider.activity.HardwareKeyActivity.launchHardwareKeyActivity(context, key, seed)
+        }
+        observeJobEvents()
     }
 
-    interface DatabaseInfoListener {
-        fun onDatabaseInfoChanged(
-            previousDatabaseInfo: SnapFileDatabaseInfo,
-            newDatabaseInfo: SnapFileDatabaseInfo,
-            readOnlyDatabase: Boolean
-        )
+    private fun observeJobEvents() {
+        mainScope.launch {
+            DatabaseJobManager.getInstance().jobEvents.collect { event ->
+                when (event) {
+                    is DatabaseJobEvent.Started -> {
+                        sendBroadcast(Intent(DATABASE_START_TASK_ACTION).apply {
+                            putExtra(DATABASE_TASK_TITLE_KEY, event.progressMessage.titleId)
+                            putExtra(DATABASE_TASK_MESSAGE_KEY, event.progressMessage.messageId)
+                            putExtra(DATABASE_TASK_WARNING_KEY, event.progressMessage.warningId)
+                        })
+                        buildNotification(event.actionTask, event.isSavingAction, event.progressMessage)
+                    }
+                    is DatabaseJobEvent.ProgressUpdated -> {
+                        buildNotification(null, DatabaseJobManager.getInstance().isSavingState.value, event.progressMessage)
+                    }
+                    is DatabaseJobEvent.Finished -> {
+                        sendBroadcast(Intent(DATABASE_STOP_TASK_ACTION))
+                        handleJobFinished(event.isSavingAction)
+                    }
+                    is DatabaseJobEvent.Stopped -> {
+                        buildNotification(null, false, DatabaseJobManager.getInstance().progressMessageFlow.value)
+                    }
+                    is DatabaseJobEvent.InfoChanged -> {
+                        // Handled by listeners
+                    }
+                }
+            }
+        }
     }
 
-    interface ActionTaskListener {
-        fun onActionStarted(
-            database: ContextualDatabase,
-            progressMessage: ProgressMessage
-        )
-        fun onActionUpdated(
-            database: ContextualDatabase,
-            progressMessage: ProgressMessage
-        )
-        fun onActionStopped(
-            database: ContextualDatabase? = null
-        )
-        fun onActionFinished(
-            database: ContextualDatabase,
-            actionTask: String,
-            result: ActionRunnable.Result
-        )
+    private fun handleJobFinished(isSavingAction: Boolean) {
+        val database = ContextualDatabase.getInstance()
+        if (isSavingAction && taskRemovedRequested) {
+            stopService()
+        } else if (TimeoutHelper.checkTimeAndLockIfTimeout(this@DatabaseTaskNotificationService)) {
+            if (!database.loaded) {
+                stopService()
+            } else {
+                try {
+                    startService(Intent(applicationContext, DatabaseTaskNotificationService::class.java))
+                } catch (e: IllegalStateException) {
+                    Log.w(TAG, "Cannot restart database task service", e)
+                }
+            }
+        }
+        taskRemovedRequested = false
     }
 
     fun checkDatabase() {
-        mDatabaseListeners.forEach { databaseListener ->
-            databaseListener.onDatabaseRetrieved(mDatabase)
-        }
+        DatabaseJobManager.getInstance().checkDatabase(ContextualDatabase.getInstance())
     }
 
     fun checkDatabaseInfo() {
-        try {
-            if (mSaveState || mSavingActionsRunning > 0) {
-                return
-            }
-            mDatabase?.let { database ->
-                database.fileUri?.let {
-                    val previousDatabaseInfo = database.snapFileDatabaseInfo
-                    database.saveDatabaseInfo(applicationContext)
-                    val lastFileDatabaseInfo = database.snapFileDatabaseInfo ?: return
-
-                    val now = System.currentTimeMillis()
-                    val lastInAppSave = database.lastInAppSaveTimeMillis
-                    val newDatabaseModification = lastFileDatabaseInfo.lastModification
-                    if (lastInAppSave > 0L && (now - lastInAppSave < 15000L ||
-                                (newDatabaseModification != null && kotlin.math.abs(newDatabaseModification - lastInAppSave) < 15000L))
-                    ) {
-                        // File modification timestamp update belongs to a recent in-app save
-                        return
-                    }
-
-                    val oldDatabaseModification = previousDatabaseInfo?.lastModification
-                    val oldDatabaseSize = previousDatabaseInfo?.size
-
-                    val conditionExists = previousDatabaseInfo != null
-                            && previousDatabaseInfo.exists != lastFileDatabaseInfo.exists
-                    // To prevent dialog opening too often
-                    // Add 10 seconds delta time to prevent spamming
-                    val conditionLastModification =
-                        (oldDatabaseModification != null && newDatabaseModification != null
-                                && oldDatabaseSize != null
-                                && oldDatabaseModification > 0 && newDatabaseModification > 0
-                                && oldDatabaseSize > 0
-                                && oldDatabaseModification + 10000 < newDatabaseModification)
-
-                    if (conditionExists || conditionLastModification) {
-                        // Indicate a change in the database
-                        database.indicateNotSavedData()
-                        // Show the dialog only if it's real new info and not a delay after a save
-                        Log.i(TAG, "Database file modified " +
-                                "$previousDatabaseInfo != $lastFileDatabaseInfo ")
-                        // Call listener to indicate a change in database info
-                        if (!mSaveState) {
-                            mDatabaseInfoListeners.forEach { listener ->
-                                listener.onDatabaseInfoChanged(
-                                    previousDatabaseInfo,
-                                    lastFileDatabaseInfo,
-                                    database.isReadOnly
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Unable to check database info", e)
-        }
+        DatabaseJobManager.getInstance().checkDatabaseInfo(applicationContext)
     }
 
     fun saveDatabaseInfo() {
-        mDatabase?.recordInAppSaveCompleted(applicationContext)
+        DatabaseJobManager.getInstance().saveDatabaseInfo(applicationContext)
     }
 
-    /**
-     * Force to call [ActionTaskListener.onActionStarted] if the action is still running
-     * or [ActionTaskListener.onActionStopped] if the action is no longer running
-     */
     fun checkAction() {
-        mDatabase?.let { database ->
-            // Check if action / sub-action is running
-            if (mActionRunning > 0) {
-                mActionTaskListeners.forEach { actionTaskListener ->
-                    actionTaskListener.onActionStarted(
-                        database, mProgressMessage
-                    )
-                }
-            } else {
-                /* Do not stop here, service cannot be connected
-                mActionTaskListeners.forEach { actionTaskListener ->
-                    actionTaskListener.onActionStopped(
-                        database
-                    )
-                }*/
-            }
-        }
-    }
-
-    @OptIn(ExperimentalCoroutinesApi::class)
-    private fun sendResponseToChallenge(response: ByteArray) {
-        mainScope.launch {
-            val responseChannel = mResponseChallengeChannel
-            if (responseChannel == null || responseChannel.isEmpty) {
-                if (response.isEmpty()) {
-                    cancelChallengeResponse(R.string.error_no_response_from_challenge)
-                } else {
-                    mResponseChallengeChannel?.send(response)
-                }
-            } else {
-                cancelChallengeResponse(R.string.error_response_already_provided)
-            }
-        }
-    }
-
-    private fun initializeChallengeResponse() {
-        // Init the channels
-        if (mResponseChallengeChannel == null) {
-            mResponseChallengeChannel = Channel(0)
-        }
-    }
-
-    private fun closeChallengeResponse() {
-        mResponseChallengeChannel?.close()
-        mResponseChallengeChannel = null
-    }
-
-    private fun cancelChallengeResponse(@StringRes error: Int) {
-        mResponseChallengeChannel?.cancel(CancellationException(getString(error)))
-        mResponseChallengeChannel = null
+        DatabaseJobManager.getInstance().checkAction()
     }
 
     override fun onBind(intent: Intent): IBinder? {
         super.onBind(intent)
-        return mActionTaskBinder
-    }
-
-    private fun updateSavingActionRunning(isSavingAction: Boolean, increment: Boolean) {
-        if (isSavingAction) {
-            if (increment) mSavingActionsRunning++ else mSavingActionsRunning--
-        }
-        mSaveState = mSavingActionsRunning > 0
+        return actionTaskBinder
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
 
         val database = ContextualDatabase.getInstance()
-        if (mDatabase != database) {
-            mDatabase = database
-            mDatabaseListeners.forEach { listener ->
-                listener.onDatabaseRetrieved(mDatabase)
-            }
-        }
+        DatabaseJobManager.getInstance().currentDatabase = database
 
         val intentAction = intent?.action
-
-        // Get save state
         val isSavingAction = if (intent != null && !database.isReadOnly) {
             if (intent.hasExtra(SAVE_DATABASE_KEY)) {
-                intent.getBooleanExtra(
-                    SAVE_DATABASE_KEY,
-                    false
-                )
+                intent.getBooleanExtra(SAVE_DATABASE_KEY, false)
             } else (intentAction == ACTION_DATABASE_CREATE_TASK
                     || intentAction == ACTION_DATABASE_ASSIGN_CREDENTIAL_TASK
                     || intentAction == ACTION_DATABASE_SAVE)
         } else false
 
-        updateSavingActionRunning(isSavingAction, increment = true)
-
-        // Create the notification
-        buildNotification(intent)
+        buildNotification(intentAction, isSavingAction, DatabaseJobManager.getInstance().progressMessageFlow.value)
 
         if (intentAction == null && !database.loaded) {
             stopService()
         }
 
-        val actionRunnable: ActionRunnable? = when (intentAction) {
-            ACTION_DATABASE_CREATE_TASK -> buildDatabaseCreateActionTask(intent, database)
-            ACTION_DATABASE_LOAD_TASK -> buildDatabaseLoadActionTask(intent, database)
-            ACTION_DATABASE_MERGE_TASK -> buildDatabaseMergeActionTask(intent, database)
-            ACTION_DATABASE_RELOAD_TASK -> buildDatabaseReloadActionTask(database)
-            ACTION_DATABASE_ASSIGN_CREDENTIAL_TASK -> buildDatabaseAssignCredentialActionTask(intent, database)
-            ACTION_DATABASE_CREATE_GROUP_TASK -> buildDatabaseCreateGroupActionTask(intent, database)
-            ACTION_DATABASE_UPDATE_GROUP_TASK -> buildDatabaseUpdateGroupActionTask(intent, database)
-            ACTION_DATABASE_TOUCH_GROUP_TASK -> buildDatabaseTouchGroupActionTask(intent, database)
-            ACTION_DATABASE_CREATE_ENTRY_TASK -> buildDatabaseCreateEntryActionTask(intent, database)
-            ACTION_DATABASE_UPDATE_ENTRY_TASK -> buildDatabaseUpdateEntryActionTask(intent, database)
-            ACTION_DATABASE_TOUCH_ENTRY_TASK -> buildDatabaseTouchEntryActionTask(intent, database)
-            ACTION_DATABASE_COPY_NODES_TASK -> buildDatabaseCopyNodesActionTask(intent, database)
-            ACTION_DATABASE_MOVE_NODES_TASK -> buildDatabaseMoveNodesActionTask(intent, database)
-            ACTION_DATABASE_DELETE_NODES_TASK -> buildDatabaseDeleteNodesActionTask(intent, database)
-            ACTION_DATABASE_RESTORE_ENTRY_HISTORY -> buildDatabaseRestoreEntryHistoryActionTask(intent, database)
-            ACTION_DATABASE_DELETE_ENTRY_HISTORY -> buildDatabaseDeleteEntryHistoryActionTask(intent, database)
-            ACTION_DATABASE_UPDATE_COMPRESSION_TASK -> buildDatabaseUpdateCompressionActionTask(intent, database)
-            ACTION_DATABASE_REMOVE_UNLINKED_DATA_TASK -> buildDatabaseRemoveUnlinkedDataActionTask(intent, database)
-            ACTION_DATABASE_UPDATE_NAME_TASK,
-            ACTION_DATABASE_UPDATE_DESCRIPTION_TASK,
-            ACTION_DATABASE_UPDATE_DEFAULT_USERNAME_TASK,
-            ACTION_DATABASE_UPDATE_COLOR_TASK,
-            ACTION_DATABASE_UPDATE_RECYCLE_BIN_TASK,
-            ACTION_DATABASE_UPDATE_TEMPLATES_GROUP_TASK,
-            ACTION_DATABASE_UPDATE_MAX_HISTORY_ITEMS_TASK,
-            ACTION_DATABASE_UPDATE_MAX_HISTORY_SIZE_TASK,
-            ACTION_DATABASE_UPDATE_ENCRYPTION_TASK,
-            ACTION_DATABASE_UPDATE_MEMORY_USAGE_TASK,
-            ACTION_DATABASE_UPDATE_PARALLELISM_TASK,
-            ACTION_DATABASE_UPDATE_ITERATIONS_TASK -> buildDatabaseUpdateElementActionTask(intent, database)
-            ACTION_DATABASE_UPDATE_KEY_DERIVATION_TASK -> buildDatabaseUpdateKeyDerivationActionTask(intent, database)
-            ACTION_DATABASE_BENCHMARK_KDF -> buildDatabaseBenchmarkKdfActionTask(intent, database)
-            ACTION_DATABASE_SAVE -> buildDatabaseSaveActionTask(intent, database)
-            ACTION_CHALLENGE_RESPONDED -> buildChallengeRespondedActionTask(intent)
-            else -> null
-        }
+        val actionRunnable: ActionRunnable? = if (intent != null) {
+            DatabaseActionBuilder.buildAction(
+                context = this,
+                intent = intent,
+                database = database,
+                progressTaskUpdater = DatabaseJobManager.getInstance(),
+                challengeResponseRetriever = { hardwareKey, seed ->
+                    DatabaseJobManager.getInstance().retrieveResponseFromChallenge(this, hardwareKey, seed)
+                }
+            )
+        } else null
 
-        // Sub action is an action in another action, don't perform pre and post action
         val isMainAction = intentAction != ACTION_CHALLENGE_RESPONDED
 
-        // Build and launch the action
         if (actionRunnable != null) {
             mainScope.launch {
-                executeAction(
-                    this@DatabaseTaskNotificationService,
-                    {
-                        mActionRunning++
-                        if (isMainAction) {
-                            TimeoutHelper.temporarilyDisableTimeout()
-
-                            sendBroadcast(Intent(DATABASE_START_TASK_ACTION).apply {
-                                putExtra(DATABASE_TASK_TITLE_KEY, mProgressMessage.titleId)
-                                putExtra(DATABASE_TASK_MESSAGE_KEY, mProgressMessage.messageId)
-                                putExtra(DATABASE_TASK_WARNING_KEY, mProgressMessage.warningId)
-                            })
-
-                            mActionTaskListeners.forEach { actionTaskListener ->
-                                actionTaskListener.onActionStarted(
-                                    database,
-                                    mProgressMessage
-                                )
-                            }
-                        }
-                    },
-                    {
-                        actionRunnable
-                    },
-                    { result ->
-                        if (isMainAction) {
-                            val save = !database.isReadOnly
-                                    && (intentAction == ACTION_DATABASE_SAVE
-                                    || intent?.getBooleanExtra(SAVE_DATABASE_KEY, false) == true)
-                            val shouldSaveDatabaseInfo = save || when (intentAction) {
-                                ACTION_DATABASE_CREATE_TASK,
-                                ACTION_DATABASE_LOAD_TASK,
-                                ACTION_DATABASE_MERGE_TASK,
-                                ACTION_DATABASE_RELOAD_TASK,
-                                ACTION_DATABASE_ASSIGN_CREDENTIAL_TASK -> true
-                                else -> false
-                            }
-                            if (shouldSaveDatabaseInfo) {
-                                saveDatabaseInfo()
-                            }
-                            try {
-                                // To indicate a save action
-                                if (result.data == null)
-                                    result.data = Bundle()
-                                result.data?.putBoolean(SAVE_DATABASE_KEY, save)
-
-                                mActionTaskListeners.forEach { actionTaskListener ->
-                                    mTaskRemovedRequested = false
-                                    actionTaskListener.onActionFinished(
-                                        database,
-                                        intentAction!!,
-                                        result
-                                    )
-                                }
-                            } finally {
-                                // Save the database info after performing action
-                                if (shouldSaveDatabaseInfo) {
-                                    saveDatabaseInfo()
-                                }
-                                removeIntentData(intent)
-                                updateSavingActionRunning(isSavingAction, increment = false)
-                                TimeoutHelper.releaseTemporarilyDisableTimeout()
-                                // Stop service after save if user remove task
-                                if (save && mTaskRemovedRequested) {
-                                    stopService()
-                                } else if (TimeoutHelper.checkTimeAndLockIfTimeout(this@DatabaseTaskNotificationService)) {
-                                    if (!database.loaded) {
-                                        stopService()
-                                    } else {
-                                        // Restart the service to open lock notification
-                                        try {
-                                            startService(
-                                                Intent(
-                                                    applicationContext,
-                                                    DatabaseTaskNotificationService::class.java
-                                                )
-                                            )
-                                        } catch (e: IllegalStateException) {
-                                            Log.w(
-                                                TAG,
-                                                "Cannot restart the database task service",
-                                                e
-                                            )
-                                        }
-                                    }
-                                }
-                                mTaskRemovedRequested = false
-                            }
-                            sendBroadcast(Intent(DATABASE_STOP_TASK_ACTION))
-                        }
-                        mActionRunning--
-                        if (mActionRunning == 0) {
-                            mActionTaskListeners.forEach { actionTaskListener ->
-                                actionTaskListener.onActionStopped(database)
-                            }
-                        }
-                    }
+                DatabaseJobManager.getInstance().executeAction(
+                    database = database,
+                    actionTask = intentAction ?: "",
+                    isSavingAction = isSavingAction,
+                    isMainAction = isMainAction,
+                    actionRunnable = actionRunnable
                 )
             }
-        } else {
-            updateSavingActionRunning(isSavingAction, increment = false)
         }
 
         return when (intentAction) {
             ACTION_DATABASE_LOAD_TASK,
             ACTION_DATABASE_MERGE_TASK,
             ACTION_DATABASE_RELOAD_TASK,
-            null,
-            -> {
-                START_STICKY
-            }
-            else -> {
-                // Relaunch action if failed
-                START_REDELIVER_INTENT
-            }
+            null -> START_STICKY
+            else -> START_REDELIVER_INTENT
         }
     }
 
-    private fun buildNotification(intent: Intent?) {
-        // Assign elements for updates
-        val intentAction = intent?.action
-
-        // Get icon depending on action state
-        val iconId = if (intentAction == null)
+    private fun buildNotification(
+        intentAction: String?,
+        isSavingAction: Boolean,
+        progressMessage: ProgressMessage
+    ) {
+        val database = ContextualDatabase.getInstance()
+        val iconId = if (intentAction == null && DatabaseJobManager.getInstance().activeJobsCount.value == 0)
             R.drawable.notification_ic_database_open
         else
             R.drawable.notification_ic_database_action
 
-        // Title depending on action
-        val newTitleId =
-            if (intentAction == null) {
+        val titleId = if (intentAction == null) {
+            if (DatabaseJobManager.getInstance().activeJobsCount.value > 0) {
+                if (isSavingAction) R.string.saving_database else R.string.command_execution
+            } else {
                 R.string.database_opened
-            } else when (intentAction) {
-                ACTION_DATABASE_CREATE_TASK -> R.string.creating_database
-                ACTION_DATABASE_LOAD_TASK,
-                ACTION_DATABASE_MERGE_TASK,
-                ACTION_DATABASE_RELOAD_TASK, -> R.string.loading_database
-                ACTION_DATABASE_ASSIGN_CREDENTIAL_TASK,
-                ACTION_DATABASE_SAVE, -> R.string.saving_database
-                else -> {
-                    if (mSaveState)
-                        R.string.saving_database
-                    else
-                        R.string.command_execution
-                }
             }
-
-        if (mActionRunning == 0 ||
-            (intentAction != ACTION_DATABASE_TOUCH_ENTRY_TASK
-                    && intentAction != ACTION_DATABASE_TOUCH_GROUP_TASK)) {
-            mProgressMessage.titleId = newTitleId
-            mProgressMessage.cancelable = null
+        } else when (intentAction) {
+            ACTION_DATABASE_CREATE_TASK -> R.string.creating_database
+            ACTION_DATABASE_LOAD_TASK,
+            ACTION_DATABASE_MERGE_TASK,
+            ACTION_DATABASE_RELOAD_TASK -> R.string.loading_database
+            ACTION_DATABASE_ASSIGN_CREDENTIAL_TASK,
+            ACTION_DATABASE_SAVE -> R.string.saving_database
+            else -> if (isSavingAction) R.string.saving_database else R.string.command_execution
         }
-
-        // Updated later
-        mProgressMessage.messageId = null
-
-        // Warning if data is saved
-        mProgressMessage.warningId =
-            if (mSaveState)
-                R.string.do_not_kill_app
-            else
-                null
 
         val notificationBuilder = buildNewNotification().apply {
             setSmallIcon(iconId)
-            val titleId = mProgressMessage.titleId?.let {
-                intent?.getIntExtra(DATABASE_TASK_TITLE_KEY, it)
-            } ?: R.string.app_name
             setContentTitle(getString(titleId))
             setAutoCancel(false)
             setContentIntent(null)
         }
 
-        if (intentAction == null) {
-            mDatabase?.let { database ->
-                // Database is normally open
-                if (database.loaded) {
-                    // Build Intents for notification action
-                    // Open the start of the database workflow
-                    val pendingDatabaseIntent = buildActivityPendingIntent(
-                        Intent(this, FileDatabaseSelectActivity::class.java)
+        if (intentAction == null && DatabaseJobManager.getInstance().activeJobsCount.value == 0) {
+            if (database.loaded) {
+                val pendingDatabaseIntent = buildActivityPendingIntent(
+                    Intent(this, FileDatabaseSelectActivity::class.java)
+                )
+                val pendingDeleteIntent = PendingIntent.getBroadcast(
+                    this,
+                    4576,
+                    Intent(LOCK_ACTION),
+                    PendingIntent.FLAG_IMMUTABLE
+                )
+                notificationBuilder.apply {
+                    setContentText("${database.name} (${database.version})")
+                    setContentIntent(pendingDatabaseIntent)
+                    setDeleteIntent(pendingDeleteIntent)
+                    addAction(
+                        R.drawable.ic_lock_database_white_32dp,
+                        getString(R.string.lock),
+                        pendingDeleteIntent
                     )
-                    val pendingDeleteIntent = PendingIntent.getBroadcast(
-                        this,
-                        4576,
-                        Intent(LOCK_ACTION),
-                        PendingIntent.FLAG_IMMUTABLE
-                    )
-                    // Add actions in notifications
-                    notificationBuilder.apply {
-                        setContentText(database.name + " (" + database.version + ")")
-                        setContentIntent(pendingDatabaseIntent)
-                        // Unfortunately swipe is disabled in lollipop+
-                        setDeleteIntent(pendingDeleteIntent)
-                        addAction(
-                            R.drawable.ic_lock_database_white_32dp, getString(R.string.lock),
-                            pendingDeleteIntent
+                    if (Build.VERSION.SDK_INT > Build.VERSION_CODES.R) {
+                        setStyle(
+                            NotificationCompat.MediaStyle()
+                                .setShowActionsInCompactView(0)
                         )
-                        // Won't work with Xiaomi and Kitkat
-                        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.R) {
-                            setStyle(
-                                NotificationCompat.MediaStyle()
-                                    .setShowActionsInCompactView(0)
-                            )
-                        }
                     }
                 }
             }
+        } else {
+            progressMessage.messageId?.let { msgId ->
+                notificationBuilder.setContentText(getString(msgId))
+            }
         }
 
-        // Create the notification
         startForegroundCompat(
             notificationId,
             notificationBuilder,
@@ -624,824 +312,37 @@ open class DatabaseTaskNotificationService : LockNotificationService(), Progress
         )
     }
 
-    private fun removeIntentData(intent: Intent?) {
-        intent?.action = null
-
-        intent?.removeExtra(DATABASE_TASK_TITLE_KEY)
-        intent?.removeExtra(DATABASE_TASK_MESSAGE_KEY)
-        intent?.removeExtra(DATABASE_TASK_WARNING_KEY)
-
-        intent?.removeExtra(DATABASE_URI_KEY)
-        intent?.removeExtra(MAIN_CREDENTIAL_KEY)
-        intent?.removeExtra(READ_ONLY_KEY)
-        intent?.removeExtra(USER_VERIFICATION_KEY)
-        intent?.removeExtra(CIPHER_DATABASE_KEY)
-        intent?.removeExtra(FIX_DUPLICATE_UUID_KEY)
-        intent?.removeExtra(GROUP_KEY)
-        intent?.removeExtra(ENTRY_KEY)
-        intent?.removeExtra(GROUP_ID_KEY)
-        intent?.removeExtra(ENTRY_ID_KEY)
-        intent?.removeExtra(GROUPS_ID_KEY)
-        intent?.removeExtra(ENTRIES_ID_KEY)
-        intent?.removeExtra(PARENT_ID_KEY)
-        intent?.removeExtra(ENTRY_HISTORY_POSITION_KEY)
-        intent?.removeExtra(SAVE_DATABASE_KEY)
-        intent?.removeExtra(OLD_NODES_KEY)
-        intent?.removeExtra(NEW_NODES_KEY)
-        intent?.removeExtra(OLD_ELEMENT_KEY)
-        intent?.removeExtra(NEW_ELEMENT_KEY)
-    }
-
-    /**
-     * Execute action with a coroutine
-     */
-    private suspend fun executeAction(
-        progressTaskUpdater: ProgressTaskUpdater,
-        onPreExecute: () -> Unit,
-        onExecute: (ProgressTaskUpdater?) -> ActionRunnable?,
-        onPostExecute: (result: ActionRunnable.Result) -> Unit,
-    ) {
-        onPreExecute.invoke()
-        withContext(Dispatchers.IO) {
-            onExecute.invoke(progressTaskUpdater)?.apply {
-                val asyncResult: Deferred<ActionRunnable.Result> = async {
-                    // Run the actionRunnable
-                    run()
-                    result
-                }
-                withContext(Dispatchers.Main) {
-                    onPostExecute.invoke(asyncResult.await())
-                }
-            }
-        }
-    }
-
-    private fun notifyProgressMessage() {
-        mDatabase?.let { database ->
-            mActionTaskListeners.forEach { actionTaskListener ->
-                actionTaskListener.onActionUpdated(
-                    database, mProgressMessage
-                )
-            }
-        }
-    }
-
-    private fun updateMessage(resId: Int) {
-        mProgressMessage = mProgressMessage.copy(
-            messageId = resId
-        )
-        notifyProgressMessage()
-    }
-
-    override fun retrievingDatabaseKey() {
-        updateMessage(R.string.retrieving_db_key)
-    }
-
-    override fun decryptingDatabase() {
-        updateMessage(R.string.decrypting_db)
-    }
-
-    override fun benchmarking() {
-        updateMessage(R.string.benchmarking)
-    }
-
     override fun stopService() {
         if (!TimeoutHelper.temporarilyDisableLock) {
-            closeDatabase(mDatabase)
-            // Remove the database during the lock
-            // And notify each subscriber
-            mDatabase = null
-            mDatabaseListeners.forEach { listener ->
-                listener.onDatabaseRetrieved(null)
-            }
-            // Remove the lock timer (no more needed if it exists)
+            val database = ContextualDatabase.getInstance()
+            closeDatabase(database)
+            DatabaseJobManager.getInstance().checkDatabase(null)
             TimeoutHelper.cancelLockTimer(this)
-            // Service is stopped after receive the broadcast
             super.stopService()
         }
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         if (TimeoutHelper.temporarilyDisableLock) {
-            mTaskRemovedRequested = true
+            taskRemovedRequested = true
         }
         super.onTaskRemoved(rootIntent)
     }
 
-    private fun retrieveResponseFromChallenge(
-        hardwareKey: HardwareKey,
-        seed: ByteArray?,
-    ): ByteArray {
-        // Request a challenge - response
-        var response: ByteArray
-        runBlocking {
-            // Initialize the channels
-            initializeChallengeResponse()
-            val previousMessage = mProgressMessage.copy()
-            mProgressMessage.apply {
-                messageId = R.string.waiting_challenge_request
-                cancelable = {
-                    cancelChallengeResponse(R.string.error_cancel_by_user)
-                }
-            }
-            // Send the request
-            notifyProgressMessage()
-            HardwareKeyActivity
-                .launchHardwareKeyActivity(
-                    context = this@DatabaseTaskNotificationService,
-                    hardwareKey = hardwareKey,
-                    seed = seed
-                )
-            // Wait the response
-            mProgressMessage.apply {
-                messageId = R.string.waiting_challenge_response
-            }
-            notifyProgressMessage()
-            response = mResponseChallengeChannel?.receive() ?: byteArrayOf()
-            // Close channels
-            closeChallengeResponse()
-            // Restore previous message
-            mProgressMessage = previousMessage.apply {
-                cancelable = null
-            }
-            notifyProgressMessage()
-        }
-        return response
+    // Forward ProgressTaskUpdater to DatabaseJobManager
+    override fun retrievingDatabaseKey() {
+        DatabaseJobManager.getInstance().retrievingDatabaseKey()
     }
 
-    private fun buildDatabaseCreateActionTask(
-        intent: Intent,
-        database: ContextualDatabase
-    ): ActionRunnable? {
-        if (intent.hasExtra(DATABASE_URI_KEY)
-            && intent.hasExtra(MAIN_CREDENTIAL_KEY)
-        ) {
-            val databaseUri: Uri? = intent.getParcelableExtraCompat(DATABASE_URI_KEY)
-            val mainCredential: MainCredential =
-                intent.getParcelableExtraCompat(MAIN_CREDENTIAL_KEY) ?: MainCredential()
-            if (databaseUri == null) return null
-            return CreateDatabaseRunnable(
-                context = this,
-                mDatabase = database,
-                databaseUri = databaseUri,
-                databaseName = getString(R.string.database_default_name),
-                rootName = getString(R.string.database),
-                templateGroupName = getString(R.string.template_group_name),
-                mainCredential = mainCredential,
-                challengeResponseRetriever = { hardwareKey, seed ->
-                    retrieveResponseFromChallenge(hardwareKey, seed)
-                },
-                progressTaskUpdater = this
-            ).apply {
-                afterSaveDatabase = { result ->
-                    eraseCredentials(databaseUri)
-                    if (result.isSuccess) {
-                        // Add database to recent files
-                        if (PreferencesUtil.rememberDatabaseLocations(applicationContext)) {
-                            FileDatabaseHistoryAction.getInstance(applicationContext)
-                                .addOrUpdateDatabaseUri(
-                                    databaseUri,
-                                    if (PreferencesUtil.rememberKeyFileLocations(
-                                            applicationContext
-                                        )
-                                    )
-                                        mainCredential.keyFileUri else null,
-                                    if (PreferencesUtil.rememberHardwareKey(applicationContext))
-                                        mainCredential.hardwareKey else null,
-                                )
-                        }
-                        // Register the current time to init the lock timer
-                        PreferencesUtil.saveCurrentTime(applicationContext)
-                    } else {
-                        Log.e(TAG, "Unable to create the database")
-                    }
-                    // Pass result to activity
-                    result.data = Bundle().apply {
-                        putParcelable(DATABASE_URI_KEY, databaseUri)
-                        putParcelable(MAIN_CREDENTIAL_KEY, mainCredential)
-                    }
-                }
-            }
-        } else {
-            return null
-        }
+    override fun decryptingDatabase() {
+        DatabaseJobManager.getInstance().decryptingDatabase()
     }
 
-    private fun buildDatabaseLoadActionTask(
-        intent: Intent,
-        database: ContextualDatabase
-    ): ActionRunnable? {
-        if (intent.hasExtra(DATABASE_URI_KEY)
-            && intent.hasExtra(MAIN_CREDENTIAL_KEY)
-            && intent.hasExtra(READ_ONLY_KEY)
-            && intent.hasExtra(USER_VERIFICATION_KEY)
-            && intent.hasExtra(CIPHER_DATABASE_KEY)
-            && intent.hasExtra(FIX_DUPLICATE_UUID_KEY)
-        ) {
-            val databaseUri: Uri? = intent.getParcelableExtraCompat(DATABASE_URI_KEY)
-            val mainCredential: MainCredential =
-                intent.getParcelableExtraCompat(MAIN_CREDENTIAL_KEY) ?: MainCredential()
-            val readOnly: Boolean = intent.getBooleanExtra(READ_ONLY_KEY, true)
-            val allowUserVerification: Boolean = intent.getBooleanExtra(USER_VERIFICATION_KEY, true)
-            val cipherEncryptDatabase: CipherEncryptDatabase? =
-                intent.getParcelableExtraCompat(CIPHER_DATABASE_KEY)
-            if (databaseUri == null) return null
-            return LoadDatabaseRunnable(
-                context = this,
-                mDatabase = database,
-                mDatabaseUri = databaseUri,
-                mMainCredential = mainCredential,
-                mChallengeResponseRetriever = { hardwareKey, seed ->
-                    retrieveResponseFromChallenge(hardwareKey, seed)
-                },
-                mReadonly = readOnly,
-                mAllowUserVerification = allowUserVerification,
-                mFixDuplicateUUID = intent.getBooleanExtra(FIX_DUPLICATE_UUID_KEY, false),
-                progressTaskUpdater = this
-            ).apply {
-                afterLoadDatabase = { result ->
-                    if (result.isSuccess) {
-                        // Save keyFile in app database
-                        if (PreferencesUtil.rememberDatabaseLocations(applicationContext)) {
-                            FileDatabaseHistoryAction.getInstance(applicationContext)
-                                .addOrUpdateDatabaseUri(
-                                    databaseUri,
-                                    if (PreferencesUtil.rememberKeyFileLocations(applicationContext))
-                                        mainCredential.keyFileUri else null,
-                                    if (PreferencesUtil.rememberHardwareKey(applicationContext))
-                                        mainCredential.hardwareKey else null,
-                                )
-                        }
-
-                        // Register the biometric
-                        cipherEncryptDatabase?.let { cipherDatabase ->
-                            CipherDatabaseAction.getInstance(applicationContext)
-                                .addOrUpdateCipherDatabase(cipherDatabase) // return value not called
-                        }
-
-                        // Register the current time to init the lock timer
-                        PreferencesUtil.saveCurrentTime(applicationContext)
-                    }
-                    // Add each info to reload database after thrown duplicate UUID exception
-                    result.data = Bundle().apply {
-                        putParcelable(DATABASE_URI_KEY, databaseUri)
-                        putParcelable(MAIN_CREDENTIAL_KEY, mainCredential)
-                        putBoolean(READ_ONLY_KEY, readOnly)
-                        putBoolean(USER_VERIFICATION_KEY, allowUserVerification)
-                        putParcelable(CIPHER_DATABASE_KEY, cipherEncryptDatabase)
-                    }
-                }
-            }
-        } else {
-            return null
-        }
-    }
-
-    private fun buildDatabaseMergeActionTask(
-        intent: Intent,
-        database: ContextualDatabase
-    ): ActionRunnable {
-        var databaseToMergeUri: Uri? = null
-        var databaseToMergeMainCredential: MainCredential? = null
-        if (intent.hasExtra(DATABASE_URI_KEY)) {
-            databaseToMergeUri = intent.getParcelableExtraCompat(DATABASE_URI_KEY)
-        }
-        if (intent.hasExtra(MAIN_CREDENTIAL_KEY)) {
-            databaseToMergeMainCredential = intent.getParcelableExtraCompat(MAIN_CREDENTIAL_KEY)
-        }
-        val saveDatabase = intent.getBooleanExtra(SAVE_DATABASE_KEY, false)
-        return MergeDatabaseRunnable(
-            context = this,
-            mDatabaseToMergeUri = databaseToMergeUri,
-            mDatabaseToMergeMainCredential = databaseToMergeMainCredential,
-            mDatabaseToMergeChallengeResponseRetriever = { hardwareKey, seed ->
-                retrieveResponseFromChallenge(hardwareKey, seed)
-            },
-            database = database,
-            save = !database.isReadOnly && saveDatabase,
-            challengeResponseRetriever = { hardwareKey, seed ->
-                retrieveResponseFromChallenge(hardwareKey, seed)
-            },
-            progressTaskUpdater = this
-        ).apply {
-            afterSaveDatabase = { result ->
-                if (result.isSuccess) {
-                    PreferencesUtil.saveCurrentTime(applicationContext)
-                }
-                // No need to add each info to merge database
-                result.data = Bundle()
-            }
-        }
-    }
-
-    private fun buildDatabaseReloadActionTask(
-        database: ContextualDatabase
-    ): ActionRunnable {
-        return ReloadDatabaseRunnable(
-            context = this,
-            mDatabase = database,
-            progressTaskUpdater = this
-        ).apply {
-            afterReloadDatabase = { result ->
-                if (result.isSuccess) {
-                    PreferencesUtil.saveCurrentTime(applicationContext)
-                }
-                // No need to add each info to reload database
-                result.data = Bundle()
-            }
-        }
-    }
-
-    private fun buildDatabaseAssignCredentialActionTask(
-        intent: Intent,
-        database: ContextualDatabase
-    ): ActionRunnable? {
-        return if (intent.hasExtra(DATABASE_URI_KEY)
-            && intent.hasExtra(MAIN_CREDENTIAL_KEY)
-        ) {
-            val databaseUri: Uri = intent.getParcelableExtraCompat(DATABASE_URI_KEY) ?: return null
-            SaveDatabaseRunnable(
-                context = this,
-                database = database,
-                save = true,
-                mainCredential = intent.getParcelableExtraCompat(MAIN_CREDENTIAL_KEY) ?: MainCredential(),
-                challengeResponseRetriever = { hardwareKey, seed ->
-                    retrieveResponseFromChallenge(hardwareKey, seed)
-                },
-                databaseCopyUri = null
-            ).apply {
-                afterSaveDatabase = {
-                    eraseCredentials(databaseUri)
-                }
-            }
-        } else {
-            null
-        }
-    }
-
-    private fun eraseCredentials(databaseUri: Uri) {
-        // Erase the biometric
-        CipherDatabaseAction.getInstance(this)
-            .deleteByDatabaseUri(databaseUri)
-        // Erase the register keyfile
-        FileDatabaseHistoryAction.getInstance(this)
-            .deleteKeyFileByDatabaseUri(databaseUri)
-    }
-
-    private class AfterActionNodesRunnable : AfterActionNodesFinish() {
-        override fun onActionNodesFinish(
-            result: ActionRunnable.Result,
-            actionNodesValues: ActionNodesValues,
-        ) {
-            val bundle = result.data ?: Bundle()
-            bundle.putBundle(OLD_NODES_KEY, Bundle().apply {
-                putParcelableList(GROUPS_ID_KEY, actionNodesValues.oldGroupsIds ?: listOf())
-                putParcelableList(ENTRIES_ID_KEY, actionNodesValues.oldEntriesIds ?: listOf())
-            })
-            bundle.putBundle(NEW_NODES_KEY, Bundle().apply {
-                putParcelableList(GROUPS_ID_KEY, actionNodesValues.newGroupsIds ?: listOf())
-                putParcelableList(ENTRIES_ID_KEY, actionNodesValues.newEntriesIds ?: listOf())
-            })
-            result.data = bundle
-        }
-    }
-
-    private fun buildDatabaseCreateGroupActionTask(
-        intent: Intent,
-        database: ContextualDatabase,
-    ): ActionRunnable? {
-        return if (intent.hasExtra(GROUP_KEY)
-            && intent.hasExtra(PARENT_ID_KEY)
-            && intent.hasExtra(SAVE_DATABASE_KEY)
-        ) {
-            val parentId: GroupId? = intent.getParcelableExtraCompat(PARENT_ID_KEY)
-            val newGroup: GroupInfo? = intent.getParcelableExtraCompat(GROUP_KEY)
-            if (parentId == null || newGroup == null) return null
-            val saveDatabase = intent.getBooleanExtra(SAVE_DATABASE_KEY, false)
-            AddGroupRunnable(
-                context = this,
-                database = database,
-                parentId = parentId,
-                newGroup = newGroup,
-                save = !database.isReadOnly && saveDatabase,
-                afterActionNodesFinish = AfterActionNodesRunnable()
-            ) { hardwareKey, seed ->
-                retrieveResponseFromChallenge(hardwareKey, seed)
-            }
-        } else {
-            null
-        }
-    }
-
-    private fun buildDatabaseUpdateGroupActionTask(
-        intent: Intent,
-        database: ContextualDatabase,
-    ): ActionRunnable? {
-        return if (intent.hasExtra(GROUP_KEY)
-            && intent.hasExtra(SAVE_DATABASE_KEY)
-        ) {
-            val newGroup: GroupInfo = intent.getParcelableExtraCompat(GROUP_KEY) ?: return null
-            val saveDatabase = intent.getBooleanExtra(SAVE_DATABASE_KEY, false)
-            UpdateGroupRunnable(
-                context = this,
-                database = database,
-                newGroup = newGroup,
-                save = !database.isReadOnly && saveDatabase,
-                afterActionNodesFinish = AfterActionNodesRunnable()
-            ) { hardwareKey, seed ->
-                retrieveResponseFromChallenge(hardwareKey, seed)
-            }
-        } else {
-            null
-        }
-    }
-
-    private fun buildDatabaseTouchGroupActionTask(
-        intent: Intent,
-        database: ContextualDatabase,
-    ): ActionRunnable? {
-        return if (intent.hasExtra(GROUP_ID_KEY)) {
-            val groupId: GroupId = intent.getParcelableExtraCompat(GROUP_ID_KEY) ?: return null
-            TouchGroupRunnable(
-                context = this,
-                database = database,
-                groupId = groupId,
-                afterActionNodesFinish = AfterActionNodesRunnable()
-            ) { hardwareKey, seed ->
-                retrieveResponseFromChallenge(hardwareKey, seed)
-            }
-        } else {
-            null
-        }
-    }
-
-    private fun buildDatabaseCreateEntryActionTask(
-        intent: Intent,
-        database: ContextualDatabase,
-    ): ActionRunnable? {
-        return if (intent.hasExtra(ENTRY_KEY)
-            && intent.hasExtra(PARENT_ID_KEY)
-            && intent.hasExtra(SAVE_DATABASE_KEY)
-        ) {
-            val parentId: GroupId? = intent.getParcelableExtraCompat(PARENT_ID_KEY)
-            val newEntry: EntryInfo? = intent.getParcelableExtraCompat(ENTRY_KEY)
-            if (parentId == null || newEntry == null) return null
-            val saveDatabase = intent.getBooleanExtra(SAVE_DATABASE_KEY, false)
-            AddEntryRunnable(
-                context = this,
-                database = database,
-                parentId = parentId,
-                newEntry = newEntry,
-                save = !database.isReadOnly && saveDatabase,
-                afterActionNodesFinish = AfterActionNodesRunnable()
-            ) { hardwareKey, seed ->
-                retrieveResponseFromChallenge(hardwareKey, seed)
-            }
-        } else {
-            null
-        }
-    }
-
-    private fun buildDatabaseUpdateEntryActionTask(
-        intent: Intent,
-        database: ContextualDatabase,
-    ): ActionRunnable? {
-        return if (intent.hasExtra(ENTRY_KEY)
-            && intent.hasExtra(SAVE_DATABASE_KEY)
-        ) {
-            val newEntry: EntryInfo = intent.getParcelableExtraCompat(ENTRY_KEY) ?: return null
-            val saveDatabase = intent.getBooleanExtra(SAVE_DATABASE_KEY, false)
-             UpdateEntryRunnable(
-                 context = this,
-                 database = database,
-                 newEntry = newEntry,
-                 save = !database.isReadOnly && saveDatabase,
-                 afterActionNodesFinish = AfterActionNodesRunnable()
-            ) { hardwareKey, seed ->
-                retrieveResponseFromChallenge(hardwareKey, seed)
-            }
-        } else {
-            null
-        }
-    }
-
-    private fun buildDatabaseTouchEntryActionTask(
-        intent: Intent,
-        database: ContextualDatabase,
-    ): ActionRunnable? {
-        return if (intent.hasExtra(ENTRY_ID_KEY)
-        ) {
-            val entryId: EntryId = intent.getParcelableExtraCompat(ENTRY_ID_KEY) ?: return null
-            TouchEntryRunnable(
-                context = this,
-                database = database,
-                oldEntryId = entryId,
-                afterActionNodesFinish = AfterActionNodesRunnable()
-            ) { hardwareKey, seed ->
-                retrieveResponseFromChallenge(hardwareKey, seed)
-            }
-        } else {
-            null
-        }
-    }
-
-    private fun buildDatabaseCopyNodesActionTask(
-        intent: Intent,
-        database: ContextualDatabase,
-    ): ActionRunnable? {
-        return if (intent.hasExtra(PARENT_ID_KEY)
-            && intent.hasExtra(GROUPS_ID_KEY)
-            && intent.hasExtra(ENTRIES_ID_KEY)
-            && intent.hasExtra(SAVE_DATABASE_KEY)
-        ) {
-            val parentId: GroupId = intent.getParcelableExtraCompat(PARENT_ID_KEY) ?: return null
-            val groupsIds = intent.getParcelableList<GroupId>(GROUPS_ID_KEY) ?: listOf()
-            val entriesIds = intent.getParcelableList<EntryId>(ENTRIES_ID_KEY) ?: listOf()
-            val saveDatabase = intent.getBooleanExtra(SAVE_DATABASE_KEY, false)
-            CopyNodesRunnable(
-                context = this,
-                database = database,
-                newParentId = parentId,
-                groupsIdsToCopy = groupsIds,
-                entriesIdsToCopy = entriesIds,
-                save = !database.isReadOnly && saveDatabase,
-                afterActionNodesFinish = AfterActionNodesRunnable()
-            ) { hardwareKey, seed ->
-                retrieveResponseFromChallenge(hardwareKey, seed)
-            }
-        } else {
-            null
-        }
-    }
-
-    private fun buildDatabaseMoveNodesActionTask(
-        intent: Intent,
-        database: ContextualDatabase,
-    ): ActionRunnable? {
-        return if (intent.hasExtra(PARENT_ID_KEY)
-            && intent.hasExtra(GROUPS_ID_KEY)
-            && intent.hasExtra(ENTRIES_ID_KEY)
-            && intent.hasExtra(SAVE_DATABASE_KEY)
-        ) {
-            val parentId: GroupId = intent.getParcelableExtraCompat(PARENT_ID_KEY) ?: return null
-            val groupsIds = intent.getParcelableList<GroupId>(GROUPS_ID_KEY) ?: listOf()
-            val entriesIds = intent.getParcelableList<EntryId>(ENTRIES_ID_KEY) ?: listOf()
-            val saveDatabase = intent.getBooleanExtra(SAVE_DATABASE_KEY, false)
-            MoveNodesRunnable(
-                context = this,
-                database = database,
-                parentId = parentId,
-                groupsIdsToMove = groupsIds,
-                entriesIdsToMove = entriesIds,
-                save = !database.isReadOnly && saveDatabase,
-                afterActionNodesFinish = AfterActionNodesRunnable()
-            ) { hardwareKey, seed ->
-                retrieveResponseFromChallenge(hardwareKey, seed)
-            }
-        } else {
-            null
-        }
-    }
-
-    private fun buildDatabaseDeleteNodesActionTask(
-        intent: Intent,
-        database: ContextualDatabase,
-    ): ActionRunnable? {
-        return if (intent.hasExtra(GROUPS_ID_KEY)
-            && intent.hasExtra(ENTRIES_ID_KEY)
-            && intent.hasExtra(SAVE_DATABASE_KEY)
-        ) {
-            val groupsIds = intent.getParcelableList<GroupId>(GROUPS_ID_KEY) ?: listOf()
-            val entriesIds = intent.getParcelableList<EntryId>(ENTRIES_ID_KEY) ?: listOf()
-            val saveDatabase = intent.getBooleanExtra(SAVE_DATABASE_KEY, false)
-            DeleteNodesRunnable(
-                context = this,
-                database = database,
-                groupsIdsToDelete = groupsIds,
-                entriesIdsToDelete = entriesIds,
-                recyclerBinTitle = resources.getString(R.string.recycle_bin),
-                save = !database.isReadOnly && saveDatabase,
-                afterActionNodesFinish = AfterActionNodesRunnable()
-            ) { hardwareKey, seed ->
-                retrieveResponseFromChallenge(hardwareKey, seed)
-            }
-        } else {
-            null
-        }
-    }
-
-    private fun buildDatabaseRestoreEntryHistoryActionTask(
-        intent: Intent,
-        database: ContextualDatabase,
-    ): ActionRunnable? {
-        return if (intent.hasExtra(ENTRY_ID_KEY)
-            && intent.hasExtra(ENTRY_HISTORY_POSITION_KEY)
-            && intent.hasExtra(SAVE_DATABASE_KEY)
-        ) {
-            val entryId: EntryId = intent.getParcelableExtraCompat(ENTRY_ID_KEY) ?: return null
-            val saveDatabase = intent.getBooleanExtra(SAVE_DATABASE_KEY, false)
-            RestoreEntryHistoryDatabaseRunnable(
-                context = this,
-                database = database,
-                entryId = entryId,
-                entryHistoryPosition = intent.getIntExtra(ENTRY_HISTORY_POSITION_KEY, -1),
-                save = !database.isReadOnly && saveDatabase
-            ) { hardwareKey, seed ->
-                retrieveResponseFromChallenge(hardwareKey, seed)
-            }
-        } else {
-            null
-        }
-    }
-
-    private fun buildDatabaseDeleteEntryHistoryActionTask(
-        intent: Intent,
-        database: ContextualDatabase,
-    ): ActionRunnable? {
-        return if (intent.hasExtra(ENTRY_ID_KEY)
-            && intent.hasExtra(ENTRY_HISTORY_POSITION_KEY)
-            && intent.hasExtra(SAVE_DATABASE_KEY)
-        ) {
-            val entryId: EntryId = intent.getParcelableExtraCompat(ENTRY_ID_KEY) ?: return null
-            val saveDatabase = intent.getBooleanExtra(SAVE_DATABASE_KEY, false)
-            DeleteEntryHistoryDatabaseRunnable(
-                context = this,
-                database = database,
-                mainEntryId = entryId,
-                entryHistoryPosition = intent.getIntExtra(ENTRY_HISTORY_POSITION_KEY, -1),
-                save = !database.isReadOnly && saveDatabase
-            ) { hardwareKey, seed ->
-                retrieveResponseFromChallenge(hardwareKey, seed)
-            }
-        } else {
-            null
-        }
-    }
-
-    private fun buildDatabaseUpdateCompressionActionTask(
-        intent: Intent,
-        database: ContextualDatabase,
-    ): ActionRunnable? {
-        return if (intent.hasExtra(OLD_ELEMENT_KEY)
-            && intent.hasExtra(NEW_ELEMENT_KEY)
-            && intent.hasExtra(SAVE_DATABASE_KEY)
-        ) {
-            val oldElement: CompressionAlgorithm? = intent.getParcelableExtraCompat(OLD_ELEMENT_KEY)
-            val newElement: CompressionAlgorithm? = intent.getParcelableExtraCompat(NEW_ELEMENT_KEY)
-            if (oldElement == null || newElement == null) return null
-            val saveDatabase = intent.getBooleanExtra(SAVE_DATABASE_KEY, false)
-            UpdateCompressionBinariesDatabaseRunnable(
-                context = this,
-                database = database,
-                oldCompressionAlgorithm = oldElement,
-                newCompressionAlgorithm = newElement,
-                save = !database.isReadOnly && saveDatabase
-            ) { hardwareKey, seed ->
-                retrieveResponseFromChallenge(hardwareKey, seed)
-            }.apply {
-                afterSaveDatabase = { result ->
-                    result.data = intent.extras
-                }
-            }
-        } else {
-            null
-        }
-    }
-
-    private fun buildDatabaseRemoveUnlinkedDataActionTask(
-        intent: Intent,
-        database: ContextualDatabase,
-    ): ActionRunnable? {
-        return if (intent.hasExtra(SAVE_DATABASE_KEY)) {
-            val saveDatabase = intent.getBooleanExtra(SAVE_DATABASE_KEY, false)
-            RemoveUnlinkedDataDatabaseRunnable(
-                context = this,
-                database = database,
-                save = !database.isReadOnly && saveDatabase
-            ) { hardwareKey, seed ->
-                retrieveResponseFromChallenge(hardwareKey, seed)
-            }.apply {
-                afterSaveDatabase = { result ->
-                    result.data = intent.extras
-                }
-            }
-        } else {
-            null
-        }
-    }
-
-    private fun buildDatabaseUpdateElementActionTask(
-        intent: Intent,
-        database: ContextualDatabase,
-    ): ActionRunnable? {
-        return if (intent.hasExtra(SAVE_DATABASE_KEY)) {
-            val saveDatabase = intent.getBooleanExtra(SAVE_DATABASE_KEY, false)
-            SaveDatabaseRunnable(
-                context = this,
-                database = database,
-                save = !database.isReadOnly && saveDatabase,
-                mainCredential = null,
-                challengeResponseRetriever = { hardwareKey, seed ->
-                    retrieveResponseFromChallenge(hardwareKey, seed)
-                }
-            ).apply {
-                afterSaveDatabase = { result ->
-                    result.data = intent.extras
-                }
-            }
-        } else {
-            null
-        }
-    }
-
-    private fun buildDatabaseUpdateKeyDerivationActionTask(
-        intent: Intent,
-        database: ContextualDatabase,
-    ): ActionRunnable? {
-        val oldKeyDerivation = intent.getSerializableExtraCompat<KdfEngine>(OLD_ELEMENT_KEY)
-        val newKeyDerivation = intent.getSerializableExtraCompat<KdfEngine>(NEW_ELEMENT_KEY)
-        val saveDatabase = intent.getBooleanExtra(SAVE_DATABASE_KEY, false)
-        return if (oldKeyDerivation != null && newKeyDerivation != null) {
-            UpdateKeyDerivationDatabaseRunnable(
-                context = this,
-                database = database,
-                oldKeyDerivation = oldKeyDerivation,
-                newKeyDerivation = newKeyDerivation,
-                save = !database.isReadOnly && saveDatabase,
-                challengeResponseRetriever = { hardwareKey, seed ->
-                    retrieveResponseFromChallenge(hardwareKey, seed)
-                },
-                progressTaskUpdater = this
-            ).apply {
-                afterSaveDatabase = { result ->
-                    result.data = intent.extras
-                }
-            }
-        } else {
-            null
-        }
-    }
-
-    /**
-     * Save database without parameter
-     */
-    private fun buildDatabaseSaveActionTask(
-        intent: Intent,
-        database: ContextualDatabase
-    ): ActionRunnable? {
-        return if (intent.hasExtra(SAVE_DATABASE_KEY)) {
-            val saveDatabase = intent.getBooleanExtra(SAVE_DATABASE_KEY, false)
-            var databaseCopyUri: Uri? = null
-            if (intent.hasExtra(DATABASE_URI_KEY)) {
-                databaseCopyUri = intent.getParcelableExtraCompat(DATABASE_URI_KEY)
-            }
-            SaveDatabaseRunnable(
-                context = this,
-                database = database,
-                save = !database.isReadOnly && saveDatabase,
-                mainCredential = null,
-                challengeResponseRetriever = { hardwareKey, seed ->
-                    retrieveResponseFromChallenge(hardwareKey, seed)
-                },
-                databaseCopyUri
-            )
-        } else {
-            null
-        }
-    }
-
-    private fun buildDatabaseBenchmarkKdfActionTask(
-        intent: Intent,
-        database: ContextualDatabase
-    ): ActionRunnable {
-        return BenchmarkKdfRunnable(
-            context = this@DatabaseTaskNotificationService,
-            database,
-            targetTime = intent.getLongExtra(BENCHMARK_TIME_KEY, DEFAULT_BENCHMARK_TIME),
-            progressTaskUpdater = this
-        )
-    }
-
-    private fun buildChallengeRespondedActionTask(intent: Intent): ActionRunnable? {
-        return if (intent.hasExtra(DATA_BYTES_KEY)) {
-            object : ActionRunnable() {
-                override fun onStartRun() {}
-                override fun onActionRun() {
-                    mainScope.launch {
-                        intent.getByteArrayExtra(DATA_BYTES_KEY)?.let { response ->
-                            sendResponseToChallenge(response)
-                        }
-                    }
-                }
-                override fun onFinishRun() {}
-            }
-        } else {
-            null
-        }
+    override fun benchmarking() {
+        DatabaseJobManager.getInstance().benchmarking()
     }
 
     companion object {
-
         private val TAG = DatabaseTaskNotificationService::class.java.name
 
         private const val CHANNEL_DATABASE_ID = "com.kunzisoft.keepass.notification.channel.database"
@@ -1471,12 +372,12 @@ open class DatabaseTaskNotificationService : LockNotificationService(), Progress
         const val ACTION_DATABASE_UPDATE_RECYCLE_BIN_TASK = "ACTION_DATABASE_UPDATE_RECYCLE_BIN_TASK"
         const val ACTION_DATABASE_UPDATE_TEMPLATES_GROUP_TASK = "ACTION_DATABASE_UPDATE_TEMPLATES_GROUP_TASK"
         const val ACTION_DATABASE_UPDATE_MAX_HISTORY_ITEMS_TASK = "ACTION_DATABASE_UPDATE_MAX_HISTORY_ITEMS_TASK"
-        const val ACTION_DATABASE_UPDATE_MAX_HISTORY_SIZE_TASK ="ACTION_DATABASE_UPDATE_MAX_HISTORY_SIZE_TASK"
+        const val ACTION_DATABASE_UPDATE_MAX_HISTORY_SIZE_TASK = "ACTION_DATABASE_UPDATE_MAX_HISTORY_SIZE_TASK"
         const val ACTION_DATABASE_UPDATE_ENCRYPTION_TASK = "ACTION_DATABASE_UPDATE_ENCRYPTION_TASK"
-        const val ACTION_DATABASE_UPDATE_MEMORY_USAGE_TASK ="ACTION_DATABASE_UPDATE_MEMORY_USAGE_TASK"
-        const val ACTION_DATABASE_UPDATE_PARALLELISM_TASK ="ACTION_DATABASE_UPDATE_PARALLELISM_TASK"
+        const val ACTION_DATABASE_UPDATE_MEMORY_USAGE_TASK = "ACTION_DATABASE_UPDATE_MEMORY_USAGE_TASK"
+        const val ACTION_DATABASE_UPDATE_PARALLELISM_TASK = "ACTION_DATABASE_UPDATE_PARALLELISM_TASK"
         const val ACTION_DATABASE_UPDATE_ITERATIONS_TASK = "ACTION_DATABASE_UPDATE_ITERATIONS_TASK"
-        const val ACTION_DATABASE_UPDATE_KEY_DERIVATION_TASK ="ACTION_DATABASE_UPDATE_KEY_DERIVATION_TASK"
+        const val ACTION_DATABASE_UPDATE_KEY_DERIVATION_TASK = "ACTION_DATABASE_UPDATE_KEY_DERIVATION_TASK"
         const val ACTION_DATABASE_BENCHMARK_KDF = "ACTION_DATABASE_BENCHMARK_KDF"
         const val ACTION_DATABASE_SAVE = "ACTION_DATABASE_SAVE"
         const val ACTION_CHALLENGE_RESPONDED = "ACTION_CHALLENGE_RESPONDED"
@@ -1502,8 +403,8 @@ open class DatabaseTaskNotificationService : LockNotificationService(), Progress
         const val SAVE_DATABASE_KEY = "SAVE_DATABASE_KEY"
         const val OLD_NODES_KEY = "OLD_NODES_KEY"
         const val NEW_NODES_KEY = "NEW_NODES_KEY"
-        const val OLD_ELEMENT_KEY = "OLD_ELEMENT_KEY" // Warning type of this thing change every time
-        const val NEW_ELEMENT_KEY = "NEW_ELEMENT_KEY" // Warning type of this thing change every time
+        const val OLD_ELEMENT_KEY = "OLD_ELEMENT_KEY"
+        const val NEW_ELEMENT_KEY = "NEW_ELEMENT_KEY"
         const val DATA_BYTES_KEY = "DATA_BYTES_KEY"
         const val BENCHMARK_TIME_KEY = "BENCHMARK_TIME_KEY"
 
@@ -1530,8 +431,7 @@ open class DatabaseTaskNotificationService : LockNotificationService(), Progress
         fun Bundle.getStringElements(
             onElementsRetrieve: (oldElement: String, newElement: String) -> Unit
         ) {
-            if (containsKey(OLD_ELEMENT_KEY)
-                && containsKey(NEW_ELEMENT_KEY)) {
+            if (containsKey(OLD_ELEMENT_KEY) && containsKey(NEW_ELEMENT_KEY)) {
                 val oldElement = getString(OLD_ELEMENT_KEY)!!
                 val newElement = getString(NEW_ELEMENT_KEY)!!
                 onElementsRetrieve.invoke(oldElement, newElement)
@@ -1541,8 +441,7 @@ open class DatabaseTaskNotificationService : LockNotificationService(), Progress
         fun Bundle.getIntElements(
             onElementsRetrieve: (oldElement: Int, newElement: Int) -> Unit
         ) {
-            if (containsKey(OLD_ELEMENT_KEY)
-                && containsKey(NEW_ELEMENT_KEY)) {
+            if (containsKey(OLD_ELEMENT_KEY) && containsKey(NEW_ELEMENT_KEY)) {
                 val oldElement = getInt(OLD_ELEMENT_KEY)
                 val newElement = getInt(NEW_ELEMENT_KEY)
                 onElementsRetrieve.invoke(oldElement, newElement)
@@ -1552,8 +451,7 @@ open class DatabaseTaskNotificationService : LockNotificationService(), Progress
         fun Bundle.getLongElements(
             onElementsRetrieve: (oldElement: Long, newElement: Long) -> Unit
         ) {
-            if (containsKey(OLD_ELEMENT_KEY)
-                && containsKey(NEW_ELEMENT_KEY)) {
+            if (containsKey(OLD_ELEMENT_KEY) && containsKey(NEW_ELEMENT_KEY)) {
                 val oldElement = getLong(OLD_ELEMENT_KEY)
                 val newElement = getLong(NEW_ELEMENT_KEY)
                 onElementsRetrieve.invoke(oldElement, newElement)
@@ -1563,8 +461,7 @@ open class DatabaseTaskNotificationService : LockNotificationService(), Progress
         inline fun <reified T: Serializable> Bundle.getSerializableElements(
             onElementsRetrieve: (oldElement: T?, newElement: T?) -> Unit
         ) {
-            if (containsKey(OLD_ELEMENT_KEY)
-                && containsKey(NEW_ELEMENT_KEY)) {
+            if (containsKey(OLD_ELEMENT_KEY) && containsKey(NEW_ELEMENT_KEY)) {
                 val oldElement = getSerializableCompat<T>(OLD_ELEMENT_KEY)
                 val newElement = getSerializableCompat<T>(NEW_ELEMENT_KEY)
                 onElementsRetrieve.invoke(oldElement, newElement)
@@ -1574,14 +471,11 @@ open class DatabaseTaskNotificationService : LockNotificationService(), Progress
         inline fun <reified T: Parcelable> Bundle.getParcelableElements(
             onElementsRetrieve: (oldElement: T?, newElement: T?) -> Unit
         ) {
-            if (containsKey(OLD_ELEMENT_KEY)
-                && containsKey(NEW_ELEMENT_KEY)) {
+            if (containsKey(OLD_ELEMENT_KEY) && containsKey(NEW_ELEMENT_KEY)) {
                 val oldElement = getParcelableCompat<T>(OLD_ELEMENT_KEY)
                 val newElement = getParcelableCompat<T>(NEW_ELEMENT_KEY)
                 onElementsRetrieve.invoke(oldElement, newElement)
             }
         }
-
     }
-
 }

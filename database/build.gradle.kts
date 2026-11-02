@@ -48,6 +48,8 @@ dependencies {
     implementation(libs.joda.time)
     // Apache Commons
     implementation(libs.commons.io)
+    // Coroutines
+    implementation(libs.kotlinx.coroutines.core)
 
     api(project(":crypto"))
 

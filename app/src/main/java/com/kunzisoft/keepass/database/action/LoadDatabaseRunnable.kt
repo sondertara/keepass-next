@@ -86,4 +86,35 @@ class LoadDatabaseRunnable(
         masterCredential?.clear()
         afterLoadDatabase?.invoke(result)
     }
+
+    /**
+     * Coroutine-based load execution on Dispatchers.IO.
+     */
+    suspend fun executeLoad(): Result = execute()
+
+    companion object {
+        suspend fun executeLoad(
+            context: Context,
+            database: ContextualDatabase,
+            databaseUri: Uri,
+            mainCredential: MainCredential,
+            challengeResponseRetriever: (HardwareKey, ByteArray?) -> ByteArray = { _, _ -> byteArrayOf() },
+            readOnly: Boolean = false,
+            allowUserVerification: Boolean = true,
+            fixDuplicateUUID: Boolean = false,
+            progressTaskUpdater: ProgressTaskUpdater? = null
+        ): Result {
+            return LoadDatabaseRunnable(
+                context = context,
+                mDatabase = database,
+                mDatabaseUri = databaseUri,
+                mMainCredential = mainCredential,
+                mChallengeResponseRetriever = challengeResponseRetriever,
+                mReadonly = readOnly,
+                mAllowUserVerification = allowUserVerification,
+                mFixDuplicateUUID = fixDuplicateUUID,
+                progressTaskUpdater = progressTaskUpdater
+            ).executeLoad()
+        }
+    }
 }

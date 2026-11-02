@@ -115,9 +115,11 @@ class DatabaseTaskProvider(
         this.serviceConnection = null
     }
 
+    val jobManager: DatabaseJobManager
+        get() = DatabaseJobManager.getInstance()
+
     fun onDatabaseChangeValidated() {
-        mBinder?.getService()?.saveDatabaseInfo()
-            ?: ContextualDatabase.getInstance().recordInAppSaveCompleted(context.applicationContext)
+        jobManager.saveDatabaseInfo(context.applicationContext)
     }
 
     private var databaseListener = object : DatabaseTaskNotificationService.DatabaseListener {
@@ -127,11 +129,8 @@ class DatabaseTaskProvider(
     }
 
     fun checkChanges() {
-        mBinder?.getService()?.apply {
-            // Don't check Database to keep the first instance, only metadata are important
-            checkDatabaseInfo()
-            checkAction()
-        }
+        jobManager.checkDatabaseInfo(context.applicationContext)
+        jobManager.checkAction()
     }
 
     private fun initServiceConnection() {
@@ -170,22 +169,28 @@ class DatabaseTaskProvider(
 
     private fun addServiceListeners(service: DatabaseTaskNotificationService.ActionTaskBinder?) {
         service?.addDatabaseListener(databaseListener)
+        jobManager.addDatabaseListener(databaseListener)
         databaseInfoListener?.let { infoListener ->
             service?.addDatabaseFileInfoListener(infoListener)
+            jobManager.addDatabaseInfoListener(infoListener)
         }
         actionTaskListener?.let { taskListener ->
             service?.addActionTaskListener(taskListener)
+            jobManager.addActionTaskListener(taskListener)
         }
     }
 
     private fun removeServiceListeners(service: DatabaseTaskNotificationService.ActionTaskBinder?) {
         actionTaskListener?.let { taskListener ->
             service?.removeActionTaskListener(taskListener)
+            jobManager.removeActionTaskListener(taskListener)
         }
         databaseInfoListener?.let { infoListener ->
             service?.removeDatabaseFileInfoListener(infoListener)
+            jobManager.removeDatabaseInfoListener(infoListener)
         }
         service?.removeDatabaseListener(databaseListener)
+        jobManager.removeDatabaseListener(databaseListener)
         onDatabaseRetrieved?.invoke(null)
     }
 

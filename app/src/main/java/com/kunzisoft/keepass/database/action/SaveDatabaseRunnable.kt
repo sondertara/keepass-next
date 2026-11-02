@@ -92,4 +92,33 @@ open class SaveDatabaseRunnable(
         cachedHardwareResponse?.clear()
         afterSaveDatabase?.invoke(result)
     }
+
+    /**
+     * Coroutine-based save execution on Dispatchers.IO.
+     */
+    open suspend fun executeSave(): Result = execute()
+
+    companion object {
+        suspend fun executeSave(
+            context: Context,
+            database: ContextualDatabase,
+            save: Boolean = true,
+            mainCredential: MainCredential? = null,
+            challengeResponseRetriever: (HardwareKey, ByteArray?) -> ByteArray = { _, _ -> byteArrayOf() },
+            databaseCopyUri: Uri? = null,
+            dataModified: Boolean = !save,
+            progressTaskUpdater: ProgressTaskUpdater? = null
+        ): Result {
+            return SaveDatabaseRunnable(
+                context = context,
+                database = database,
+                save = save,
+                mainCredential = mainCredential,
+                challengeResponseRetriever = challengeResponseRetriever,
+                databaseCopyUri = databaseCopyUri,
+                dataModified = dataModified,
+                progressTaskUpdater = progressTaskUpdater
+            ).executeSave()
+        }
+    }
 }

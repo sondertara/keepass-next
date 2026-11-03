@@ -136,7 +136,6 @@ class SearchFragment: DatabaseFragment() {
         searchView = view.findViewById(R.id.search_view)
         searchTitle = view.findViewById(R.id.search_title)
         filterChipGroup = view.findViewById(R.id.filter_chip_group)
-        view.findViewById<View>(R.id.chip_flat_view)?.visibility = View.GONE
         (activity as? GroupActivity)?.searchController?.setupFilterChips(filterChipGroup)
         searchFiltersView = view.findViewById(R.id.search_filters)
         searchSort = view.findViewById(R.id.search_sort)

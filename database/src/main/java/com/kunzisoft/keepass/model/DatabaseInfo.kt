@@ -45,6 +45,23 @@ open class DatabaseInfo: Database() {
 
     private var mSearchHelper: SearchHelper = SearchHelper()
 
+    private data class CachedEntryInfo(
+        val lastModifiedTimeMs: Long,
+        val title: String,
+        val username: String,
+        val url: String,
+        val notes: String,
+        val customFieldsCount: Int,
+        val entryInfo: EntryInfo
+    )
+
+    private val mEntryInfoCache = java.util.concurrent.ConcurrentHashMap<EntryId, CachedEntryInfo>()
+
+    override fun clearCache() {
+        super.clearCache()
+        mEntryInfoCache.clear()
+    }
+
     /**
      * Get entry info by its ID.
      * @param entryId Unique identifier of the entry.
@@ -86,55 +103,81 @@ open class DatabaseInfo: Database() {
      * @return The converted entry info.
      */
     fun getEntryInfoFrom(entry: Entry, raw: Boolean = false): EntryInfo {
-        val entryInfo = EntryInfo()
-        // Fetch template and remove unwanted template fields
-        getTemplate(entry)?.let {
-            entryInfo.template = it
-        }
-        val baseInfo = decodeEntryWithTemplateConfiguration(entry = entry)
-        baseInfo.apply {
-            if (raw)
-                stopManageEntry(this)
-            else
-                startManageEntry(this)
-
-            entryInfo.nodeId = nodeId
-            entryInfo.title = title
-            entryInfo.icon = icon
-            entryInfo.username = username
-            entryInfo.password = password
-            entryInfo.creationTime = creationTime
-            entryInfo.lastModificationTime = lastModificationTime
-            entryInfo.lastAccessTime = lastAccessTime
-            entryInfo.expires = expires
-            entryInfo.expiryTime = expiryTime
-            entryInfo.url = url
-            entryInfo.notes = notes
-            entryInfo.tags = tags
-            entryInfo.backgroundColor = backgroundColor
-            entryInfo.foregroundColor = foregroundColor
-            entryInfo.customData = customData
-            entryInfo.autoType = autoType
-            entryInfo.customFields = getExtraFields().toMutableList()
-            // Add otpElement to generate token
-            entryInfo.otpModel = getOtpElement()?.otpModel
-            // Add Credit Card
-            entryInfo.creditCard = getCreditCard()
-            // Add Passkey
-            entryInfo.passkey = getPasskey()
-            entryInfo.appOrigin = getAppOrigin()
-            if (!raw) {
-                // Replace parameter fields by generated OTP fields
-                entryInfo.customFields = OtpEntryFields.generateAutoFields(entryInfo.customFields)
-                entryInfo.customFields = PasskeyEntryFields.generateAutoFields(entryInfo.customFields)
+        if (!raw) {
+            val cached = mEntryInfoCache[entry.nodeId]
+            if (cached != null &&
+                cached.lastModifiedTimeMs == entry.lastModificationTime.toMilliseconds() &&
+                cached.title == entry.title &&
+                cached.username == entry.username &&
+                cached.url == entry.url &&
+                cached.notes == entry.notes &&
+                cached.customFieldsCount == entry.getExtraFields().size
+            ) {
+                return cached.entryInfo
             }
-            entryInfo.attachments = getAttachments(attachmentPool).toMutableList()
-
-            if (!raw)
-                stopManageEntry(this)
         }
-        entryInfo.template = VaultNodeFilter.resolveTemplate(entryInfo)
-        return entryInfo
+        return synchronized(entry) {
+            val entryInfo = EntryInfo()
+            // Fetch template and remove unwanted template fields
+            getTemplate(entry)?.let {
+                entryInfo.template = it
+            }
+            val baseInfo = decodeEntryWithTemplateConfiguration(entry = entry)
+            baseInfo.apply {
+                if (raw)
+                    stopManageEntry(this)
+                else
+                    startManageEntry(this)
+
+                entryInfo.nodeId = nodeId
+                entryInfo.title = title
+                entryInfo.icon = icon
+                entryInfo.username = username
+                entryInfo.password = password
+                entryInfo.creationTime = creationTime
+                entryInfo.lastModificationTime = lastModificationTime
+                entryInfo.lastAccessTime = lastAccessTime
+                entryInfo.expires = expires
+                entryInfo.expiryTime = expiryTime
+                entryInfo.url = url
+                entryInfo.notes = notes
+                entryInfo.tags = tags
+                entryInfo.backgroundColor = backgroundColor
+                entryInfo.foregroundColor = foregroundColor
+                entryInfo.customData = customData
+                entryInfo.autoType = autoType
+                entryInfo.customFields = getExtraFields().toMutableList()
+                // Add otpElement to generate token
+                entryInfo.otpModel = getOtpElement()?.otpModel
+                // Add Credit Card
+                entryInfo.creditCard = getCreditCard()
+                // Add Passkey
+                entryInfo.passkey = getPasskey()
+                entryInfo.appOrigin = getAppOrigin()
+                if (!raw) {
+                    // Replace parameter fields by generated OTP fields
+                    entryInfo.customFields = OtpEntryFields.generateAutoFields(entryInfo.customFields)
+                    entryInfo.customFields = PasskeyEntryFields.generateAutoFields(entryInfo.customFields)
+                }
+                entryInfo.attachments = getAttachments(attachmentPool).toMutableList()
+
+                if (!raw)
+                    stopManageEntry(this)
+            }
+            entryInfo.template = VaultNodeFilter.resolveTemplate(entryInfo)
+            if (!raw) {
+                mEntryInfoCache[entry.nodeId] = CachedEntryInfo(
+                    lastModifiedTimeMs = entry.lastModificationTime.toMilliseconds(),
+                    title = entry.title,
+                    username = entry.username,
+                    url = entry.url,
+                    notes = entry.notes,
+                    customFieldsCount = entry.getExtraFields().size,
+                    entryInfo = entryInfo
+                )
+            }
+            entryInfo
+        }
     }
 
     /**
@@ -145,6 +188,7 @@ open class DatabaseInfo: Database() {
     fun createEntry(newEntryInfo: EntryInfo): Entry? {
         return createEntry()?.apply {
             saveEntryInfo(this@DatabaseInfo, newEntryInfo)
+            mEntryInfoCache.remove(nodeId)
         }
     }
 
@@ -155,7 +199,10 @@ open class DatabaseInfo: Database() {
      * @return The updated entry.
      */
     fun updateEntry(entry: Entry, entryInfo: EntryInfo): Entry {
-        return entry.apply { saveEntryInfo(this@DatabaseInfo, entryInfo) }
+        return entry.apply {
+            saveEntryInfo(this@DatabaseInfo, entryInfo)
+            mEntryInfoCache.remove(nodeId)
+        }
     }
 
     /**

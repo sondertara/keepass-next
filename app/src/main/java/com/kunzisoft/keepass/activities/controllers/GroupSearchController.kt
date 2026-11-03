@@ -102,11 +102,6 @@ class GroupSearchController(
             if (checkedIds.isEmpty()) return@setOnCheckedStateChangeListener
             when (checkedIds.first()) {
                 R.id.chip_filter_all -> {
-                    groupViewModel.setFlatView(false)
-                    groupViewModel.setVaultCategory(VaultCategory.ALL)
-                }
-                R.id.chip_flat_view -> {
-                    groupViewModel.setFlatView(true)
                     groupViewModel.setVaultCategory(VaultCategory.ALL)
                 }
                 R.id.chip_filter_passwords -> {
@@ -144,25 +139,21 @@ class GroupSearchController(
     }
 
     /**
-     * Programmatically synchronizes the chip group with a category and flat view setting.
+     * Programmatically synchronizes the chip group with a category.
      */
-    fun selectCategoryChip(chipGroup: ChipGroup?, category: VaultCategory, isFlatView: Boolean) {
-        val targetId = if (isFlatView && category == VaultCategory.ALL) {
-            R.id.chip_flat_view
-        } else {
-            when (category) {
-                VaultCategory.ALL -> R.id.chip_filter_all
-                VaultCategory.PASSWORDS -> R.id.chip_filter_passwords
-                VaultCategory.TOTP -> R.id.chip_filter_totp
-                VaultCategory.PASSKEYS -> R.id.chip_filter_passkeys
-                VaultCategory.CREDIT_CARD -> R.id.chip_filter_cards
-                VaultCategory.SECURE_NOTE -> R.id.chip_filter_notes
-                VaultCategory.EMAIL -> R.id.chip_filter_email
-                VaultCategory.WIFI -> R.id.chip_filter_wifi
-                VaultCategory.ID_CARD -> R.id.chip_filter_id_card
-                VaultCategory.BANK -> R.id.chip_filter_bank
-                VaultCategory.CRYPTOCURRENCY -> R.id.chip_filter_crypto
-            }
+    fun selectCategoryChip(chipGroup: ChipGroup?, category: VaultCategory, isFlatView: Boolean = true) {
+        val targetId = when (category) {
+            VaultCategory.ALL -> R.id.chip_filter_all
+            VaultCategory.PASSWORDS -> R.id.chip_filter_passwords
+            VaultCategory.TOTP -> R.id.chip_filter_totp
+            VaultCategory.PASSKEYS -> R.id.chip_filter_passkeys
+            VaultCategory.CREDIT_CARD -> R.id.chip_filter_cards
+            VaultCategory.SECURE_NOTE -> R.id.chip_filter_notes
+            VaultCategory.EMAIL -> R.id.chip_filter_email
+            VaultCategory.WIFI -> R.id.chip_filter_wifi
+            VaultCategory.ID_CARD -> R.id.chip_filter_id_card
+            VaultCategory.BANK -> R.id.chip_filter_bank
+            VaultCategory.CRYPTOCURRENCY -> R.id.chip_filter_crypto
         }
         chipGroup?.check(targetId)
     }

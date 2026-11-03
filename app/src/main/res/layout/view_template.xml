@@ -73,33 +73,32 @@
 				android:contentDescription="@string/content_description_entry_background_color"
 				style="@style/KeepassDXStyle.ImageButton.Simple.Mini" />
 
-			<LinearLayout
-				android:orientation="horizontal"
+			<FrameLayout
 				android:layout_width="match_parent"
 				android:layout_height="wrap_content"
-				android:gravity="center_vertical"
 				android:layout_margin="@dimen/card_view_padding">
 
-				<!-- Icon -->
+				<!-- Title (100% full width to align left & right edges with all form fields) -->
+				<FrameLayout
+					android:id="@+id/template_title_container"
+					android:layout_width="match_parent"
+					android:layout_height="wrap_content" />
+
+				<!-- Icon selector tucked neatly inside the right end of the Title box -->
 				<androidx.appcompat.widget.AppCompatImageButton
 					android:id="@+id/template_icon_button"
-					android:layout_width="48dp"
-					android:layout_height="48dp"
+					android:layout_width="40dp"
+					android:layout_height="40dp"
+					android:layout_gravity="center_vertical|end"
 					android:layout_marginTop="3dp"
-					android:padding="10dp"
+					android:layout_marginEnd="8dp"
+					android:elevation="2dp"
+					android:padding="8dp"
 					android:scaleType="fitCenter"
-					android:layout_marginEnd="12dp"
 					android:background="@drawable/bg_entry_icon_box"
 					android:src="@drawable/ic_blank_32dp"
 					android:contentDescription="@string/content_description_entry_icon"/>
-
-				<!-- Title -->
-				<FrameLayout
-					android:id="@+id/template_title_container"
-					android:layout_width="0dp"
-					android:layout_weight="1"
-					android:layout_height="wrap_content" />
-			</LinearLayout>
+			</FrameLayout>
 		</FrameLayout>
 	</androidx.cardview.widget.CardView>
 

@@ -30,7 +30,7 @@ open class TextEditFieldView @JvmOverloads constructor(
     private var valueViewId = ViewCompat.generateViewId()
     protected var actionImageButtonId = ViewCompat.generateViewId()
 
-    private val labelView = TextInputLayout(context).apply {
+    protected val labelView = TextInputLayout(context).apply {
         layoutParams = LayoutParams(
                 LayoutParams.MATCH_PARENT,
                 LayoutParams.WRAP_CONTENT)
@@ -58,6 +58,12 @@ open class TextEditFieldView @JvmOverloads constructor(
                     10f,
                     resources.displayMetrics
             ).toInt()
+            it.marginEnd = TypedValue.applyDimension(
+                    TypedValue.COMPLEX_UNIT_DIP,
+                    42f,
+                    resources.displayMetrics
+            ).toInt()
+            it.addRule(ALIGN_TOP, labelViewId)
             it.addRule(ALIGN_PARENT_RIGHT)
             it.addRule(ALIGN_PARENT_END)
         }
@@ -76,10 +82,10 @@ open class TextEditFieldView @JvmOverloads constructor(
     private fun buildViews() {
         labelView.apply {
             id = labelViewId
-            layoutParams = (layoutParams as LayoutParams?)?.also {
-                it.addRule(LEFT_OF, actionImageButtonId)
-                it.addRule(START_OF, actionImageButtonId)
-            }
+            layoutParams = LayoutParams(
+                LayoutParams.MATCH_PARENT,
+                LayoutParams.WRAP_CONTENT
+            )
         }
         valueView.apply {
             id = valueViewId
@@ -89,12 +95,26 @@ open class TextEditFieldView @JvmOverloads constructor(
         }
     }
 
+    fun setPaddingEndDp(dp: Int) {
+        val px = TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_DIP,
+            dp.toFloat(),
+            resources.displayMetrics
+        ).toInt()
+        valueView.setPaddingRelative(
+            valueView.paddingStart,
+            valueView.paddingTop,
+            px,
+            valueView.paddingBottom
+        )
+    }
+
     override fun applyFontVisibility(fontInVisibility: Boolean) {
         if (fontInVisibility)
             valueView.applyFontVisibility()
     }
 
-    fun getActionImageView(): View {
+    open fun getActionImageView(): View {
         return actionImageButton
     }
 
@@ -186,11 +206,23 @@ open class TextEditFieldView @JvmOverloads constructor(
 
     override fun setOnActionClickListener(onActionClickListener: OnClickListener?,
                                           @DrawableRes actionImageId: Int?) {
-        actionImageId?.let {
-            actionImageButton.setImageDrawable(ContextCompat.getDrawable(context, it))
+        if (!isProtected) {
+            actionImageButton.visibility = GONE
+            if (onActionClickListener != null && actionImageId != null) {
+                labelView.endIconMode = TextInputLayout.END_ICON_CUSTOM
+                labelView.endIconDrawable = ContextCompat.getDrawable(context, actionImageId)
+                labelView.setEndIconOnClickListener(onActionClickListener)
+            } else {
+                labelView.setEndIconOnClickListener(null)
+                labelView.endIconMode = TextInputLayout.END_ICON_NONE
+            }
+        } else {
+            actionImageId?.let {
+                actionImageButton.setImageDrawable(ContextCompat.getDrawable(context, it))
+            }
+            actionImageButton.setOnClickListener(onActionClickListener)
+            actionImageButton.visibility = if (onActionClickListener == null) GONE else VISIBLE
         }
-        actionImageButton.setOnClickListener(onActionClickListener)
-        actionImageButton.visibility = if (onActionClickListener == null) GONE else VISIBLE
     }
 
     override var isFieldVisible: Boolean

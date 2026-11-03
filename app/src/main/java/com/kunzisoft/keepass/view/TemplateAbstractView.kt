@@ -153,6 +153,7 @@ abstract class TemplateAbstractView<
                 ),
                 FIELD_TITLE_TAG
             )
+            (titleView as? TextEditFieldView)?.setPaddingEndDp(56)
             titleContainerView.addView(titleView)
 
             // Build each section

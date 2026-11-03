@@ -22,11 +22,16 @@ package com.kunzisoft.keepass.view
 import android.content.Context
 import android.util.AttributeSet
 import android.util.TypedValue
+import android.view.Gravity
+import android.view.View
+import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.annotation.DrawableRes
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
-import androidx.core.view.setPadding
 import androidx.core.widget.TextViewCompat
 import androidx.core.widget.doAfterTextChanged
+import com.google.android.material.button.MaterialButton
 import com.google.android.material.progressindicator.LinearProgressIndicator
 import com.kunzisoft.keepass.R
 import com.kunzisoft.keepass.password.PasswordEntropy
@@ -47,76 +52,142 @@ class PasswordTextEditFieldView @JvmOverloads constructor(
     }
     private var isColorizedPasswordActivated = PreferencesUtil.colorizePassword(context)
 
-    private var passwordProgressViewId = ViewCompat.generateViewId()
-    private var passwordEntropyViewId = ViewCompat.generateViewId()
+    private var passwordAssistRowId = ViewCompat.generateViewId()
 
     private var mPasswordProgress = LinearProgressIndicator(context).apply {
-        layoutParams = LayoutParams(
-            LayoutParams.MATCH_PARENT,
-            LayoutParams.WRAP_CONTENT
-        ).apply {
-            topMargin = TypedValue.applyDimension(
-                TypedValue.COMPLEX_UNIT_DIP,
-                4f,
-                context.resources.displayMetrics
-            ).toInt()
-        }
-        setPadding(
-            TypedValue.applyDimension(
-                TypedValue.COMPLEX_UNIT_DIP,
-                1f,
-                context.resources.displayMetrics
-            ).toInt()
+        layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
         )
+        trackThickness = TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_DIP,
+            6f,
+            context.resources.displayMetrics
+        ).toInt()
+        trackCornerRadius = TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_DIP,
+            3f,
+            context.resources.displayMetrics
+        ).toInt()
         setIndicatorColor(PasswordEntropy.Strength.RISKY.color)
         progress = 0
         max = 100
     }
 
     private val mPasswordEntropyView = TextView(context).apply {
-        layoutParams = LayoutParams(
-            LayoutParams.WRAP_CONTENT,
-            LayoutParams.WRAP_CONTENT
-        )
-        setPadding(
-            TypedValue.applyDimension(
+        layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply {
+            topMargin = TypedValue.applyDimension(
                 TypedValue.COMPLEX_UNIT_DIP,
-                4f,
+                2f,
                 context.resources.displayMetrics
             ).toInt()
-        )
+        }
         TextViewCompat.setTextAppearance(this, R.style.KeepassDXStyle_Text_Indicator)
     }
 
-    init {
-        buildViews()
+    private val mGeneratePasswordButton = MaterialButton(
+        context,
+        null,
+        com.google.android.material.R.attr.materialButtonTonalStyle
+    ).apply {
+        val heightPx = TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_DIP,
+            32f,
+            context.resources.displayMetrics
+        ).toInt()
+        val padH = TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_DIP,
+            10f,
+            context.resources.displayMetrics
+        ).toInt()
+        layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            heightPx
+        )
+        insetTop = 0
+        insetBottom = 0
+        minHeight = 0
+        minimumHeight = 0
+        minWidth = 0
+        minimumWidth = 0
+        setPadding(padH, 0, padH, 0)
+        cornerRadius = heightPx / 2
+        icon = ContextCompat.getDrawable(context, R.drawable.ic_random_white_24dp)
+        iconSize = TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_DIP,
+            15f,
+            context.resources.displayMetrics
+        ).toInt()
+        iconPadding = TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_DIP,
+            4f,
+            context.resources.displayMetrics
+        ).toInt()
+        text = context.getString(R.string.generate_password)
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+        visibility = GONE
+    }
 
+    private val mPasswordAssistRow = LinearLayout(context).apply {
+        id = passwordAssistRowId
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        layoutParams = LayoutParams(
+            LayoutParams.MATCH_PARENT,
+            LayoutParams.WRAP_CONTENT
+        ).apply {
+            topMargin = TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_DIP,
+                6f,
+                context.resources.displayMetrics
+            ).toInt()
+            addRule(BELOW, labelViewId)
+        }
+        val leftColumn = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1f
+            ).apply {
+                marginEnd = TypedValue.applyDimension(
+                    TypedValue.COMPLEX_UNIT_DIP,
+                    12f,
+                    context.resources.displayMetrics
+                ).toInt()
+            }
+            addView(mPasswordProgress)
+            addView(mPasswordEntropyView)
+        }
+        addView(leftColumn)
+        addView(mGeneratePasswordButton)
+    }
+
+    init {
         valueView.doAfterTextChanged { editable ->
             getEntropyStrength(editable.toString())
             PasswordGenerator.colorizedPassword(editable)
         }
 
-        addView(mPasswordProgress)
-        addView(mPasswordEntropyView)
+        addView(mPasswordAssistRow)
     }
 
-    private fun buildViews() {
-        mPasswordProgress.apply {
-            id = passwordProgressViewId
-            layoutParams = (layoutParams as LayoutParams?)?.also {
-                it.addRule(BELOW, labelViewId)
-                it.addRule(LEFT_OF, actionImageButtonId)
-                it.addRule(START_OF, actionImageButtonId)
-            }
+    override fun getActionImageView(): View {
+        return mGeneratePasswordButton
+    }
+
+    override fun setOnActionClickListener(
+        onActionClickListener: OnClickListener?,
+        @DrawableRes actionImageId: Int?
+    ) {
+        actionImageId?.let {
+            mGeneratePasswordButton.icon = ContextCompat.getDrawable(context, it)
         }
-        mPasswordEntropyView.apply {
-            id = passwordEntropyViewId
-            layoutParams = (layoutParams as LayoutParams?)?.also {
-                it.addRule(BELOW, passwordProgressViewId)
-                it.addRule(ALIGN_RIGHT, passwordProgressViewId)
-                it.addRule(ALIGN_END, passwordProgressViewId)
-            }
-        }
+        mGeneratePasswordButton.setOnClickListener(onActionClickListener)
+        mGeneratePasswordButton.visibility = if (onActionClickListener == null) GONE else VISIBLE
     }
 
     private fun getEntropyStrength(passwordText: String) {

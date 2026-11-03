@@ -103,7 +103,7 @@ class GroupViewModel(application: Application): AndroidViewModel(application) {
     private val _vaultCategory = MutableStateFlow(VaultCategory.ALL)
     val vaultCategory: StateFlow<VaultCategory> = _vaultCategory.asStateFlow()
 
-    private val _isFlatView = MutableStateFlow(false)
+    private val _isFlatView = MutableStateFlow(true)
     val isFlatView: StateFlow<Boolean> = _isFlatView.asStateFlow()
 
     private val _availableCategories = MutableStateFlow<Set<VaultCategory>>(emptySet())
@@ -183,31 +183,37 @@ class GroupViewModel(application: Application): AndroidViewModel(application) {
                             recursiveNumberOfEntries = mRecursiveNumberEntries,
                             nodeFilter = mNodeFilter
                         ) ?: listOf()
-                        // Children
-                        val children: List<SortedNodeInfo> = if (_isFlatView.value || _vaultCategory.value != VaultCategory.ALL) {
-                            val targetGroup = database.getGroupById(group.nodeId) ?: database.rootGroup
-                            if (targetGroup != null) {
-                                VaultNodeFilter.getFlattenedEntries(
-                                    database = database,
-                                    group = targetGroup,
-                                    nodeFilter = mNodeFilter,
-                                    category = _vaultCategory.value
-                                )
-                            } else {
-                                listOf()
-                            }
+                        // Children (always flattened across the vault; folders are not used in UI)
+                        val targetGroup = database.getGroupById(group.nodeId) ?: database.rootGroup
+                        val allEntries: List<SortedEntryInfo> = if (targetGroup != null) {
+                            VaultNodeFilter.getFlattenedEntries(
+                                database = database,
+                                group = targetGroup,
+                                nodeFilter = mNodeFilter,
+                                category = VaultCategory.ALL
+                            )
                         } else {
-                            mDatabase?.getSortedChildrenOf(
-                                parentId = group.nodeId,
-                                recursiveNumberOfEntries = mRecursiveNumberEntries,
-                                nodeFilter = mNodeFilter
-                            ) ?: listOf()
+                            listOf()
+                        }
+                        val available = mutableSetOf<VaultCategory>()
+                        for (entry in allEntries) {
+                            for (cat in VaultCategory.values()) {
+                                if (cat != VaultCategory.ALL && VaultNodeFilter.matchesCategory(entry, cat)) {
+                                    available.add(cat)
+                                }
+                            }
+                        }
+                        val children: List<SortedNodeInfo> = if (_vaultCategory.value == VaultCategory.ALL) {
+                            allEntries
+                        } else {
+                            allEntries.filter { VaultNodeFilter.matchesCategory(it, _vaultCategory.value) }
                         }
                         // To enable add button
-                        val addGroupEnabled = database.allowAddGroupIn(group = group)
+                        val addGroupEnabled = false
                         val addEntryEnabled = database.allowAddEntryIn(group = group)
-                        mAddGroupOrEntryAllowed = addGroupEnabled || addEntryEnabled
+                        mAddGroupOrEntryAllowed = addEntryEnabled
                         withContext(Dispatchers.Main) {
+                            _availableCategories.value = available
                             _groupUiState.update { current ->
                                 current.copy(
                                     loaded = true,

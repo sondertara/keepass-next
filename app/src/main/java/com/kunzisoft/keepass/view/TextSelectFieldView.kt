@@ -42,6 +42,8 @@ class TextSelectFieldView @JvmOverloads constructor(context: Context,
         layoutParams = LayoutParams(
             LayoutParams.MATCH_PARENT,
             LayoutParams.WRAP_CONTENT)
+        endIconMode = TextInputLayout.END_ICON_CUSTOM
+        endIconDrawable = ContextCompat.getDrawable(context, R.drawable.ic_arrow_down_white_24dp)
     }
     private val valueView = TextInputEditText(labelView.context).apply {
         layoutParams = LinearLayout.LayoutParams(
@@ -51,23 +53,6 @@ class TextSelectFieldView @JvmOverloads constructor(context: Context,
         imeOptions = EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING
         importantForAutofill = IMPORTANT_FOR_AUTOFILL_NO
         importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
-        val drawable = ContextCompat.getDrawable(context, R.drawable.ic_arrow_down_white_24dp)
-            ?.apply {
-                mutate().colorFilter = BlendModeColorFilterCompat
-                    .createBlendModeColorFilterCompat(currentTextColor, BlendModeCompat.SRC_IN)
-            }
-        setCompoundDrawablesWithIntrinsicBounds(
-            null,
-            null,
-            drawable,
-            null
-        )
-        setCompoundDrawablesRelativeWithIntrinsicBounds(
-            null,
-            null,
-            drawable,
-            null
-        )
         isFocusable = false
         inputType = InputType.TYPE_NULL
         maxLines = 1
@@ -85,9 +70,15 @@ class TextSelectFieldView @JvmOverloads constructor(context: Context,
                 LayoutParams.WRAP_CONTENT).also {
             it.topMargin = TypedValue.applyDimension(
                     TypedValue.COMPLEX_UNIT_DIP,
-                    8f,
+                    10f,
                     resources.displayMetrics
             ).toInt()
+            it.marginEnd = TypedValue.applyDimension(
+                    TypedValue.COMPLEX_UNIT_DIP,
+                    42f,
+                    resources.displayMetrics
+            ).toInt()
+            it.addRule(ALIGN_TOP, labelViewId)
             it.addRule(ALIGN_PARENT_RIGHT)
             it.addRule(ALIGN_PARENT_END)
         }
@@ -103,6 +94,9 @@ class TextSelectFieldView @JvmOverloads constructor(context: Context,
         addView(valueSpinnerView)
         addView(actionImageButton)
 
+        labelView.setEndIconOnClickListener {
+            valueSpinnerView.performClick()
+        }
         valueView.apply {
             setOnClickListener {
                 valueSpinnerView.performClick()
@@ -123,16 +117,14 @@ class TextSelectFieldView @JvmOverloads constructor(context: Context,
     private fun buildViews() {
         labelView.apply {
             id = labelViewId
-            layoutParams = (layoutParams as LayoutParams?).also {
-                it?.addRule(LEFT_OF, actionImageButtonId)
-                it?.addRule(START_OF, actionImageButtonId)
-            }
+            layoutParams = LayoutParams(
+                LayoutParams.MATCH_PARENT,
+                LayoutParams.WRAP_CONTENT
+            )
         }
         valueSpinnerView.apply {
             id = valueViewId
             layoutParams = (layoutParams as LayoutParams?).also {
-                it?.addRule(LEFT_OF, actionImageButtonId)
-                it?.addRule(START_OF, actionImageButtonId)
                 it?.addRule(BELOW, labelViewId)
             }
         }

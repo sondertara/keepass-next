@@ -56,7 +56,17 @@ class SectionView @JvmOverloads constructor(context: Context,
 
     override fun addView(child: View?) {
         visibility = View.VISIBLE
-        containerSectionView.addView(child)
+        if (child != null) {
+            val lp = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                if (containerSectionView.childCount > 0) {
+                    topMargin = (10 * resources.displayMetrics.density).toInt()
+                }
+            }
+            containerSectionView.addView(child, lp)
+        }
     }
 
     fun removeViewById(@IdRes viewId: Int, onFinish: ((View) ->Unit)? = null) {

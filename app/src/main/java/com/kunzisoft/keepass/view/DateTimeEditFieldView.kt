@@ -56,8 +56,10 @@ class DateTimeEditFieldView @JvmOverloads constructor(
         entryExpiresCheckBox = findViewById(R.id.expiration_checkbox)
 
         entryExpiresTextView.setOnClickListener {
-            if (entryExpiresCheckBox.isChecked)
-                setOnDateClickListener?.invoke(dateTime)
+            if (!entryExpiresCheckBox.isChecked) {
+                entryExpiresCheckBox.isChecked = true
+            }
+            setOnDateClickListener?.invoke(dateTime)
         }
         entryExpiresCheckBox.setOnCheckedChangeListener { _, isChecked ->
             defineDateTimeAfterCheckBoxChange(isChecked)

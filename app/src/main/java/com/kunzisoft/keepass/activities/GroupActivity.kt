@@ -276,7 +276,6 @@ class GroupActivity : VaultSessionActivity() {
         breadcrumbListView = findViewById(R.id.breadcrumb_list)
         filterChipGroup = findViewById(R.id.filter_chip_group)
         chipFilterAll = findViewById(R.id.chip_filter_all)
-        chipFlatView = findViewById(R.id.chip_flat_view)
         chipFilterPasswords = findViewById(R.id.chip_filter_passwords)
         chipFilterPasskeys = findViewById(R.id.chip_filter_passkeys)
         chipFilterTotp = findViewById(R.id.chip_filter_totp)
@@ -448,14 +447,13 @@ class GroupActivity : VaultSessionActivity() {
                     }
                 }
                 launch {
-                    mGroupViewModel.isFlatView.collect { isFlat ->
-                        searchController.selectCategoryChip(filterChipGroup, mGroupViewModel.vaultCategory.value, isFlat)
-                        updateBreadcrumbVisibility()
+                    mGroupViewModel.availableCategories.collect { available ->
+                        searchController.updateCategoryChipsVisibility(filterChipGroup, available)
                     }
                 }
                 launch {
                     mGroupViewModel.vaultCategory.collect { category ->
-                        searchController.selectCategoryChip(filterChipGroup, category, mGroupViewModel.isFlatView.value)
+                        searchController.selectCategoryChip(filterChipGroup, category, true)
                         updateBreadcrumbVisibility()
                     }
                 }
@@ -783,10 +781,7 @@ class GroupActivity : VaultSessionActivity() {
     }
 
     private fun updateBreadcrumbVisibility() {
-        val isFlat = mGroupViewModel.isFlatView.value
-        val isFiltered = mGroupViewModel.vaultCategory.value != VaultCategory.ALL
-        val breadcrumbCount = mGroupViewModel.groupUIState.value.breadcrumbs?.size ?: 0
-        breadcrumbListView?.visibility = if (isFlat || isFiltered || breadcrumbCount <= 1) View.GONE else View.VISIBLE
+        breadcrumbListView?.visibility = View.GONE
     }
 
     private fun showNewEntryTypeBottomSheet() {
@@ -1092,23 +1087,7 @@ class GroupActivity : VaultSessionActivity() {
     }
 
     private fun refreshCategoryChipsVisibility(database: ContextualDatabase?) {
-        if (database == null || !database.loaded) return
-        val root = database.rootGroup ?: return
-        lifecycleScope.launch(Dispatchers.Default) {
-            val flattened = VaultNodeFilter.getFlattenedEntries(database, root)
-            val available = mutableSetOf<VaultCategory>()
-            for (entry in flattened) {
-                for (cat in VaultCategory.values()) {
-                    if (cat != VaultCategory.ALL && VaultNodeFilter.matchesCategory(entry, cat)) {
-                        available.add(cat)
-                    }
-                }
-            }
-            withContext(Dispatchers.Main) {
-                mGroupViewModel.setAvailableCategories(available)
-                searchController.updateCategoryChipsVisibility(filterChipGroup, available)
-            }
-        }
+        // Handled in a single pass inside GroupViewModel.loadMainGroup() via availableCategories StateFlow
     }
 
     override fun onDatabaseActionFinished(

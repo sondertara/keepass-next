@@ -364,59 +364,60 @@ class NodesAdapter(
             // OTP inline display
             holder.otpDisplay?.setOtpModel(node.otpModel)
 
-            // Category Pill Badge on the right of Row 1 (strictly unified with the 10 official templates)
+            // Category Pill Badge on the right of Row 1 (O(1) lookup via resolved canonical template UUID)
+            val tplUuid = node.template.uuid
             val templateTitle = node.template.title
             holder.badgeTotp?.let { badgeView ->
                 when {
-                    VaultNodeFilter.isEmailEntry(node) -> AvatarHelper.bindCategoryBadge(
+                    tplUuid == com.kunzisoft.keepass.database.element.template.TemplateBuilder.UUID_EMAIL -> AvatarHelper.bindCategoryBadge(
                         badgeView,
                         context.getString(R.string.email),
                         Color.parseColor("#3B82F6"),
                         Color.parseColor("#1F3B82F6")
                     )
-                    VaultNodeFilter.isWifiEntry(node) -> AvatarHelper.bindCategoryBadge(
+                    tplUuid == com.kunzisoft.keepass.database.element.template.TemplateBuilder.UUID_WIFI -> AvatarHelper.bindCategoryBadge(
                         badgeView,
                         context.getString(R.string.wireless),
                         Color.parseColor("#06B6D4"),
                         Color.parseColor("#1F06B6D4")
                     )
-                    VaultNodeFilter.isIdCardEntry(node) -> AvatarHelper.bindCategoryBadge(
+                    tplUuid == com.kunzisoft.keepass.database.element.template.TemplateBuilder.UUID_ID_CARD -> AvatarHelper.bindCategoryBadge(
                         badgeView,
                         context.getString(R.string.id_card),
                         Color.parseColor("#8B5CF6"),
                         Color.parseColor("#1F8B5CF6")
                     )
-                    VaultNodeFilter.isBankEntry(node) -> AvatarHelper.bindCategoryBadge(
+                    tplUuid == com.kunzisoft.keepass.database.element.template.TemplateBuilder.UUID_BANK -> AvatarHelper.bindCategoryBadge(
                         badgeView,
                         context.getString(R.string.bank),
                         Color.parseColor("#0284C7"),
                         Color.parseColor("#1F0284C7")
                     )
-                    VaultNodeFilter.isCryptoEntry(node) -> AvatarHelper.bindCategoryBadge(
+                    tplUuid == com.kunzisoft.keepass.database.element.template.TemplateBuilder.UUID_CRYPTO -> AvatarHelper.bindCategoryBadge(
                         badgeView,
                         context.getString(R.string.cryptocurrency),
                         Color.parseColor("#EC4899"),
                         Color.parseColor("#1FEC4899")
                     )
-                    VaultNodeFilter.isCreditCardEntry(node) -> AvatarHelper.bindCategoryBadge(
+                    tplUuid == com.kunzisoft.keepass.database.element.template.TemplateBuilder.UUID_CREDIT_CARD -> AvatarHelper.bindCategoryBadge(
                         badgeView,
                         context.getString(R.string.debit_credit_card),
                         Color.parseColor("#F59E0B"),
                         Color.parseColor("#1FF59E0B")
                     )
-                    VaultNodeFilter.isTotpEntry(node) -> AvatarHelper.bindCategoryBadge(
+                    tplUuid == com.kunzisoft.keepass.database.element.template.TemplateBuilder.UUID_TOTP || node.otpModel != null -> AvatarHelper.bindCategoryBadge(
                         badgeView,
                         context.getString(R.string.template_totp),
                         Color.parseColor("#10B981"),
                         Color.parseColor("#1F10B981")
                     )
-                    VaultNodeFilter.isPasskeyEntry(node) -> AvatarHelper.bindCategoryBadge(
+                    tplUuid == com.kunzisoft.keepass.database.element.template.TemplateBuilder.UUID_PASSKEY || node.passkey != null -> AvatarHelper.bindCategoryBadge(
                         badgeView,
                         context.getString(R.string.passkey),
                         Color.parseColor("#6366F1"),
                         Color.parseColor("#1F6366F1")
                     )
-                    VaultNodeFilter.isSecureNoteEntry(node) -> AvatarHelper.bindCategoryBadge(
+                    tplUuid == com.kunzisoft.keepass.database.element.template.TemplateBuilder.UUID_NOTES -> AvatarHelper.bindCategoryBadge(
                         badgeView,
                         context.getString(R.string.secure_note),
                         Color.parseColor("#14B8A6"),

@@ -376,9 +376,8 @@ class EntryEditFragment: DatabaseFragment() {
             threshold = 1
             setAdapter(tagsAdapter)
         }
-        val allowTags = database.allowTags()
-        tagsCardView?.isVisible = allowTags
-        tagsContainerView.isVisible = allowTags
+        tagsCardView?.isVisible = false
+        tagsContainerView.isVisible = false
     }
 
     private fun assignEntryInfo(entryInfo: EntryInfo?) {

@@ -20,9 +20,10 @@
 <FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:orientation="vertical"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:focusable="true"
+    android:focusableInTouchMode="true">
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/nodes_list"
@@ -32,7 +33,8 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:paddingBottom="120dp"
-        android:clipToPadding="false" />
+        android:clipToPadding="false"
+        android:descendantFocusability="beforeDescendants" />
 
     <LinearLayout
         android:id="@+id/empty_vault_container"

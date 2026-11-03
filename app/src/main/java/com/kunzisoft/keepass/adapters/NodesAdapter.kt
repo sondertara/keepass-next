@@ -34,6 +34,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.SortedList
 import androidx.recyclerview.widget.SortedListAdapterCallback
+import com.google.android.material.card.MaterialCardView
 import com.kunzisoft.keepass.R
 import com.kunzisoft.keepass.database.element.SortNodeEnum
 import com.kunzisoft.keepass.database.element.Tag
@@ -509,10 +510,12 @@ class NodesAdapter(
                     Color.parseColor("#1F64748B")
                 )
             }
-            ViewCompat.setBackgroundTintList(
-                holder.container,
-                ColorStateList.valueOf(if (isSelected) mColorSecondary else mColorSurfaceContainer)
-            )
+            val groupBgColor = ColorStateList.valueOf(if (isSelected) mColorSecondary else mColorSurfaceContainer)
+            if (holder.container is MaterialCardView) {
+                (holder.container as MaterialCardView).setCardBackgroundColor(groupBgColor)
+            } else {
+                ViewCompat.setBackgroundTintList(holder.container, groupBgColor)
+            }
             holder.iconFrame?.background = AvatarHelper.getGroupSquircleBackground(context)
         }
 
@@ -588,17 +591,19 @@ class NodesAdapter(
 
     private fun assignBackgroundColor(view: View?, entry: EntryInfo) {
         view?.let {
-            ViewCompat.setBackgroundTintList(
-                view,
-                ColorStateList.valueOf(
-                    if (!view.isSelected) {
-                        (if (mShowEntryColors) entry.backgroundColor else null)
-                            ?: mColorSurfaceContainer
-                    } else {
-                        mColorSecondary
-                    }
-                )
+            val color = ColorStateList.valueOf(
+                if (!view.isSelected) {
+                    (if (mShowEntryColors) entry.backgroundColor else null)
+                        ?: mColorSurfaceContainer
+                } else {
+                    mColorSecondary
+                }
             )
+            if (view is MaterialCardView) {
+                view.setCardBackgroundColor(color)
+            } else {
+                ViewCompat.setBackgroundTintList(view, color)
+            }
         }
     }
 

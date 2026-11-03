@@ -57,8 +57,8 @@ open class DatabaseInfo: Database() {
 
     private val mEntryInfoCache = java.util.concurrent.ConcurrentHashMap<EntryId, CachedEntryInfo>()
 
-    override fun clearCache() {
-        super.clearCache()
+    override fun clearIndexesAndBinaries(filesDirectory: java.io.File?) {
+        super.clearIndexesAndBinaries(filesDirectory)
         mEntryInfoCache.clear()
     }
 

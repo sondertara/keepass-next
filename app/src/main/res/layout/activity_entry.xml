@@ -71,10 +71,10 @@
 
                             <androidx.appcompat.widget.AppCompatImageView
                                 android:id="@+id/entry_icon"
-                                style="@style/KeepassDXStyle.Icon"
                                 android:layout_width="48dp"
                                 android:layout_height="48dp"
                                 android:padding="10dp"
+                                android:background="@drawable/bg_entry_icon_box"
                                 android:src="@drawable/ic_blank_32dp" />
 
                             <LinearLayout

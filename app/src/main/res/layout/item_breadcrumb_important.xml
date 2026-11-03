@@ -17,77 +17,80 @@
   You should have received a copy of the GNU General Public License
   along with KeePassDX.  If not, see <http://www.gnu.org/licenses/>.
 -->
-<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/breadcrumb_group"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
-    android:minHeight="@dimen/min_height_breadcrumb"
-    android:layout_marginVertical="@dimen/margin_vertical_breadcrumb"
-    android:background="?android:attr/selectableItemBackground"
-    style="@style/KeepassDXStyle.Cardview.Surface.Small">
-    <LinearLayout
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:layout_marginVertical="@dimen/margin_vertical_breadcrumb">
+
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/breadcrumb_group"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_marginHorizontal="5dp"
-        android:gravity="center"
-        android:layout_gravity="center"
-        android:baselineAligned="false">
-        <RelativeLayout
+        android:minHeight="@dimen/min_height_breadcrumb"
+        app:cardCornerRadius="18dp"
+        app:cardElevation="0dp"
+        app:strokeWidth="1.5dp"
+        app:strokeColor="?attr/colorPrimary"
+        app:cardBackgroundColor="?attr/colorSurfaceContainer"
+        android:foreground="?android:attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true">
+
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="6dp"
-            android:layout_marginRight="6dp"
-            android:gravity="center_vertical">
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingHorizontal="12dp"
+            android:paddingVertical="4dp">
+
             <androidx.appcompat.widget.AppCompatImageView
                 android:id="@+id/group_icon"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
-                android:layout_gravity="end|center_vertical"
-                android:layout_marginStart="8dp"
-                android:layout_marginEnd="8dp"
-                app:tint="?attr/colorOnSurface"
-                android:scaleType="fitXY" />
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:layout_marginEnd="6dp"
+                app:tint="?attr/colorPrimary"
+                android:scaleType="fitCenter" />
+
+            <androidx.appcompat.widget.AppCompatTextView
+                android:id="@+id/group_name"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/root"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:textColor="?attr/colorOnSurface" />
+
             <androidx.appcompat.widget.AppCompatTextView
                 android:id="@+id/group_numbers"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
                 tools:text="3"
                 style="@style/KeepassDXStyle.Text.Badge" />
-        </RelativeLayout>
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:layout_gravity="start|center_vertical"
-            android:layout_marginEnd="6dp"
-            android:layout_marginRight="6dp"
-            android:layout_weight="1">
-            <androidx.appcompat.widget.AppCompatTextView
-                android:id="@+id/group_name"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:text="@string/root"
-                android:maxLines="2"
-                android:ellipsize="end"
-                style="@style/KeepassDXStyle.Title.Group" />
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/group_tags_list_view"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_gravity="start"
-                app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
-                android:orientation="horizontal"/>
+
             <androidx.appcompat.widget.AppCompatTextView
                 android:id="@+id/group_meta"
-                android:layout_height="match_parent"
-                android:layout_width="match_parent"
-                tools:text="7543A7EAB2EA7CFD1394F1615EBEB08C"
-                android:lines="1"
-                android:singleLine="true"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:visibility="gone"
                 style="@style/KeepassDXStyle.Text.Meta.OnSurface" />
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/group_tags_list_view"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:visibility="gone"
+                android:layout_marginStart="4dp"
+                app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
+                android:orientation="horizontal"/>
         </LinearLayout>
-    </LinearLayout>
-</com.google.android.material.card.MaterialCardView>
+    </com.google.android.material.card.MaterialCardView>
+
+</LinearLayout>

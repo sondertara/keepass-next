@@ -81,6 +81,7 @@
         <!-- Dialog -->
         <item name="android:alertDialogTheme">@style/KeepassDXStyle.Light.Dialog</item>
         <item name="alertDialogTheme">@style/KeepassDXStyle.Light.Dialog</item>
+        <item name="bottomSheetDialogTheme">@style/KeepassDXStyle.BottomSheetDialogTheme</item>
         <item name="dialogBackgroundColor">?attr/colorSurfaceContainerHigh</item>
 
         <!-- CardView -->
@@ -177,6 +178,7 @@
         <!-- Dialog -->
         <item name="android:alertDialogTheme">@style/KeepassDXStyle.Night.Dialog</item>
         <item name="alertDialogTheme">@style/KeepassDXStyle.Night.Dialog</item>
+        <item name="bottomSheetDialogTheme">@style/KeepassDXStyle.BottomSheetDialogTheme</item>
         <item name="dialogBackgroundColor">?attr/colorSurfaceContainerHigh</item>
 
         <!-- CardView -->
@@ -315,6 +317,21 @@
     </style>
     <style name="KeepassDXStyle.Night.Dialog.PositiveButtonStyle" parent="Widget.Material3.Button.TextButton.Dialog">
         <item name="android:textColor">?attr/colorPrimary</item>
+    </style>
+
+    <!-- BottomSheet Dialog -->
+    <style name="KeepassDXStyle.BottomSheetDialogTheme" parent="ThemeOverlay.Material3.BottomSheetDialog">
+        <item name="bottomSheetStyle">@style/KeepassDXStyle.BottomSheetModal</item>
+    </style>
+
+    <style name="KeepassDXStyle.BottomSheetModal" parent="Widget.Material3.BottomSheet.Modal">
+        <item name="shapeAppearance">@style/KeepassDXStyle.ShapeAppearance.BottomSheet</item>
+        <item name="backgroundTint">?attr/colorSurfaceContainerLow</item>
+    </style>
+
+    <style name="KeepassDXStyle.ShapeAppearance.BottomSheet" parent="ShapeAppearance.Material3.Corner.None">
+        <item name="cornerSizeTopLeft">28dp</item>
+        <item name="cornerSizeTopRight">28dp</item>
     </style>
 
     <!-- CardView -->

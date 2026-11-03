@@ -310,6 +310,7 @@ class GroupActivity : VaultSessionActivity() {
 
         toolbar?.title = ""
         setSupportActionBar(toolbar)
+        supportActionBar?.setDisplayShowTitleEnabled(false)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         val toggle = ActionBarDrawerToggle(
             this, drawerLayout, toolbar,
@@ -447,12 +448,14 @@ class GroupActivity : VaultSessionActivity() {
                     }
                 }
                 launch {
-                    mGroupViewModel.isFlatView.collect {
+                    mGroupViewModel.isFlatView.collect { isFlat ->
+                        searchController.selectCategoryChip(filterChipGroup, mGroupViewModel.vaultCategory.value, isFlat)
                         updateBreadcrumbVisibility()
                     }
                 }
                 launch {
-                    mGroupViewModel.vaultCategory.collect {
+                    mGroupViewModel.vaultCategory.collect { category ->
+                        searchController.selectCategoryChip(filterChipGroup, category, mGroupViewModel.isFlatView.value)
                         updateBreadcrumbVisibility()
                     }
                 }
@@ -1102,6 +1105,7 @@ class GroupActivity : VaultSessionActivity() {
                 }
             }
             withContext(Dispatchers.Main) {
+                mGroupViewModel.setAvailableCategories(available)
                 searchController.updateCategoryChipsVisibility(filterChipGroup, available)
             }
         }
@@ -1519,7 +1523,9 @@ class GroupActivity : VaultSessionActivity() {
             intentBuildLauncher: (Intent) -> Unit
         ) {
             intentBuildLauncher.invoke(
-                Intent(context, GroupActivity::class.java)
+                Intent(context, GroupActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                }
             )
         }
 

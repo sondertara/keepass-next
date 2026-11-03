@@ -106,6 +106,20 @@ object TimeoutHelper {
     }
 
     /**
+     * Unconditionally record the current time and start the lock timer when a database is freshly unlocked/loaded.
+     * Prevents a stale timeout timestamp from a previous session from immediately re-locking the newly unlocked database.
+     */
+    fun onDatabaseUnlocked(context: Context) {
+        try {
+            Log.d(TAG, "Reset app timeout on database unlocked")
+            val now = System.currentTimeMillis()
+            PreferencesUtil.saveCurrentTime(context)
+            startLockTimer(context, true)
+            lastAppTimeoutRecord = now
+        } catch (_: Throwable) {}
+    }
+
+    /**
      * Check the time previously record with recordTime and do the [timeoutAction] if timeout.
      * If temporarilyDisableTimeout() is called, the function as no effect until releaseTemporarilyDisableTimeoutAndCheckTime() is called
      * return 'false' and send broadcast lock action if timeout, 'true' if in time

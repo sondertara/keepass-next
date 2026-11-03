@@ -103,10 +103,10 @@ class DeviceUnlockFragment: Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Init device unlock prompt
+        // Init device unlock prompt on Main executor for deterministic lifecycle ordering
         mBiometricPrompt = BiometricPrompt(
             this@DeviceUnlockFragment,
-            Executors.newSingleThreadExecutor(),
+            ContextCompat.getMainExecutor(requireContext()),
             biometricAuthenticationCallback
         )
 
@@ -154,18 +154,18 @@ class DeviceUnlockFragment: Fragment() {
     private fun manageDeviceCredentialPrompt(
         state: DeviceUnlockPromptMode
     ) {
-        mDeviceUnlockViewModel.cryptoPrompt?.let { prompt ->
-            when (state) {
-                DeviceUnlockPromptMode.SHOW -> {
+        when (state) {
+            DeviceUnlockPromptMode.SHOW -> {
+                mDeviceUnlockViewModel.cryptoPrompt?.let { prompt ->
                     openPrompt(prompt)
                     mDeviceUnlockViewModel.promptShown()
                 }
-                DeviceUnlockPromptMode.CLOSE -> {
-                    cancelBiometricPrompt()
-                    mDeviceUnlockViewModel.biometricPromptClosed()
-                }
-                else -> {}
             }
+            DeviceUnlockPromptMode.CLOSE -> {
+                cancelBiometricPrompt()
+                mDeviceUnlockViewModel.biometricPromptClosed()
+            }
+            else -> {}
         }
     }
 

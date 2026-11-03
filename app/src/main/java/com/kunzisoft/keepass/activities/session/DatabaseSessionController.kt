@@ -619,31 +619,7 @@ class DatabaseSessionController(
     }
 
     private fun startDatabasePermissionService(bundle: Bundle?, actionTask: String) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(activity, Manifest.permission.POST_NOTIFICATIONS)
-                == PackageManager.PERMISSION_GRANTED
-            ) {
-                activity.startDatabaseService(bundle, actionTask)
-            } else if (ActivityCompat.shouldShowRequestPermissionRationale(
-                    activity,
-                    Manifest.permission.POST_NOTIFICATIONS
-                )
-            ) {
-                activity.startDatabaseService(bundle, actionTask)
-            } else {
-                AlertDialog.Builder(activity)
-                    .setMessage(R.string.warning_database_notification_permission)
-                    .setNegativeButton(R.string.later) { _, _ ->
-                        activity.startDatabaseService(bundle, actionTask)
-                    }
-                    .setPositiveButton(R.string.ask) { _, _ ->
-                        tempServiceParameters.add(Pair(bundle, actionTask))
-                        requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    }.create().show()
-            }
-        } else {
-            activity.startDatabaseService(bundle, actionTask)
-        }
+        activity.startDatabaseService(bundle, actionTask)
     }
 
     private fun showPasswordEncodingDialog(databaseUri: Uri, mainCredential: MainCredential) {

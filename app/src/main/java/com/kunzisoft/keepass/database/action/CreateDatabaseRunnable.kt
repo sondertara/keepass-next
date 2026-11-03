@@ -27,6 +27,7 @@ import com.kunzisoft.keepass.database.crypto.kdf.KdfFactory
 import com.kunzisoft.keepass.database.element.MasterCredential
 import com.kunzisoft.keepass.hardware.HardwareKey
 import com.kunzisoft.keepass.tasks.ProgressTaskUpdater
+import com.kunzisoft.keepass.timeout.TimeoutHelper
 import com.kunzisoft.keepass.utils.AppUtil.getKdfLimits
 import com.kunzisoft.keepass.utils.clear
 import com.kunzisoft.keepass.utils.getBinaryDir
@@ -103,6 +104,7 @@ class CreateDatabaseRunnable(
     override fun onFinishRun() {
         if (result.isSuccess) {
             mDatabase.loaded = true
+            TimeoutHelper.onDatabaseUnlocked(context)
         }
         super.onFinishRun()
     }

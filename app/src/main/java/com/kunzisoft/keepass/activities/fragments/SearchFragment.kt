@@ -35,7 +35,9 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.chip.ChipGroup
 import com.kunzisoft.keepass.R
+import com.kunzisoft.keepass.activities.GroupActivity
 import com.kunzisoft.keepass.activities.dialogs.SortDialogFragment
 import com.kunzisoft.keepass.adapters.NodesAdapter
 import com.kunzisoft.keepass.database.ContextualDatabase
@@ -43,6 +45,8 @@ import com.kunzisoft.keepass.database.element.SortNodeEnum
 import com.kunzisoft.keepass.database.search.SearchParameters
 import com.kunzisoft.keepass.model.SortedEntryInfo
 import com.kunzisoft.keepass.model.SortedNodeInfo
+import com.kunzisoft.keepass.model.VaultCategory
+import com.kunzisoft.keepass.model.VaultNodeFilter
 import com.kunzisoft.keepass.settings.PreferencesUtil
 import com.kunzisoft.keepass.timeout.timeoutCopyToClipboard
 import com.kunzisoft.keepass.utils.BACK_PREVIOUS_KEYBOARD_ACTION
@@ -57,6 +61,7 @@ class SearchFragment: DatabaseFragment() {
     private var searchBar: ViewGroup? = null
     private var searchView: SearchView? = null
     private var searchTitle: TextView? = null
+    private var filterChipGroup: ChipGroup? = null
     private var searchFiltersView: SearchFiltersView? = null
     private var searchSort: ImageView? = null
     private var searchClose: ImageView? = null
@@ -130,6 +135,9 @@ class SearchFragment: DatabaseFragment() {
         searchBar = view.findViewById(R.id.search_bar)
         searchView = view.findViewById(R.id.search_view)
         searchTitle = view.findViewById(R.id.search_title)
+        filterChipGroup = view.findViewById(R.id.filter_chip_group)
+        view.findViewById<View>(R.id.chip_flat_view)?.visibility = View.GONE
+        (activity as? GroupActivity)?.searchController?.setupFilterChips(filterChipGroup)
         searchFiltersView = view.findViewById(R.id.search_filters)
         searchSort = view.findViewById(R.id.search_sort)
         searchClose = view.findViewById(R.id.search_close)
@@ -203,14 +211,28 @@ class SearchFragment: DatabaseFragment() {
                         searchFiltersView?.setSearchResultsCount(searchState.numberResults)
 
                         val children = searchState.children
-                        if (children != null) {
-                            mAdapter?.rebuildList(
-                                nodes = children,
-                                isSearch = true
-                            )
-                        }
-                        // To show the " no search entry found "
-                        notFoundView?.isVisible = children.isNullOrEmpty()
+                        applyCategoryFilterAndRender(children, mGroupViewModel.vaultCategory.value)
+                    }
+                }
+                launch {
+                    mGroupViewModel.availableCategories.collect { available ->
+                        (activity as? GroupActivity)?.searchController?.updateCategoryChipsVisibility(
+                            filterChipGroup,
+                            available
+                        )
+                    }
+                }
+                launch {
+                    mGroupViewModel.vaultCategory.collect { category ->
+                        (activity as? GroupActivity)?.searchController?.selectCategoryChip(
+                            filterChipGroup,
+                            category,
+                            isFlatView = false
+                        )
+                        applyCategoryFilterAndRender(
+                            mSearchViewModel.searchUIState.value.children,
+                            category
+                        )
                     }
                 }
                 launch {
@@ -240,6 +262,27 @@ class SearchFragment: DatabaseFragment() {
                 }
             }
         }
+    }
+
+    private fun applyCategoryFilterAndRender(
+        children: List<SortedNodeInfo>?,
+        category: VaultCategory
+    ) {
+        val filteredChildren = if (children == null || category == VaultCategory.ALL) {
+            children
+        } else {
+            children.filter { node ->
+                node is SortedEntryInfo && VaultNodeFilter.matchesCategory(node, category)
+            }
+        }
+        if (filteredChildren != null) {
+            mAdapter?.rebuildList(
+                nodes = filteredChildren,
+                isSearch = true
+            )
+            searchFiltersView?.setSearchResultsCount(filteredChildren.size.toString())
+        }
+        notFoundView?.isVisible = filteredChildren.isNullOrEmpty()
     }
 
     override fun onDatabaseRetrieved(database: ContextualDatabase) {

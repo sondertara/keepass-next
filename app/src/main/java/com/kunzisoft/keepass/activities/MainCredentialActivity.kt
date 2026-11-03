@@ -226,6 +226,8 @@ class MainCredentialActivity : PreUnlockSessionActivity() {
                                 )
                             }
                             is MainCredentialViewModel.DatabaseFileEvent.LoadDatabase -> {
+                                mDeviceUnlockViewModel.onUnlockCompletedAndNavigating()
+                                deviceUnlockFragment?.cancelBiometricPrompt()
                                 mDatabaseViewModel.loadDatabase(
                                     databaseUri = event.databaseUri,
                                     mainCredential = event.mainCredential,
@@ -235,6 +237,8 @@ class MainCredentialActivity : PreUnlockSessionActivity() {
                                 )
                             }
                             is MainCredentialViewModel.DatabaseFileEvent.OpenGroup -> {
+                                mDeviceUnlockViewModel.onUnlockCompletedAndNavigating()
+                                deviceUnlockFragment?.cancelBiometricPrompt()
                                 clearCredentialsViews(
                                     clearKeyFile = true,
                                     clearHardwareKey = true
@@ -317,6 +321,20 @@ class MainCredentialActivity : PreUnlockSessionActivity() {
     override fun onResume() {
         super.onResume()
 
+        val currentDatabase = ContextualDatabase.getInstance()
+        if (currentDatabase.loaded
+            && (mMainCredentialViewModel.databaseFileUri == null
+                    || mMainCredentialViewModel.databaseFileUri == currentDatabase.fileUri)
+        ) {
+            mDeviceUnlockViewModel.onUnlockCompletedAndNavigating()
+            deviceUnlockFragment?.cancelBiometricPrompt()
+            mMainCredentialViewModel.onDatabaseRetrieved(currentDatabase)
+            return
+        }
+
+        mDeviceUnlockViewModel.resetUnlockProcessingState(allowAutoOpen = true)
+        mDeviceUnlockViewModel.connect(mMainCredentialViewModel.databaseFileUri)
+
         // Init Biometric elements only if allowed
         if (PreferencesUtil.isDeviceUnlockEnable(this)) {
             deviceUnlockFragment = supportFragmentManager
@@ -366,6 +384,8 @@ class MainCredentialActivity : PreUnlockSessionActivity() {
                 if (result.isSuccess) {
                     mMainCredentialViewModel.onDatabaseRetrieved(database)
                 } else {
+                    mDeviceUnlockViewModel.resetUnlockProcessingState(allowAutoOpen = false)
+                    mDeviceUnlockViewModel.connect(mMainCredentialViewModel.databaseFileUri)
                     mainCredentialView.requestPasswordFocus()
                     // Manage special exceptions
                     when (result.exception) {

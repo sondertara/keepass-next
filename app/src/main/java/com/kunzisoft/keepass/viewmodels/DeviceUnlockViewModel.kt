@@ -13,6 +13,7 @@ import com.kunzisoft.keepass.biometric.DeviceUnlockCryptoPrompt
 import com.kunzisoft.keepass.biometric.DeviceUnlockCryptoPromptType
 import com.kunzisoft.keepass.biometric.DeviceUnlockManager
 import com.kunzisoft.keepass.biometric.DeviceUnlockMode
+import com.kunzisoft.keepass.database.ContextualDatabase
 import com.kunzisoft.keepass.database.exception.UnknownDatabaseLocationException
 import com.kunzisoft.keepass.model.CipherDecryptDatabase
 import com.kunzisoft.keepass.model.CipherEncryptDatabase
@@ -39,12 +40,15 @@ class DeviceUnlockViewModel(application: Application): AndroidViewModel(applicat
     private var databaseUri: Uri? = null
 
     private var mCipherJob: Job? = null
+    private var mCryptoExecutionJob: Job? = null
 
     private var deviceUnlockMode = DeviceUnlockMode.BIOMETRIC_UNAVAILABLE
     var cryptoPrompt: DeviceUnlockCryptoPrompt? = null
         private set
     private var isAutoOpenBiometricPromptAllowed = true
     private var cryptoPromptShowPending: Boolean = false
+    private var isUnlockProcessingOrSucceeded: Boolean = false
+    private var isAuthenticatingOrDecrypting: Boolean = false
 
     // TODO Retrieve credential storage from app database
     var credentialDatabaseStorage: CredentialStorage = CredentialStorage.DEFAULT
@@ -58,14 +62,18 @@ class DeviceUnlockViewModel(application: Application): AndroidViewModel(applicat
             if (databaseUri == this@DeviceUnlockViewModel.databaseUri) {
                 cipherDatabase?.let {
                     this@DeviceUnlockViewModel.cipherDatabase = it
-                    checkUnlockAvailability()
+                    if (!isUnlockProcessingOrSucceeded && !isAuthenticatingOrDecrypting) {
+                        checkUnlockAvailability()
+                    }
                 } ?: deleteEncryptedDatabaseKey()
             }
         }
         override fun onCipherDatabaseAddedOrUpdated(cipherDatabase: CipherEncryptDatabase) {
             if (cipherDatabase.databaseUri == this@DeviceUnlockViewModel.databaseUri) {
                 this@DeviceUnlockViewModel.cipherDatabase = cipherDatabase
-                checkUnlockAvailability()
+                if (!isUnlockProcessingOrSucceeded && !isAuthenticatingOrDecrypting) {
+                    checkUnlockAvailability()
+                }
             }
         }
         override fun onCipherDatabaseDeleted(databaseUri: Uri) {
@@ -91,8 +99,13 @@ class DeviceUnlockViewModel(application: Application): AndroidViewModel(applicat
     init {
         AppLifecycleObserver.appJustLaunched
             .onEach {
-                isAutoOpenBiometricPromptAllowed = true
-                checkUnlockAvailability()
+                if (!isUnlockProcessingOrSucceeded
+                    && !isAuthenticatingOrDecrypting
+                    && !ContextualDatabase.getInstance().loaded
+                ) {
+                    isAutoOpenBiometricPromptAllowed = true
+                    checkUnlockAvailability()
+                }
             }
             .launchIn(viewModelScope)
         cipherDatabaseAction.registerDatabaseListener(cipherDatabaseListener)
@@ -110,7 +123,29 @@ class DeviceUnlockViewModel(application: Application): AndroidViewModel(applicat
         }
     }
 
+    private fun launchCryptoExecutionJob(
+        coroutineExceptionHandler: CoroutineExceptionHandler = CoroutineExceptionHandler { _, e ->
+            isUnlockProcessingOrSucceeded = false
+            isAuthenticatingOrDecrypting = false
+            setException(e)
+        },
+        block: suspend () -> Unit
+    ) {
+        mCipherJob?.cancel()
+        mCryptoExecutionJob?.cancel()
+        mCryptoExecutionJob = viewModelScope.launch(coroutineExceptionHandler) {
+            block()
+        }
+    }
+
     fun checkConditionToStoreCredential(condition: Boolean) {
+        if (isUnlockProcessingOrSucceeded || isAuthenticatingOrDecrypting) {
+            isConditionToStoreCredentialVerified = condition
+            return
+        }
+        if (isConditionToStoreCredentialVerified == condition) {
+            return
+        }
         isConditionToStoreCredentialVerified = condition
         checkUnlockAvailability()
     }
@@ -119,6 +154,12 @@ class DeviceUnlockViewModel(application: Application): AndroidViewModel(applicat
      * Check unlock availability and change the current mode depending on device's state
      */
     fun checkUnlockAvailability() {
+        if (isUnlockProcessingOrSucceeded || isAuthenticatingOrDecrypting) {
+            return
+        }
+        if (ContextualDatabase.getInstance().loaded && !isConditionToStoreCredentialVerified) {
+            return
+        }
         if (PreferencesUtil.isBiometricUnlockEnable(getApplication())) {
             // biometric not supported (by API level or hardware) so keep option hidden
             // or manually disable
@@ -188,13 +229,20 @@ class DeviceUnlockViewModel(application: Application): AndroidViewModel(applicat
     }
 
     private fun showPendingIfNecessary() {
-        // Reassign prompt state to open again if necessary
-        if (uiState.value.cryptoPromptState == DeviceUnlockPromptMode.IDLE_SHOW) {
+        // Reassign prompt state to open again if necessary (only when not already unlocking or loaded)
+        if (!isUnlockProcessingOrSucceeded
+            && !isAuthenticatingOrDecrypting
+            && !ContextualDatabase.getInstance().loaded
+            && uiState.value.cryptoPromptState == DeviceUnlockPromptMode.IDLE_SHOW
+        ) {
             cryptoPromptShowPending = true
+        } else {
+            cryptoPromptShowPending = false
         }
     }
 
     private fun disconnectDatabase() {
+        mCipherJob?.cancel()
         this.databaseUri = null
         this.cipherDatabase = null
         clearPrompt()
@@ -203,11 +251,16 @@ class DeviceUnlockViewModel(application: Application): AndroidViewModel(applicat
 
     fun connect(databaseUri: Uri?) {
         Log.d(TAG, "Connect to device unlock")
+        if (ContextualDatabase.getInstance().loaded && !isConditionToStoreCredentialVerified) {
+            return
+        }
         // To get device credential unlock result, only if same database uri
         if (databaseUri != null
             && PreferencesUtil.isDeviceUnlockEnable(getApplication())) {
-            if (databaseUri != this.databaseUri) {
+            if (databaseUri != this.databaseUri || this.cipherDatabase == null) {
                 connectDatabase(databaseUri)
+            } else if (!isUnlockProcessingOrSucceeded && !isAuthenticatingOrDecrypting) {
+                checkUnlockAvailability()
             }
         } else {
             disconnectDatabase()
@@ -220,13 +273,37 @@ class DeviceUnlockViewModel(application: Application): AndroidViewModel(applicat
         disconnectDatabase()
     }
 
+    fun onUnlockCompletedAndNavigating() {
+        isUnlockProcessingOrSucceeded = true
+        isAuthenticatingOrDecrypting = false
+        isAutoOpenBiometricPromptAllowed = false
+        cryptoPromptShowPending = false
+        mCipherJob?.cancel()
+        closeBiometricPrompt()
+        clearPrompt()
+    }
+
+    fun resetUnlockProcessingState(allowAutoOpen: Boolean = false) {
+        isUnlockProcessingOrSucceeded = false
+        isAuthenticatingOrDecrypting = false
+        if (allowAutoOpen) {
+            isAutoOpenBiometricPromptAllowed = true
+        }
+    }
+
     fun onAuthenticationSucceeded() {
+        isAuthenticatingOrDecrypting = true
+        cryptoPromptShowPending = false
+        isAutoOpenBiometricPromptAllowed = false
+        biometricPromptClosed()
         cryptoPrompt?.let { prompt ->
             when (prompt.type) {
                 DeviceUnlockCryptoPromptType.CREDENTIAL_ENCRYPTION ->
                     retrieveCredentialForEncryption( prompt.cipher)
-                DeviceUnlockCryptoPromptType.CREDENTIAL_DECRYPTION ->
+                DeviceUnlockCryptoPromptType.CREDENTIAL_DECRYPTION -> {
+                    isUnlockProcessingOrSucceeded = true
                     decryptCredential( prompt.cipher)
+                }
             }
         }
     }
@@ -234,12 +311,21 @@ class DeviceUnlockViewModel(application: Application): AndroidViewModel(applicat
     fun onAuthenticationSucceeded(
         result: BiometricPrompt.AuthenticationResult
     ) {
-        cryptoPrompt?.type?.let { type ->
-            when (type) {
-                DeviceUnlockCryptoPromptType.CREDENTIAL_ENCRYPTION ->
-                    retrieveCredentialForEncryption(result.cryptoObject?.cipher)
-                DeviceUnlockCryptoPromptType.CREDENTIAL_DECRYPTION ->
-                    decryptCredential(result.cryptoObject?.cipher)
+        isAuthenticatingOrDecrypting = true
+        cryptoPromptShowPending = false
+        isAutoOpenBiometricPromptAllowed = false
+        biometricPromptClosed()
+        val promptType = cryptoPrompt?.type ?: when (deviceUnlockMode) {
+            DeviceUnlockMode.STORE_CREDENTIAL -> DeviceUnlockCryptoPromptType.CREDENTIAL_ENCRYPTION
+            else -> DeviceUnlockCryptoPromptType.CREDENTIAL_DECRYPTION
+        }
+        val authenticatedCipher = result.cryptoObject?.cipher ?: cryptoPrompt?.cipher
+        when (promptType) {
+            DeviceUnlockCryptoPromptType.CREDENTIAL_ENCRYPTION ->
+                retrieveCredentialForEncryption(authenticatedCipher)
+            DeviceUnlockCryptoPromptType.CREDENTIAL_DECRYPTION -> {
+                isUnlockProcessingOrSucceeded = true
+                decryptCredential(authenticatedCipher)
             }
         }
     }
@@ -256,11 +342,15 @@ class DeviceUnlockViewModel(application: Application): AndroidViewModel(applicat
         credential: ByteArray,
         cipher: Cipher?
     ) {
-        cancelAndLaunchCipherJob {
-            deviceUnlockManager?.encryptData(
+        launchCryptoExecutionJob {
+            val manager = deviceUnlockManager ?: DeviceUnlockManager(getApplication()).also {
+                deviceUnlockManager = it
+            }
+            manager.encryptData(
                 value = credential,
                 cipher = cipher,
                 handleEncryptedResult = { encryptedValue, ivSpec ->
+                    isAuthenticatingOrDecrypting = false
                     databaseUri?.let { databaseUri ->
                         onCredentialEncrypted(
                             CipherEncryptDatabase().apply {
@@ -283,15 +373,23 @@ class DeviceUnlockViewModel(application: Application): AndroidViewModel(applicat
     }
 
     fun decryptCredential(cipher: Cipher?) {
+        isUnlockProcessingOrSucceeded = true
+        isAuthenticatingOrDecrypting = true
+        cryptoPromptShowPending = false
+        isAutoOpenBiometricPromptAllowed = false
         // retrieve the encrypted value from preferences
-        cancelAndLaunchCipherJob {
+        launchCryptoExecutionJob {
             databaseUri?.let { databaseUri ->
                 cipherDatabase?.let { cipherDb ->
-                    deviceUnlockManager?.decryptData(
+                    val manager = deviceUnlockManager ?: DeviceUnlockManager(getApplication()).also {
+                        deviceUnlockManager = it
+                    }
+                    manager.decryptData(
                         encryptedValue = cipherDb.encryptedValue,
                         cipher = cipher,
                         ivSpecValue = cipherDb.specParameters,
                         handleDecryptedResult = { decryptedValue ->
+                            isAuthenticatingOrDecrypting = false
                             // Load database directly with password retrieve
                             onCredentialDecrypted(
                                 CipherDecryptDatabase().apply {
@@ -303,8 +401,14 @@ class DeviceUnlockViewModel(application: Application): AndroidViewModel(applicat
                             cipherDatabaseAction.resetCipherParameters(databaseUri)
                         }
                     )
-                } ?: deleteEncryptedDatabaseKey()
+                } ?: run {
+                    isUnlockProcessingOrSucceeded = false
+                    isAuthenticatingOrDecrypting = false
+                    deleteEncryptedDatabaseKey()
+                }
             } ?: run {
+                isUnlockProcessingOrSucceeded = false
+                isAuthenticatingOrDecrypting = false
                 throw UnknownDatabaseLocationException()
             }
         }
@@ -346,6 +450,12 @@ class DeviceUnlockViewModel(application: Application): AndroidViewModel(applicat
         cryptoPrompt: DeviceUnlockCryptoPrompt,
         autoOpen: Boolean = false
     ) {
+        if (isUnlockProcessingOrSucceeded
+            || isAuthenticatingOrDecrypting
+            || (ContextualDatabase.getInstance().loaded && !isConditionToStoreCredentialVerified)
+        ) {
+            return
+        }
         this@DeviceUnlockViewModel.cryptoPrompt = cryptoPrompt
         if (cryptoPromptShowPending
             || (autoOpen && PreferencesUtil.isDeviceUnlockPromptAutoOpenEnable(getApplication())))
@@ -353,6 +463,12 @@ class DeviceUnlockViewModel(application: Application): AndroidViewModel(applicat
     }
 
     fun showPrompt() {
+        if (isUnlockProcessingOrSucceeded
+            || isAuthenticatingOrDecrypting
+            || (ContextualDatabase.getInstance().loaded && !isConditionToStoreCredentialVerified)
+        ) {
+            return
+        }
         AppLifecycleObserver.lockBackgroundEvent = true
         isAutoOpenBiometricPromptAllowed = false
         cryptoPromptShowPending = false
@@ -391,6 +507,7 @@ class DeviceUnlockViewModel(application: Application): AndroidViewModel(applicat
     }
 
     private fun initEncryptData() {
+        if (isAuthenticatingOrDecrypting) return
         cancelAndLaunchCipherJob {
             deviceUnlockManager = DeviceUnlockManager(getApplication())
             deviceUnlockManager?.initEncryptData { cryptoPrompt ->
@@ -400,6 +517,12 @@ class DeviceUnlockViewModel(application: Application): AndroidViewModel(applicat
     }
 
     private fun initDecryptData() {
+        if (isUnlockProcessingOrSucceeded
+            || isAuthenticatingOrDecrypting
+            || ContextualDatabase.getInstance().loaded
+        ) {
+            return
+        }
         cancelAndLaunchCipherJob {
             cipherDatabase?.let { cipherDb ->
                     deviceUnlockManager = DeviceUnlockManager(getApplication())
@@ -444,8 +567,10 @@ class DeviceUnlockViewModel(application: Application): AndroidViewModel(applicat
     }
 
     private fun clearPrompt() {
-        cryptoPrompt = null
-        deviceUnlockManager = null
+        if (!isAuthenticatingOrDecrypting) {
+            cryptoPrompt = null
+            deviceUnlockManager = null
+        }
     }
 
     fun clearData() {

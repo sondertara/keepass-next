@@ -106,6 +106,13 @@ class GroupViewModel(application: Application): AndroidViewModel(application) {
     private val _isFlatView = MutableStateFlow(false)
     val isFlatView: StateFlow<Boolean> = _isFlatView.asStateFlow()
 
+    private val _availableCategories = MutableStateFlow<Set<VaultCategory>>(emptySet())
+    val availableCategories: StateFlow<Set<VaultCategory>> = _availableCategories.asStateFlow()
+
+    fun setAvailableCategories(categories: Set<VaultCategory>) {
+        _availableCategories.value = categories
+    }
+
     fun setVaultCategory(category: VaultCategory) {
         if (_vaultCategory.value != category) {
             _vaultCategory.value = category

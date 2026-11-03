@@ -1,7 +1,5 @@
 package com.kunzisoft.keepass.services
 
-import android.annotation.SuppressLint
-import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -13,6 +11,10 @@ import com.kunzisoft.keepass.R
 import com.kunzisoft.keepass.app.database.CipherDatabaseEntity
 import com.kunzisoft.keepass.settings.PreferencesUtil
 import com.kunzisoft.keepass.timeout.TimeoutHelper.NEVER
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 class DeviceUnlockNotificationService : NotificationService() {
 
@@ -37,7 +39,7 @@ class DeviceUnlockNotificationService : NotificationService() {
             }
         }
         fun resetTimer() {
-            resetTimeJob()
+            startSilentExpiryTimer()
         }
         fun deleteAll() {
             mTempCipherDao.clear()
@@ -59,63 +61,22 @@ class DeviceUnlockNotificationService : NotificationService() {
         mTempCipherDao = mutableListOf()
     }
 
-    // It's simpler to use pendingIntent to perform REMOVE_DEVICE_UNLOCK_KEY_ACTION
-    // because can be directly broadcast to another module or app
-    @SuppressLint("LaunchActivityFromNotification")
+    private fun startSilentExpiryTimer() {
+        val notificationTimeoutMilliSecs = PreferencesUtil.getDeviceUnlockTimeout(this)
+        mTimerJob?.cancel()
+        if (notificationTimeoutMilliSecs > NEVER) {
+            mTimerJob = CoroutineScope(Dispatchers.Main).launch {
+                delay(notificationTimeoutMilliSecs)
+                sendBroadcast(Intent(REMOVE_DEVICE_UNLOCK_KEY_ACTION))
+                mTimerJob = null
+            }
+        }
+    }
+
     override fun onBind(intent: Intent): IBinder {
         super.onBind(intent)
-
-        val pendingDeleteIntent = PendingIntent.getBroadcast(this,
-            4577,
-            Intent(REMOVE_DEVICE_UNLOCK_KEY_ACTION),
-            PendingIntent.FLAG_IMMUTABLE
-        )
-        val biometricUnlockEnabled = PreferencesUtil.isBiometricUnlockEnable(this)
-        val notificationBuilder = buildNewNotification().apply {
-            setSmallIcon(if (biometricUnlockEnabled) {
-                R.drawable.notification_ic_fingerprint_unlock_24dp
-            } else {
-                R.drawable.notification_ic_device_unlock_24dp
-            })
-            setSubText(getString(R.string.app_name))
-            setContentTitle(getString(R.string.device_unlock))
-            setContentText(getString(R.string.device_unlock_tap_delete))
-            setStyle(
-                androidx.core.app.NotificationCompat.BigTextStyle()
-                    .setBigContentTitle(getString(R.string.device_unlock))
-                    .setSummaryText(getString(R.string.app_name))
-                    .bigText(getString(R.string.device_unlock_tap_delete))
-            )
-            setShowWhen(false)
-            setContentIntent(pendingDeleteIntent)
-            // Unfortunately swipe is disabled in lollipop+
-            setDeleteIntent(pendingDeleteIntent)
-            addAction(
-                R.drawable.ic_lock_white_24dp,
-                getString(R.string.lock),
-                pendingDeleteIntent
-            )
-        }
-
-        val notificationTimeoutMilliSecs = PreferencesUtil.getDeviceUnlockTimeout(this)
-        // Not necessarily a foreground service
-        if (mTimerJob == null && notificationTimeoutMilliSecs > NEVER) {
-            defineTimerJob(
-                builder = notificationBuilder,
-                type = NotificationServiceType.DEVICE_UNLOCK,
-                timeoutMilliseconds = notificationTimeoutMilliSecs,
-                actionAfterASecond = null
-            ) {
-                sendBroadcast(Intent(REMOVE_DEVICE_UNLOCK_KEY_ACTION))
-            }
-        } else {
-            startForegroundCompat(
-                notificationId,
-                notificationBuilder,
-                NotificationServiceType.DEVICE_UNLOCK
-            )
-        }
-
+        // Silent in-memory session storage without persistent foreground notification
+        startSilentExpiryTimer()
         return mActionTaskBinder
     }
 

@@ -28,6 +28,7 @@ import com.kunzisoft.keepass.database.exception.UnknownDatabaseLocationException
 import com.kunzisoft.keepass.hardware.HardwareKey
 import com.kunzisoft.keepass.tasks.ActionRunnable
 import com.kunzisoft.keepass.tasks.ProgressTaskUpdater
+import com.kunzisoft.keepass.timeout.TimeoutHelper
 import com.kunzisoft.keepass.utils.AppUtil.getLimits
 import com.kunzisoft.keepass.utils.getBinaryDir
 import com.kunzisoft.keepass.utils.getUriInputStream
@@ -72,6 +73,7 @@ class LoadDatabaseRunnable(
                 )
                 indicateUpToDateData()
                 recordInAppSaveCompleted(context)
+                TimeoutHelper.onDatabaseUnlocked(context)
             }
         } catch (e: Exception) {
             setError(e)

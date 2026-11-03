@@ -94,6 +94,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content">
 
+            <include layout="@layout/view_category_filter_chips" />
+
             <com.kunzisoft.keepass.view.SearchFiltersView
                 android:id="@+id/search_filters"
                 android:layout_width="match_parent"

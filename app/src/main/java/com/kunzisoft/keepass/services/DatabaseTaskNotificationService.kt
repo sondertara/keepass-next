@@ -30,6 +30,7 @@ import android.os.Parcelable
 import android.util.Log
 import android.app.NotificationManager
 import androidx.core.app.NotificationCompat
+import androidx.core.app.ServiceCompat
 import com.kunzisoft.keepass.R
 import com.kunzisoft.keepass.activities.FileDatabaseSelectActivity
 import com.kunzisoft.keepass.database.ContextualDatabase
@@ -142,6 +143,14 @@ open class DatabaseTaskNotificationService : LockNotificationService(), Progress
                             ACTION_DATABASE_RELOAD_TASK,
                             ACTION_DATABASE_ASSIGN_CREDENTIAL_TASK
                         ))) {
+                            if (event.actionTask in listOf(
+                                ACTION_DATABASE_CREATE_TASK,
+                                ACTION_DATABASE_LOAD_TASK,
+                                ACTION_DATABASE_MERGE_TASK,
+                                ACTION_DATABASE_RELOAD_TASK
+                            )) {
+                                TimeoutHelper.onDatabaseUnlocked(this@DatabaseTaskNotificationService)
+                            }
                             saveDatabaseInfo()
                         }
                         handleJobFinished(event.isSavingAction)
@@ -264,18 +273,17 @@ open class DatabaseTaskNotificationService : LockNotificationService(), Progress
         isSavingAction: Boolean,
         progressMessage: ProgressMessage
     ) {
-        val database = ContextualDatabase.getInstance()
-        val iconId = if (intentAction == null && DatabaseJobManager.getInstance().activeJobsCount.value == 0)
-            R.drawable.notification_ic_database_open
-        else
-            R.drawable.notification_ic_database_action
+        if (intentAction == null && DatabaseJobManager.getInstance().activeJobsCount.value == 0) {
+            // Do not keep a persistent ongoing notification when the vault is idle
+            ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+            notificationManager?.cancel(notificationId)
+            return
+        }
+
+        val iconId = R.drawable.notification_ic_database_action
 
         val titleId = if (intentAction == null) {
-            if (DatabaseJobManager.getInstance().activeJobsCount.value > 0) {
-                if (isSavingAction) R.string.saving_database else R.string.command_execution
-            } else {
-                R.string.database_opened
-            }
+            if (isSavingAction) R.string.saving_database else R.string.command_execution
         } else when (intentAction) {
             ACTION_DATABASE_CREATE_TASK -> R.string.creating_database
             ACTION_DATABASE_LOAD_TASK,
@@ -293,52 +301,17 @@ open class DatabaseTaskNotificationService : LockNotificationService(), Progress
             setContentIntent(null)
         }
 
-        if (intentAction == null && DatabaseJobManager.getInstance().activeJobsCount.value == 0) {
-            if (database.loaded) {
-                val pendingDatabaseIntent = buildActivityPendingIntent(
-                    Intent(this, FileDatabaseSelectActivity::class.java)
+        progressMessage.messageId?.let { msgId ->
+            val progressText = getString(msgId)
+            notificationBuilder.apply {
+                setSubText(getString(R.string.app_name))
+                setContentText(progressText)
+                setStyle(
+                    NotificationCompat.BigTextStyle()
+                        .setBigContentTitle(getString(titleId))
+                        .setSummaryText(getString(R.string.app_name))
+                        .bigText(progressText)
                 )
-                val pendingDeleteIntent = PendingIntent.getBroadcast(
-                    this,
-                    4576,
-                    Intent(LOCK_ACTION),
-                    PendingIntent.FLAG_IMMUTABLE
-                )
-                val statusText = "${getString(R.string.database_opened)} (${database.version})"
-                notificationBuilder.apply {
-                    setSubText(getString(R.string.app_name))
-                    setContentTitle(database.name)
-                    setContentText(statusText)
-                    setStyle(
-                        NotificationCompat.BigTextStyle()
-                            .setBigContentTitle(database.name)
-                            .setSummaryText(getString(R.string.app_name))
-                            .bigText(statusText)
-                    )
-                    setShowWhen(false)
-                    setOngoing(true)
-                    setContentIntent(pendingDatabaseIntent)
-                    setDeleteIntent(pendingDeleteIntent)
-                    addAction(
-                        R.drawable.ic_lock_white_24dp,
-                        getString(R.string.lock),
-                        pendingDeleteIntent
-                    )
-                }
-            }
-        } else {
-            progressMessage.messageId?.let { msgId ->
-                val progressText = getString(msgId)
-                notificationBuilder.apply {
-                    setSubText(getString(R.string.app_name))
-                    setContentText(progressText)
-                    setStyle(
-                        NotificationCompat.BigTextStyle()
-                            .setBigContentTitle(getString(titleId))
-                            .setSummaryText(getString(R.string.app_name))
-                            .bigText(progressText)
-                    )
-                }
             }
         }
 

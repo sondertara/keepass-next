@@ -77,11 +77,24 @@ class DeviceUnlockNotificationService : NotificationService() {
             } else {
                 R.drawable.notification_ic_device_unlock_24dp
             })
+            setSubText(getString(R.string.app_name))
             setContentTitle(getString(R.string.device_unlock))
             setContentText(getString(R.string.device_unlock_tap_delete))
+            setStyle(
+                androidx.core.app.NotificationCompat.BigTextStyle()
+                    .setBigContentTitle(getString(R.string.device_unlock))
+                    .setSummaryText(getString(R.string.app_name))
+                    .bigText(getString(R.string.device_unlock_tap_delete))
+            )
+            setShowWhen(false)
             setContentIntent(pendingDeleteIntent)
             // Unfortunately swipe is disabled in lollipop+
             setDeleteIntent(pendingDeleteIntent)
+            addAction(
+                R.drawable.ic_lock_white_24dp,
+                getString(R.string.lock),
+                pendingDeleteIntent
+            )
         }
 
         val notificationTimeoutMilliSecs = PreferencesUtil.getDeviceUnlockTimeout(this)

@@ -56,6 +56,14 @@ abstract class NotificationServiceParam<T> : Service() {
         return CHANNEL_NAME
     }
 
+    open fun retrieveChannelImportance(): Int {
+        return NotificationManager.IMPORTANCE_LOW
+    }
+
+    open fun retrieveChannelDescription(): String? {
+        return null
+    }
+
     override fun onCreate() {
         super.onCreate()
 
@@ -65,9 +73,12 @@ abstract class NotificationServiceParam<T> : Service() {
         if (notificationManager?.getNotificationChannel(retrieveChannelId()) == null) {
             val channel = NotificationChannel(retrieveChannelId(),
                     retrieveChannelName(),
-                    NotificationManager.IMPORTANCE_DEFAULT).apply {
+                    retrieveChannelImportance()).apply {
                 enableVibration(false)
                 setSound(null, null)
+                retrieveChannelDescription()?.let {
+                    description = it
+                }
             }
             notificationManager?.createNotificationChannel(channel)
         }
@@ -83,8 +94,8 @@ abstract class NotificationServiceParam<T> : Service() {
     protected fun buildNewNotification(): NotificationCompat.Builder {
         return NotificationCompat.Builder(this, retrieveChannelId())
                 .setColor(colorNotificationAccent)
-                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-                .setVisibility(NotificationCompat.VISIBILITY_SECRET)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
     }
 
     protected fun startForegroundCompat(notificationId: Int,

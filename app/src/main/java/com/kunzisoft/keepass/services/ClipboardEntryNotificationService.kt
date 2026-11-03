@@ -19,10 +19,12 @@
  */
 package com.kunzisoft.keepass.services
 
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import androidx.core.app.NotificationCompat
 import com.kunzisoft.keepass.R
 import com.kunzisoft.keepass.model.EntryInfo
 import com.kunzisoft.keepass.model.OtpModel
@@ -50,6 +52,10 @@ class ClipboardEntryNotificationService : LockNotificationServiceParam<OtpElemen
 
     override fun retrieveChannelName(): String {
         return getString(R.string.clipboard)
+    }
+
+    override fun retrieveChannelImportance(): Int {
+        return NotificationManager.IMPORTANCE_HIGH
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -92,13 +98,26 @@ class ClipboardEntryNotificationService : LockNotificationServiceParam<OtpElemen
         val builder = buildNewNotification()
         pendingCopyIntent = buildCopyPendingIntent(firstOtpModel)
         pendingDeleteIntent = buildDeletePendingIntent()
+        val tokenStr = String(otpElement.token)
         builder.run {
             setSmallIcon(R.drawable.notification_ic_clipboard_key_24dp)
+            setSubText(getString(R.string.app_name))
             setContentTitle(firstOtpModel.toString())
+            setContentText(tokenStr)
+            setStyle(
+                NotificationCompat.BigTextStyle()
+                    .setBigContentTitle(firstOtpModel.toString())
+                    .setSummaryText(getString(R.string.clipboard_otp_notifications_title))
+                    .bigText(tokenStr)
+            )
             setAutoCancel(false)
-            setContentText(String(otpElement.token))
             setContentIntent(pendingCopyIntent)
             setDeleteIntent(pendingDeleteIntent)
+            addAction(
+                R.drawable.ic_content_copy_white_24dp,
+                getString(R.string.menu_copy),
+                pendingCopyIntent
+            )
         }
         // Add others OTP
         if (otpModels.size > 1) {

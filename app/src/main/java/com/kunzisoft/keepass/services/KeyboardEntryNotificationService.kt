@@ -23,6 +23,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import androidx.core.app.NotificationCompat
 import androidx.preference.PreferenceManager
 import com.kunzisoft.keepass.R
 import com.kunzisoft.keepass.credentialprovider.magikeyboard.MagikeyboardService
@@ -100,14 +101,29 @@ class KeyboardEntryNotificationService : LockNotificationService() {
 
         val entryTitle = title ?: getString(R.string.keyboard_notification_entry_content_title_text)
         val builder = buildNewNotification()
+        val titleText = getString(R.string.keyboard_notification_entry_content_title, entryTitle)
         builder.run {
             setSmallIcon(R.drawable.notification_ic_keyboard_key_24dp)
-            setContentTitle(getString(R.string.keyboard_notification_entry_content_title, entryTitle))
+            setSubText(getString(R.string.app_name))
+            setContentTitle(entryTitle)
+            setContentText(getString(R.string.magic_keyboard_title))
+            setStyle(
+                NotificationCompat.BigTextStyle()
+                    .setBigContentTitle(entryTitle)
+                    .setSummaryText(getString(R.string.magic_keyboard_title))
+                    .bigText(titleText)
+            )
+            setShowWhen(false)
             setAutoCancel(false)
             mainPendingIntent?.let {
                 setContentIntent(it)
             }
             setDeleteIntent(pendingDeleteIntent)
+            addAction(
+                R.drawable.ic_close_white_24dp,
+                getString(R.string.close),
+                pendingDeleteIntent
+            )
         }
         // Timeout only if notification clear is available
         if (PreferencesUtil.isClearKeyboardNotificationEnable(this)) {

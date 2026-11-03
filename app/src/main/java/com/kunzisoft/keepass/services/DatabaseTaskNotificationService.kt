@@ -28,7 +28,8 @@ import android.os.Bundle
 import android.os.IBinder
 import android.os.Parcelable
 import android.util.Log
-import androidx.media.app.NotificationCompat
+import android.app.NotificationManager
+import androidx.core.app.NotificationCompat
 import com.kunzisoft.keepass.R
 import com.kunzisoft.keepass.activities.FileDatabaseSelectActivity
 import com.kunzisoft.keepass.database.ContextualDatabase
@@ -73,6 +74,7 @@ open class DatabaseTaskNotificationService : LockNotificationService(), Progress
 
     override fun retrieveChannelId(): String = CHANNEL_DATABASE_ID
     override fun retrieveChannelName(): String = getString(R.string.database)
+    override fun retrieveChannelImportance(): Int = NotificationManager.IMPORTANCE_LOW
 
     inner class ActionTaskBinder : Binder() {
         fun getService(): DatabaseTaskNotificationService = this@DatabaseTaskNotificationService
@@ -302,26 +304,41 @@ open class DatabaseTaskNotificationService : LockNotificationService(), Progress
                     Intent(LOCK_ACTION),
                     PendingIntent.FLAG_IMMUTABLE
                 )
+                val statusText = "${getString(R.string.database_opened)} (${database.version})"
                 notificationBuilder.apply {
-                    setContentText("${database.name} (${database.version})")
+                    setSubText(getString(R.string.app_name))
+                    setContentTitle(database.name)
+                    setContentText(statusText)
+                    setStyle(
+                        NotificationCompat.BigTextStyle()
+                            .setBigContentTitle(database.name)
+                            .setSummaryText(getString(R.string.app_name))
+                            .bigText(statusText)
+                    )
+                    setShowWhen(false)
+                    setOngoing(true)
                     setContentIntent(pendingDatabaseIntent)
                     setDeleteIntent(pendingDeleteIntent)
                     addAction(
-                        R.drawable.ic_lock_database_white_32dp,
+                        R.drawable.ic_lock_white_24dp,
                         getString(R.string.lock),
                         pendingDeleteIntent
                     )
-                    if (Build.VERSION.SDK_INT > Build.VERSION_CODES.R) {
-                        setStyle(
-                            NotificationCompat.MediaStyle()
-                                .setShowActionsInCompactView(0)
-                        )
-                    }
                 }
             }
         } else {
             progressMessage.messageId?.let { msgId ->
-                notificationBuilder.setContentText(getString(msgId))
+                val progressText = getString(msgId)
+                notificationBuilder.apply {
+                    setSubText(getString(R.string.app_name))
+                    setContentText(progressText)
+                    setStyle(
+                        NotificationCompat.BigTextStyle()
+                            .setBigContentTitle(getString(titleId))
+                            .setSummaryText(getString(R.string.app_name))
+                            .bigText(progressText)
+                    )
+                }
             }
         }
 

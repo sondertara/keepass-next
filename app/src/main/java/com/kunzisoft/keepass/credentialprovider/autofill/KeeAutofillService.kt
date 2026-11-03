@@ -425,14 +425,14 @@ class KeeAutofillService : AutofillService() {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                     try {
                         startActivity(
-                            Intent(Settings.ACTION_CREDENTIAL_PROVIDER_SETTINGS).apply {
+                            Intent("android.settings.CREDENTIAL_PROVIDER").apply {
                                 data = "package:$packageName".toUri()
                                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                             }
                         )
                         return
                     } catch (e: Exception) {
-                        Log.w(TAG, "ACTION_CREDENTIAL_PROVIDER_SETTINGS unavailable, falling back to autofill settings", e)
+                        Log.w(TAG, "CREDENTIAL_PROVIDER settings unavailable, falling back to autofill settings", e)
                     }
                 }
                 startActivity(

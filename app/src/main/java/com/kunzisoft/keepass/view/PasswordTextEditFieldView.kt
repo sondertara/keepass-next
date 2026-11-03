@@ -89,9 +89,12 @@ class PasswordTextEditFieldView @JvmOverloads constructor(
     }
 
     private val mGeneratePasswordButton = MaterialButton(
-        context,
+        androidx.appcompat.view.ContextThemeWrapper(
+            context,
+            com.google.android.material.R.style.Widget_Material3_Button_TonalButton
+        ),
         null,
-        com.google.android.material.R.attr.materialButtonTonalStyle
+        0
     ).apply {
         val heightPx = TypedValue.applyDimension(
             TypedValue.COMPLEX_UNIT_DIP,

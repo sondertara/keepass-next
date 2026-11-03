@@ -192,20 +192,7 @@ open class SettingsActivity
     }
 
     private fun hideOrShowLockButton(key: NestedSettingsFragment.Screen) {
-        if (PreferencesUtil.showLockDatabaseButton(this)) {
-            when (key) {
-                NestedSettingsFragment.Screen.DATABASE,
-                NestedSettingsFragment.Screen.DATABASE_MASTER_KEY,
-                NestedSettingsFragment.Screen.DATABASE_SECURITY -> {
-                    lockView?.show()
-                }
-                else -> {
-                    lockView?.hide()
-                }
-            }
-        } else {
-            lockView?.hide()
-        }
+        // Lock button removed: lock action centralized in navigation drawer
     }
 
     override fun onDatabaseBackPressed() {

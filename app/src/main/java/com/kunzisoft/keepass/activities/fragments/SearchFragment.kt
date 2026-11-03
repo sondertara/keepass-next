@@ -291,7 +291,7 @@ class SearchFragment: DatabaseFragment() {
                 10 -> {
                     if (node is SortedEntryInfo) {
                         context.timeoutCopyToClipboard(
-                            context.getString(R.string.username),
+                            context.getString(R.string.entry_user_name),
                             node.username,
                             sensitive = false
                         )
@@ -301,7 +301,7 @@ class SearchFragment: DatabaseFragment() {
                 11 -> {
                     if (node is SortedEntryInfo) {
                         context.timeoutCopyToClipboard(
-                            context.getString(R.string.password),
+                            context.getString(R.string.entry_password),
                             node.password,
                             sensitive = true
                         )

@@ -21,22 +21,16 @@
         </aapt:attr>
     </path>
 
-    <path android:pathData="M54,4 A46,46 0 1,1 53.99,4 Z">
+    <path android:pathData="M54,16 A38,38 0 1,1 53.99,16 Z">
         <aapt:attr name="android:fillColor">
             <gradient
                 android:centerX="54"
                 android:centerY="50"
-                android:gradientRadius="46"
+                android:gradientRadius="38"
                 android:type="radial">
-                <item android:offset="0.0" android:color="#3834D399" />
+                <item android:offset="0.0" android:color="#3534D399" />
                 <item android:offset="1.0" android:color="#0034D399" />
             </gradient>
         </aapt:attr>
     </path>
-
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#246EE7B7"
-        android:strokeWidth="0.9"
-        android:pathData="M54,12 A42,42 0 1,1 53.99,12 Z" />
 </vector>

@@ -6,13 +6,8 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Soft Drop Shadow -->
-    <path
-        android:fillColor="#3D000000"
-        android:pathData="M54,26 L77,35.5 L77,53.5 C77,69.8 67.2,80.8 54,86 C40.8,80.8 31,69.8 31,53.5 L31,35.5 Z" />
-
-    <!-- Outer Faceted Shield -->
-    <path android:pathData="M54,24 L77,33.5 L77,51.5 C77,67.8 67.2,78.8 54,84 C40.8,78.8 31,67.8 31,51.5 L31,33.5 Z">
+    <!-- Outer Faceted Shield with Smooth Rounded Corners -->
+    <path android:pathData="M52.2,24.8 Q54,24 55.8,24.8 L75.4,32.8 Q77,33.5 77,35.2 L77,51.5 C77,67.5 67.2,78.5 55.6,83.4 Q54,84 52.4,83.4 C40.8,78.5 31,67.5 31,51.5 L31,35.2 Q31,33.5 32.6,32.8 Z">
         <aapt:attr name="android:fillColor">
             <gradient
                 android:startX="31"
@@ -30,10 +25,10 @@
     <!-- Left 3D Facet Highlight -->
     <path
         android:fillColor="#29FFFFFF"
-        android:pathData="M54,24 L54,84 C40.8,78.8 31,67.8 31,51.5 L31,33.5 Z" />
+        android:pathData="M54,24.2 L54,83.8 Q54,84 52.4,83.4 C40.8,78.5 31,67.5 31,51.5 L31,35.2 Q31,33.5 32.6,32.8 L52.2,24.8 Q54,24 54,24.2 Z" />
 
     <!-- Inner Shield Core -->
-    <path android:pathData="M54,29.8 L71.5,37.2 L71.5,51.5 C71.5,64.6 63.8,73.5 54,77.8 C44.2,73.5 36.5,64.6 36.5,51.5 L36.5,37.2 Z">
+    <path android:pathData="M52.5,30.4 Q54,29.8 55.5,30.4 L70.2,36.6 Q71.5,37.2 71.5,38.8 L71.5,51.5 C71.5,64.2 64.0,72.8 55.4,77.3 Q54,77.8 52.6,77.3 C44.0,72.8 36.5,64.2 36.5,51.5 L36.5,38.8 Q36.5,37.2 37.8,36.6 Z">
         <aapt:attr name="android:fillColor">
             <gradient
                 android:startX="36.5"

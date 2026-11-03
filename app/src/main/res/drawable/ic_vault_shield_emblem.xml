@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="68dp"
+    android:height="68dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Rounded Squircle Base (24 corner radius) -->
+    <path android:pathData="M24,0 L84,0 Q108,0 108,24 L108,84 Q108,108 84,108 L24,108 Q0,108 0,84 L0,24 Q0,0 24,0 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="0"
+                android:startY="0"
+                android:endX="108"
+                android:endY="108"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FF022C22" />
+                <item android:offset="0.55" android:color="#FF064E3B" />
+                <item android:offset="1.0" android:color="#FF0F766E" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Subtle Radial Glow -->
+    <path android:pathData="M54,16 A38,38 0 1,1 53.99,16 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:centerX="54"
+                android:centerY="50"
+                android:gradientRadius="38"
+                android:type="radial">
+                <item android:offset="0.0" android:color="#3534D399" />
+                <item android:offset="1.0" android:color="#0034D399" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Outer Faceted Shield with Smooth Rounded Corners -->
+    <path android:pathData="M52.2,24.8 Q54,24 55.8,24.8 L75.4,32.8 Q77,33.5 77,35.2 L77,51.5 C77,67.5 67.2,78.5 55.6,83.4 Q54,84 52.4,83.4 C40.8,78.5 31,67.5 31,51.5 L31,35.2 Q31,33.5 32.6,32.8 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="31"
+                android:startY="24"
+                android:endX="77"
+                android:endY="84"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FF6EE7B7" />
+                <item android:offset="0.45" android:color="#FF34D399" />
+                <item android:offset="1.0" android:color="#FF059669" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Left 3D Facet Highlight -->
+    <path
+        android:fillColor="#29FFFFFF"
+        android:pathData="M54,24.2 L54,83.8 Q54,84 52.4,83.4 C40.8,78.5 31,67.5 31,51.5 L31,35.2 Q31,33.5 32.6,32.8 L52.2,24.8 Q54,24 54,24.2 Z" />
+
+    <!-- Inner Shield Core -->
+    <path android:pathData="M52.5,30.4 Q54,29.8 55.5,30.4 L70.2,36.6 Q71.5,37.2 71.5,38.8 L71.5,51.5 C71.5,64.2 64.0,72.8 55.4,77.3 Q54,77.8 52.6,77.3 C44.0,72.8 36.5,64.2 36.5,51.5 L36.5,38.8 Q36.5,37.2 37.8,36.6 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="36.5"
+                android:startY="29.8"
+                android:endX="71.5"
+                android:endY="77.8"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FF022C22" />
+                <item android:offset="1.0" android:color="#FF064E3B" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Mint Emerald Key Teeth -->
+    <path
+        android:fillColor="#FF6EE7B7"
+        android:pathData="M56.2,57.5 L61.5,57.5 C62.33,57.5 63,58.17 63,59 C63,59.83 62.33,60.5 61.5,60.5 L56.2,60.5 Z M56.2,63.2 L60,63.2 C60.83,63.2 61.5,63.87 61.5,64.7 C61.5,65.53 60.83,66.2 60,66.2 L56.2,66.2 Z" />
+
+    <!-- Pure White Key Bow & Stem -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M54,38.5 C58.14,38.5 61.5,41.86 61.5,46 C61.5,49.36 59.29,52.2 56.2,53.15 L56.2,68.5 C56.2,69.72 55.22,70.7 54,70.7 C52.78,70.7 51.8,69.72 51.8,68.5 L51.8,53.15 C48.71,52.2 46.5,49.36 46.5,46 C46.5,41.86 49.86,38.5 54,38.5 Z M54,42.8 C52.23,42.8 50.8,44.23 50.8,46 C50.8,47.77 52.23,49.2 54,49.2 C55.77,49.2 57.2,47.77 57.2,46 C57.2,44.23 55.77,42.8 54,42.8 Z" />
+</vector>

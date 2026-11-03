@@ -37,15 +37,27 @@ abstract class TemplateEngine(private val mDatabase: DatabaseKDBX) {
 
     fun getTemplates(): List<Template> {
         val templates = mutableListOf<Template>()
+        templates.add(Template.STANDARD)
+        val builtInDefaults = getDefaults()
+        templates.addAll(builtInDefaults)
         try {
             val templateGroup = mDatabase.getTemplatesGroup()
             mCacheTemplates.clear()
+            builtInDefaults.forEach { defaultTpl ->
+                mCacheTemplates[defaultTpl.uuid] = defaultTpl
+            }
             if (templateGroup != null) {
-                templates.add(Template.STANDARD)
                 templateGroup.getChildEntries().forEach { templateEntry ->
-                    getTemplateFromTemplateEntry(templateEntry).let {
-                        mCacheTemplates[templateEntry.id] = it
-                        templates.add(it)
+                    val builtIn = findBuiltInTemplate(templateEntry.id, templateEntry.title)
+                    if (builtIn != null) {
+                        mCacheTemplates[templateEntry.id] = builtIn
+                    } else if (!templateEntry.title.equals(TemplateField.LABEL_STANDARD, ignoreCase = true)) {
+                        getTemplateFromTemplateEntry(templateEntry).let { customTemplate ->
+                            mCacheTemplates[templateEntry.id] = customTemplate
+                            if (templates.none { it.uuid == customTemplate.uuid || it.title.equals(customTemplate.title, ignoreCase = true) }) {
+                                templates.add(customTemplate)
+                            }
+                        }
                     }
                 }
             }
@@ -85,17 +97,15 @@ abstract class TemplateEngine(private val mDatabase: DatabaseKDBX) {
         try {
             if (mCacheTemplates.containsKey(uuid))
                 return mCacheTemplates[uuid]
-            else {
-                mDatabase.getEntryById(uuid)?.let { templateEntry ->
-                    getTemplateFromTemplateEntry(templateEntry).let { newTemplate ->
-                        mCacheTemplates[uuid] = newTemplate
-                        return newTemplate
-                    }
-                }
-                getDefaults().firstOrNull { it.uuid == uuid }?.let { defaultTemplate ->
-                    mCacheTemplates[uuid] = defaultTemplate
-                    return defaultTemplate
-                }
+            findBuiltInTemplate(uuid, null)?.let { builtIn ->
+                mCacheTemplates[uuid] = builtIn
+                return builtIn
+            }
+            mDatabase.getEntryById(uuid)?.let { templateEntry ->
+                val resolved = findBuiltInTemplate(templateEntry.id, templateEntry.title)
+                    ?: getTemplateFromTemplateEntry(templateEntry)
+                mCacheTemplates[uuid] = resolved
+                return resolved
             }
         } catch (e: Exception) {
             Log.e(TAG, "Unable to get Entry by $uuid", e)
@@ -123,17 +133,16 @@ abstract class TemplateEngine(private val mDatabase: DatabaseKDBX) {
             title = template.title
             icon = template.icon
             template.sections.forEachIndexed { index, section ->
-                section.attributes.forEach { attribute ->
-                    if (index > 0) {
-                        // Label is not important with section => [Section_X]: Divider
-                        val sectionName = section.name.ifEmpty {
-                            "$SECTION_DECODED_TEMPLATE_PREFIX${index-1}"
-                        }
-                        putField(Field(addTemplateDecorator(sectionName),
-                            ProtectedString(false, TemplateAttributeType.DIVIDER.typeString))
-                        )
+                if (index > 0) {
+                    // Label is not important with section => [Section_X]: Divider
+                    val sectionName = section.name.ifEmpty {
+                        "$SECTION_DECODED_TEMPLATE_PREFIX${index-1}"
                     }
-
+                    putField(Field(addTemplateDecorator(sectionName),
+                        ProtectedString(false, TemplateAttributeType.DIVIDER.typeString))
+                    )
+                }
+                section.attributes.forEach { attribute ->
                     putField(buildTemplateEntryField(attribute))
                 }
             }
@@ -229,6 +238,44 @@ abstract class TemplateEngine(private val mDatabase: DatabaseKDBX) {
                 templateBuilder.cryptocurrency,
                 templateBuilder.passkey,
                 templateBuilder.totp)
+        }
+
+        fun findBuiltInTemplate(uuid: UUID?, title: String?): Template? {
+            val builder = TemplateBuilder()
+            if (uuid != null) {
+                when (uuid) {
+                    TemplateBuilder.UUID_EMAIL -> return builder.email
+                    TemplateBuilder.UUID_WIFI -> return builder.wifi
+                    TemplateBuilder.UUID_NOTES -> return builder.notes
+                    TemplateBuilder.UUID_ID_CARD -> return builder.idCard
+                    TemplateBuilder.UUID_CREDIT_CARD -> return builder.creditCard
+                    TemplateBuilder.UUID_BANK -> return builder.bank
+                    TemplateBuilder.UUID_CRYPTO -> return builder.cryptocurrency
+                    TemplateBuilder.UUID_PASSKEY -> return builder.passkey
+                    TemplateBuilder.UUID_TOTP -> return builder.totp
+                }
+            }
+            val normalized = title?.trim() ?: return null
+            return when {
+                normalized.equals(TemplateField.LABEL_EMAIL, ignoreCase = true) ||
+                        normalized.equals(TemplateField.LABEL_EMAIL_ADDRESS, ignoreCase = true) -> builder.email
+                normalized.equals(TemplateField.LABEL_WIRELESS, ignoreCase = true) ||
+                        normalized.equals("Wireless", ignoreCase = true) ||
+                        normalized.equals("WLAN", ignoreCase = true) -> builder.wifi
+                normalized.equals(TemplateField.LABEL_SECURE_NOTE, ignoreCase = true) ||
+                        normalized.equals(TemplateField.LABEL_NOTES, ignoreCase = true) -> builder.notes
+                normalized.equals(TemplateField.LABEL_ID_CARD, ignoreCase = true) -> builder.idCard
+                normalized.equals(TemplateField.LABEL_DEBIT_CREDIT_CARD, ignoreCase = true) ||
+                        normalized.equals("Credit Card", ignoreCase = true) -> builder.creditCard
+                normalized.equals(TemplateField.LABEL_BANK, ignoreCase = true) -> builder.bank
+                normalized.equals(TemplateField.LABEL_CRYPTOCURRENCY, ignoreCase = true) ||
+                        normalized.equals("Cryptocurrency", ignoreCase = true) -> builder.cryptocurrency
+                normalized.equals("Passkey", ignoreCase = true) -> builder.passkey
+                normalized.equals(TemplateField.LABEL_TOTP, ignoreCase = true) ||
+                        normalized.equals("TOTP", ignoreCase = true) ||
+                        normalized.equals("2FA", ignoreCase = true) -> builder.totp
+                else -> null
+            }
         }
 
         fun containsTemplateDecorator(name: String): Boolean {

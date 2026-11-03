@@ -182,14 +182,12 @@ class TemplateEditView @JvmOverloads constructor(
                                field: Field,
                                view: GenericTextFieldView) {
         if (view is OtpTextEditFieldView) {
-            view.label = templateAttribute.alias
-                ?: TemplateField.getLocalizedName(context, field.name)
+            view.label = TemplateField.getLocalizedName(context, templateAttribute.alias ?: field.name)
             return
         }
         view.apply {
             applyFontVisibility(mFontInVisibility)
-            label = templateAttribute.alias
-                ?: TemplateField.getLocalizedName(context, field.name)
+            label = TemplateField.getLocalizedName(context, templateAttribute.alias ?: field.name)
             val fieldValue = field.protectedValue.charArrayValue
             value = if (fieldValue.isEmpty())
                 templateAttribute.default.toCharArray()
@@ -241,7 +239,11 @@ class TemplateEditView @JvmOverloads constructor(
     }
 
     fun setPasswordField(passwordField: Field) {
-        val passwordView = getFieldViewById(passwordField.name.hashCode())
+        val passwordView: View? = if (passwordField.name.equals(TemplateField.LABEL_PASSWORD, ignoreCase = true)) {
+            findViewWithTag(FIELD_PASSWORD_TAG)
+        } else {
+            getViewFieldByName(passwordField.name)?.view
+        }
         if (passwordView is TextEditFieldView?) {
             passwordView?.value = passwordField.protectedValue.charArrayValue
         }

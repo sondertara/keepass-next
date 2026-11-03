@@ -87,8 +87,8 @@ class SearchFiltersView @JvmOverloads constructor(
                 this.searchInCurrentGroup = searchCurrentGroup.isChecked
                 this.caseSensitive = searchCaseSensitive.isChecked
                 this.isRegex = searchRegex.isChecked
-                this.searchInTags = searchTag.isChecked
-                this.tagsToSearch = tagsAdapter.getSelectedStringTags()
+                this.searchInTags = false
+                this.tagsToSearch = emptyList()
                 this.searchInTitles = searchTitle.isChecked
                 this.searchInUsernames = searchUsername.isChecked
                 this.searchInPasswords = searchPassword.isChecked
@@ -105,12 +105,15 @@ class SearchFiltersView @JvmOverloads constructor(
             }
         }
         set(value) {
-            field = value.copy()
+            field = value.copy().apply {
+                searchInTags = false
+                tagsToSearch = emptyList()
+            }
             val tempListener = mOnParametersChangeListener
             mOnParametersChangeListener = null
             searchCurrentGroup.isChecked = field.searchInCurrentGroup
-            searchTag.isChecked = field.searchInTags
-            tagsAdapter.selectTags(field.tagsToSearch)
+            searchTag.isChecked = false
+            tagsAdapter.selectTags(emptyList())
             searchCaseSensitive.isChecked = field.caseSensitive
             searchRegex.isChecked = field.isRegex
             searchTitle.isChecked = field.searchInTitles
@@ -289,13 +292,9 @@ class SearchFiltersView @JvmOverloads constructor(
     }
 
     fun setSelectableTags(tags: Tags) {
-        if (tags.isEmpty()) {
-            searchTagGroup.isVisible = false
-            searchParameters.searchInTags = false
-        } else {
-            searchTagGroup.isVisible = true
-            tagsAdapter.setTags(tags)
-        }
+        searchTagGroup.isVisible = false
+        searchTagsContainer.visibility = GONE
+        searchParameters.searchInTags = false
     }
 
     fun availableOther(available: Boolean) {
@@ -372,9 +371,7 @@ class SearchFiltersView @JvmOverloads constructor(
         val expandButtonVisibility = if (show) VISIBLE else GONE
         if (searchExpandButton.visibility != expandButtonVisibility)
             searchExpandButton.visibility = expandButtonVisibility
-        val searchTagsContainerVisibility = if (show) VISIBLE else GONE
-        if (searchTagsContainer.visibility != searchTagsContainerVisibility)
-            searchTagsContainer.visibility = searchTagsContainerVisibility
+        searchTagsContainer.visibility = GONE
     }
 
     override fun setVisibility(visibility: Int) {

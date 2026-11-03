@@ -29,6 +29,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.yield
@@ -73,7 +74,7 @@ class DatabaseJobManagerTest {
     @Test
     fun jobExecutionStateTransitionsAndCounting() = runBlocking {
         val collectedEvents = mutableListOf<DatabaseJobManager.DatabaseJobEvent>()
-        val collectJob = launch {
+        val collectJob = launch(start = CoroutineStart.UNDISPATCHED) {
             jobManager.jobEvents.collect { collectedEvents.add(it) }
         }
         yield()
@@ -138,7 +139,7 @@ class DatabaseJobManagerTest {
     @Test
     fun errorHandlingAndPropagation() = runBlocking {
         val collectedEvents = mutableListOf<DatabaseJobManager.DatabaseJobEvent>()
-        val collectJob = launch {
+        val collectJob = launch(start = CoroutineStart.UNDISPATCHED) {
             jobManager.jobEvents.collect { collectedEvents.add(it) }
         }
         yield()

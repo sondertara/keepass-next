@@ -133,24 +133,7 @@ open class DatabaseInfo: Database() {
             if (!raw)
                 stopManageEntry(this)
         }
-        if (entryInfo.template == Template.STANDARD) {
-            when {
-                entryInfo.otpModel != null && entryInfo.password.isEmpty() -> {
-                    entryInfo.template = TemplateBuilder().totp
-                }
-                entryInfo.passkey != null && entryInfo.password.isEmpty() -> {
-                    entryInfo.template = TemplateBuilder().passkey
-                }
-                entryInfo.creditCard?.number?.isNotEmpty() == true -> {
-                    entryInfo.template = TemplateBuilder().creditCard
-                }
-                entryInfo.username.isEmpty() && entryInfo.password.isEmpty()
-                        && entryInfo.notes.isNotEmpty()
-                        && entryInfo.otpModel == null && entryInfo.passkey == null -> {
-                    entryInfo.template = TemplateBuilder().notes
-                }
-            }
-        }
+        entryInfo.template = VaultNodeFilter.resolveTemplate(entryInfo)
         return entryInfo
     }
 

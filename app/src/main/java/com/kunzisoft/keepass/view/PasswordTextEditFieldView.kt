@@ -55,7 +55,11 @@ class PasswordTextEditFieldView @JvmOverloads constructor(
             LayoutParams.MATCH_PARENT,
             LayoutParams.WRAP_CONTENT
         ).apply {
-            addRule(ALIGN_PARENT_BOTTOM)
+            topMargin = TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_DIP,
+                4f,
+                context.resources.displayMetrics
+            ).toInt()
         }
         setPadding(
             TypedValue.applyDimension(
@@ -73,9 +77,7 @@ class PasswordTextEditFieldView @JvmOverloads constructor(
         layoutParams = LayoutParams(
             LayoutParams.WRAP_CONTENT,
             LayoutParams.WRAP_CONTENT
-        ).apply {
-            addRule(ALIGN_PARENT_BOTTOM)
-        }
+        )
         setPadding(
             TypedValue.applyDimension(
                 TypedValue.COMPLEX_UNIT_DIP,
@@ -102,6 +104,7 @@ class PasswordTextEditFieldView @JvmOverloads constructor(
         mPasswordProgress.apply {
             id = passwordProgressViewId
             layoutParams = (layoutParams as LayoutParams?)?.also {
+                it.addRule(BELOW, labelViewId)
                 it.addRule(LEFT_OF, actionImageButtonId)
                 it.addRule(START_OF, actionImageButtonId)
             }
@@ -109,6 +112,7 @@ class PasswordTextEditFieldView @JvmOverloads constructor(
         mPasswordEntropyView.apply {
             id = passwordEntropyViewId
             layoutParams = (layoutParams as LayoutParams?)?.also {
+                it.addRule(BELOW, passwordProgressViewId)
                 it.addRule(ALIGN_RIGHT, passwordProgressViewId)
                 it.addRule(ALIGN_END, passwordProgressViewId)
             }
@@ -147,9 +151,5 @@ class PasswordTextEditFieldView @JvmOverloads constructor(
         }
         set(value) {
             super.label = value
-            // Define views Ids with label value
-            passwordProgressViewId = "passwordProgressViewId $value".hashCode()
-            passwordEntropyViewId = "passwordEntropyViewId $value".hashCode()
-            buildViews()
         }
 }

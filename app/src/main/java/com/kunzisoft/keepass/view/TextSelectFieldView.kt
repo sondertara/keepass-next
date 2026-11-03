@@ -43,10 +43,7 @@ class TextSelectFieldView @JvmOverloads constructor(context: Context,
             LayoutParams.MATCH_PARENT,
             LayoutParams.WRAP_CONTENT)
     }
-    private val valueView = TextInputEditText(
-        ContextThemeWrapper(context,
-            R.style.KeepassDXStyle_TextInputLayout)
-    ).apply {
+    private val valueView = TextInputEditText(labelView.context).apply {
         layoutParams = LinearLayout.LayoutParams(
             LayoutParams.MATCH_PARENT,
             LayoutParams.WRAP_CONTENT)
@@ -158,11 +155,6 @@ class TextSelectFieldView @JvmOverloads constructor(context: Context,
         }
         set(value) {
             labelView.hint = value
-            // Define views Ids with label value
-            labelViewId = "labelViewId $value".hashCode()
-            valueViewId = "valueViewId $value".hashCode()
-            actionImageButtonId = "actionImageButtonId $value".hashCode()
-            buildViews()
         }
 
     fun setItems(items: List<String>) {

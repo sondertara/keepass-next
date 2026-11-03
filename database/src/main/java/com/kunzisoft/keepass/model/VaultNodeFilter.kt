@@ -20,9 +20,12 @@
 package com.kunzisoft.keepass.model
 
 import com.kunzisoft.keepass.database.element.Group
+import com.kunzisoft.keepass.database.element.icon.IconImageStandard
 import com.kunzisoft.keepass.database.element.node.EmptyNodeFilter
 import com.kunzisoft.keepass.database.element.node.NodeFilter
+import com.kunzisoft.keepass.database.element.template.Template
 import com.kunzisoft.keepass.database.element.template.TemplateBuilder
+import com.kunzisoft.keepass.database.element.template.TemplateEngine
 import com.kunzisoft.keepass.database.element.template.TemplateField
 import com.kunzisoft.keepass.otp.OtpEntryFields
 
@@ -31,6 +34,35 @@ import com.kunzisoft.keepass.otp.OtpEntryFields
  * Filter and flattener for vault entries aligned with the 10 official templates.
  */
 object VaultNodeFilter {
+
+    /**
+     * Resolve the canonical [Template] for [entry], normalizing legacy template titles/UUIDs
+     * and inferring from custom fields or standard icons when the entry has no explicit template.
+     */
+    fun resolveTemplate(entry: EntryInfo): Template {
+        val current = entry.template
+        if (current != Template.STANDARD) {
+            TemplateEngine.findBuiltInTemplate(current.uuid, current.title)?.let { builtIn ->
+                return builtIn
+            }
+            if (current.sections.isNotEmpty()) {
+                return current
+            }
+        }
+        val builder = TemplateBuilder()
+        return when {
+            isWifiEntry(entry) -> builder.wifi
+            isCryptoEntry(entry) -> builder.cryptocurrency
+            isBankEntry(entry) -> builder.bank
+            isIdCardEntry(entry) -> builder.idCard
+            isCreditCardEntry(entry) -> builder.creditCard
+            isEmailEntry(entry) -> builder.email
+            isPasskeyEntry(entry) && entry.password.isEmpty() -> builder.passkey
+            isTotpEntry(entry) && entry.password.isEmpty() -> builder.totp
+            isSecureNoteEntry(entry) -> builder.notes
+            else -> Template.STANDARD
+        }
+    }
 
     /**
      * Filter a list of [SortedNodeInfo] according to the selected [VaultCategory].
@@ -70,7 +102,8 @@ object VaultNodeFilter {
         val templateTitle = entry.template.title
         if (templateTitle.equals(TemplateField.LABEL_TOTP, ignoreCase = true) ||
             templateTitle.equals(PasskeyEntryFields.PASSKEY_FIELD, ignoreCase = true) ||
-            templateTitle.equals(TemplateField.LABEL_SECURE_NOTE, ignoreCase = true)
+            templateTitle.equals(TemplateField.LABEL_SECURE_NOTE, ignoreCase = true) ||
+            templateTitle.equals(TemplateField.LABEL_NOTES, ignoreCase = true)
         ) {
             return false
         }
@@ -82,7 +115,10 @@ object VaultNodeFilter {
         return entry.passkey != null
                 || tpl.uuid == TemplateBuilder.UUID_PASSKEY
                 || tpl.title.equals(PasskeyEntryFields.PASSKEY_FIELD, ignoreCase = true)
+                || entry.containsCustomField(PasskeyEntryFields.PASSKEY_FIELD)
                 || entry.containsCustomField(PasskeyEntryFields.FIELD_USERNAME)
+                || entry.containsCustomField(PasskeyEntryFields.FIELD_CREDENTIAL_ID)
+                || entry.containsCustomField(PasskeyEntryFields.FIELD_PRIVATE_KEY)
                 || entry.tags.contains(PasskeyEntryFields.PASSKEY_TAG)
                 || entry.tags.toStringList().any { it.equals("passkey", ignoreCase = true) }
     }
@@ -92,7 +128,10 @@ object VaultNodeFilter {
         return entry.otpModel != null
                 || tpl.uuid == TemplateBuilder.UUID_TOTP
                 || tpl.title.equals(TemplateField.LABEL_TOTP, ignoreCase = true)
+                || tpl.title.equals("TOTP", ignoreCase = true)
+                || tpl.title.equals("2FA", ignoreCase = true)
                 || entry.containsCustomField(OtpEntryFields.OTP_FIELD)
+                || entry.containsCustomField(OtpEntryFields.OTP_TOKEN_FIELD)
                 || entry.tags.contains(OtpEntryFields.OTP_TAG)
                 || entry.tags.toStringList().any {
                     it.equals("otp", ignoreCase = true)
@@ -103,52 +142,90 @@ object VaultNodeFilter {
 
     fun isCreditCardEntry(entry: EntryInfo): Boolean {
         val tpl = entry.template
+        if (tpl.uuid == TemplateBuilder.UUID_CREDIT_CARD ||
+            tpl.title.equals(TemplateField.LABEL_DEBIT_CREDIT_CARD, ignoreCase = true) ||
+            tpl.title.equals("Credit Card", ignoreCase = true)
+        ) {
+            return true
+        }
+        if (isIdCardEntry(entry) || isBankEntry(entry)) return false
         return entry.creditCard?.number?.isNotEmpty() == true
-                || tpl.uuid == TemplateBuilder.UUID_CREDIT_CARD
-                || tpl.title.equals(TemplateField.LABEL_DEBIT_CREDIT_CARD, ignoreCase = true)
+                || entry.containsCustomField(TemplateField.LABEL_CVV)
+                || entry.containsCustomField(TemplateField.LABEL_PIN)
+                || entry.icon.standard.id == IconImageStandard.CREDIT_CARD_ID
+                || (entry.containsCustomField(TemplateField.LABEL_NUMBER) && entry.containsCustomField(TemplateField.LABEL_HOLDER))
     }
 
     fun isSecureNoteEntry(entry: EntryInfo): Boolean {
         val tpl = entry.template
         if (tpl.uuid == TemplateBuilder.UUID_NOTES ||
-            tpl.title.equals(TemplateField.LABEL_SECURE_NOTE, ignoreCase = true)
+            tpl.title.equals(TemplateField.LABEL_SECURE_NOTE, ignoreCase = true) ||
+            tpl.title.equals(TemplateField.LABEL_NOTES, ignoreCase = true)
         ) {
             return true
         }
-        return !isTotpEntry(entry) && !isPasskeyEntry(entry) && !isCreditCardEntry(entry) &&
-                !isEmailEntry(entry) && !isWifiEntry(entry) && !isIdCardEntry(entry) &&
-                !isBankEntry(entry) && !isCryptoEntry(entry) &&
-                entry.username.isEmpty() && entry.password.isEmpty() && entry.notes.isNotEmpty()
+        if (isTotpEntry(entry) || isPasskeyEntry(entry) || isCreditCardEntry(entry) ||
+            isEmailEntry(entry) || isWifiEntry(entry) || isIdCardEntry(entry) ||
+            isBankEntry(entry) || isCryptoEntry(entry)
+        ) {
+            return false
+        }
+        if (entry.icon.standard.id == IconImageStandard.LIST_ID &&
+            entry.username.isEmpty() && entry.password.isEmpty()
+        ) {
+            return true
+        }
+        return entry.username.isEmpty() && entry.password.isEmpty() &&
+                entry.url.isEmpty() && entry.notes.isNotEmpty() && entry.customFields.isEmpty()
     }
 
     fun isEmailEntry(entry: EntryInfo): Boolean {
         val tpl = entry.template
         return tpl.uuid == TemplateBuilder.UUID_EMAIL ||
-                tpl.title.equals(TemplateField.LABEL_EMAIL, ignoreCase = true)
+                tpl.title.equals(TemplateField.LABEL_EMAIL, ignoreCase = true) ||
+                tpl.title.equals(TemplateField.LABEL_EMAIL_ADDRESS, ignoreCase = true) ||
+                (tpl == Template.STANDARD && entry.icon.standard.id == IconImageStandard.EMAIL_ID)
     }
 
     fun isWifiEntry(entry: EntryInfo): Boolean {
         val tpl = entry.template
         return tpl.uuid == TemplateBuilder.UUID_WIFI ||
-                tpl.title.equals(TemplateField.LABEL_WIRELESS, ignoreCase = true)
+                tpl.title.equals(TemplateField.LABEL_WIRELESS, ignoreCase = true) ||
+                tpl.title.equals("Wireless", ignoreCase = true) ||
+                tpl.title.equals("WLAN", ignoreCase = true) ||
+                entry.containsCustomField(TemplateField.LABEL_SSID) ||
+                (tpl == Template.STANDARD && entry.icon.standard.id == IconImageStandard.WIRELESS_ID)
     }
 
     fun isIdCardEntry(entry: EntryInfo): Boolean {
         val tpl = entry.template
         return tpl.uuid == TemplateBuilder.UUID_ID_CARD ||
-                tpl.title.equals(TemplateField.LABEL_ID_CARD, ignoreCase = true)
+                tpl.title.equals(TemplateField.LABEL_ID_CARD, ignoreCase = true) ||
+                entry.containsCustomField(TemplateField.LABEL_PLACE_OF_ISSUE) ||
+                entry.containsCustomField(TemplateField.LABEL_DATE_OF_ISSUE) ||
+                (tpl == Template.STANDARD && entry.icon.standard.id == IconImageStandard.ID_CARD_ID)
     }
 
     fun isBankEntry(entry: EntryInfo): Boolean {
         val tpl = entry.template
         return tpl.uuid == TemplateBuilder.UUID_BANK ||
-                tpl.title.equals(TemplateField.LABEL_BANK, ignoreCase = true)
+                tpl.title.equals(TemplateField.LABEL_BANK, ignoreCase = true) ||
+                entry.containsCustomField(TemplateField.LABEL_IBAN) ||
+                entry.containsCustomField(TemplateField.LABEL_BIC) ||
+                (tpl == Template.STANDARD && entry.icon.standard.id == IconImageStandard.DOLLAR_ID)
     }
 
     fun isCryptoEntry(entry: EntryInfo): Boolean {
         val tpl = entry.template
         return tpl.uuid == TemplateBuilder.UUID_CRYPTO ||
-                tpl.title.equals(TemplateField.LABEL_CRYPTOCURRENCY, ignoreCase = true)
+                tpl.title.equals(TemplateField.LABEL_CRYPTOCURRENCY, ignoreCase = true) ||
+                tpl.title.equals("Cryptocurrency", ignoreCase = true) ||
+                entry.containsCustomField(TemplateField.LABEL_SEED) ||
+                entry.containsCustomField(TemplateField.LABEL_PUBLIC_KEY) ||
+                entry.containsCustomField(TemplateField.LABEL_PRIVATE_KEY) ||
+                entry.containsCustomField(TemplateField.LABEL_TOKEN) ||
+                (tpl == Template.STANDARD && entry.icon.standard.id == IconImageStandard.STAR_ID &&
+                        entry.username.isEmpty() && entry.password.isEmpty())
     }
 
     /**

@@ -59,6 +59,7 @@ import com.kunzisoft.keepass.credentialprovider.EntrySelectionHelper
 import com.kunzisoft.keepass.credentialprovider.SpecialMode
 import com.kunzisoft.keepass.credentialprovider.TypeMode
 import com.kunzisoft.keepass.database.ContextualDatabase
+import com.kunzisoft.keepass.database.DatabaseJobManager
 import com.kunzisoft.keepass.database.MainCredential
 import com.kunzisoft.keepass.database.element.Database.Companion.DEFAULT_PASSWORD_ENCODING
 import com.kunzisoft.keepass.database.exception.DuplicateUuidDatabaseException
@@ -111,6 +112,7 @@ class MainCredentialActivity : PreUnlockSessionActivity() {
 
     private val mMainCredentialViewModel: MainCredentialViewModel by viewModels()
     private val mDeviceUnlockViewModel: DeviceUnlockViewModel by viewModels()
+    private var mNavigatedSessionVersion: Long = -1L
 
     private val mPasswordActivityEducation = PasswordActivityEducation(this)
 
@@ -237,6 +239,14 @@ class MainCredentialActivity : PreUnlockSessionActivity() {
                                 )
                             }
                             is MainCredentialViewModel.DatabaseFileEvent.OpenGroup -> {
+                                val currentSession = DatabaseJobManager.getInstance().sessionState.value
+                                val sessionVer = (currentSession as? DatabaseJobManager.VaultSessionState.Unlocked)?.sessionVersion ?: 0L
+                                if (sessionVer != 0L && mNavigatedSessionVersion == sessionVer) {
+                                    return@collect
+                                }
+                                if (sessionVer != 0L) {
+                                    mNavigatedSessionVersion = sessionVer
+                                }
                                 mDeviceUnlockViewModel.onUnlockCompletedAndNavigating()
                                 deviceUnlockFragment?.cancelBiometricPrompt()
                                 clearCredentialsViews(
@@ -314,7 +324,33 @@ class MainCredentialActivity : PreUnlockSessionActivity() {
                         }
                     }
                 }
+                launch {
+                    DatabaseJobManager.getInstance().sessionState.collect { sessionState ->
+                        when (sessionState) {
+                            is DatabaseJobManager.VaultSessionState.Locked -> {
+                                mNavigatedSessionVersion = -1L
+                            }
+                            is DatabaseJobManager.VaultSessionState.Unlocked -> {
+                                val db = sessionState.database
+                                if (mMainCredentialViewModel.databaseFileUri == null
+                                    || mMainCredentialViewModel.databaseFileUri == db.fileUri
+                                ) {
+                                    mDeviceUnlockViewModel.onUnlockCompletedAndNavigating()
+                                    deviceUnlockFragment?.cancelBiometricPrompt()
+                                    mMainCredentialViewModel.onDatabaseRetrieved(db)
+                                }
+                            }
+                        }
+                    }
+                }
             }
+        }
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus && lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+            mDeviceUnlockViewModel.onActivityInteractiveFocusGained(mMainCredentialViewModel.databaseFileUri)
         }
     }
 
@@ -332,8 +368,12 @@ class MainCredentialActivity : PreUnlockSessionActivity() {
             return
         }
 
-        mDeviceUnlockViewModel.resetUnlockProcessingState(allowAutoOpen = true)
-        mDeviceUnlockViewModel.connect(mMainCredentialViewModel.databaseFileUri)
+        if (!mDeviceUnlockViewModel.isUnlockInProgress
+            && DatabaseJobManager.getInstance().activeJobsCount.value == 0
+        ) {
+            mDeviceUnlockViewModel.resetUnlockProcessingState(allowAutoOpen = true)
+            mDeviceUnlockViewModel.connect(mMainCredentialViewModel.databaseFileUri)
+        }
 
         // Init Biometric elements only if allowed
         if (PreferencesUtil.isDeviceUnlockEnable(this)) {

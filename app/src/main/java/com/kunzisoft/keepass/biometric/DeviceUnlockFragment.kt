@@ -19,8 +19,11 @@
  */
 package com.kunzisoft.keepass.biometric
 
+import android.app.KeyguardManager
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
 import android.view.LayoutInflater
@@ -169,9 +172,28 @@ class DeviceUnlockFragment: Fragment() {
         }
     }
 
+    private fun isDeviceInteractiveAndUnlocked(context: Context): Boolean {
+        return try {
+            val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
+            val keyguardManager = context.getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
+            val isInteractive = powerManager?.isInteractive ?: true
+            val isKeyguardLocked = keyguardManager?.isKeyguardLocked ?: false
+            isInteractive && !isKeyguardLocked
+        } catch (_: Throwable) {
+            true
+        }
+    }
+
     private fun openPrompt(cryptoPrompt: DeviceUnlockCryptoPrompt) {
         lifecycleScope.launch(Dispatchers.Main) {
             try {
+                val ctx = context ?: return@launch
+                val act = activity ?: return@launch
+                if (!isResumed || act.isFinishing || act.isDestroyed || !isDeviceInteractiveAndUnlocked(ctx)) {
+                    mDeviceUnlockViewModel.deferPromptUntilInteractive()
+                    return@launch
+                }
+
                 val promptTitle = getString(cryptoPrompt.titleId)
                 val promptDescription = cryptoPrompt.descriptionId?.let { descriptionId ->
                     getString(descriptionId)

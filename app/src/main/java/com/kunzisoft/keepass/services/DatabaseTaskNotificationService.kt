@@ -153,7 +153,7 @@ open class DatabaseTaskNotificationService : LockNotificationService(), Progress
                             }
                             saveDatabaseInfo()
                         }
-                        handleJobFinished(event.isSavingAction)
+                        handleJobFinished(event.actionTask, event.isSavingAction)
                     }
                     is DatabaseJobEvent.Stopped -> {
                         buildNotification(null, false, DatabaseJobManager.getInstance().progressMessageFlow.value)
@@ -166,11 +166,20 @@ open class DatabaseTaskNotificationService : LockNotificationService(), Progress
         }
     }
 
-    private fun handleJobFinished(isSavingAction: Boolean) {
+    private fun handleJobFinished(actionTask: String, isSavingAction: Boolean) {
+        if (DatabaseJobManager.getInstance().activeJobsCount.value > 0) {
+            return
+        }
         val database = ContextualDatabase.getInstance()
+        val isLoadOrCreateAction = actionTask in listOf(
+            ACTION_DATABASE_CREATE_TASK,
+            ACTION_DATABASE_LOAD_TASK,
+            ACTION_DATABASE_MERGE_TASK,
+            ACTION_DATABASE_RELOAD_TASK
+        )
         if (isSavingAction && taskRemovedRequested) {
             stopService()
-        } else if (TimeoutHelper.checkTimeAndLockIfTimeout(this@DatabaseTaskNotificationService)) {
+        } else if (!isLoadOrCreateAction && TimeoutHelper.checkTimeAndLockIfTimeout(this@DatabaseTaskNotificationService)) {
             if (!database.loaded) {
                 stopService()
             } else {
@@ -244,7 +253,7 @@ open class DatabaseTaskNotificationService : LockNotificationService(), Progress
             if (database.loaded) {
                 DatabaseJobManager.getInstance().currentDatabase = database
             }
-            mainScope.launch {
+            DatabaseJobManager.getInstance().launchJob {
                 try {
                     DatabaseJobManager.getInstance().executeAction(
                         database = database,

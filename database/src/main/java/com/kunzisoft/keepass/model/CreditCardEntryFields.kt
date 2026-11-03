@@ -34,12 +34,13 @@ object CreditCardEntryFields {
         val cardHolderField = getField(LABEL_HOLDER)
         val cardNumberField = getField(LABEL_NUMBER)
         val cardCVVField = getField(LABEL_CVV)
-        if (cardHolderField == null
-            || cardNumberField == null)
+        val hasNumber = cardNumberField != null && cardNumberField.isNotEmpty()
+        val hasHolder = cardHolderField != null && cardHolderField.isNotEmpty()
+        if (!hasNumber && !hasHolder)
             return null
         return CreditCard(
-            cardholder = String(cardHolderField),
-            number = cardNumberField,
+            cardholder = cardHolderField?.let { String(it) } ?: "",
+            number = cardNumberField ?: charArrayOf(),
             cvv = cardCVVField
         )
     }

@@ -1,7 +1,10 @@
 package com.kunzisoft.keepass.viewmodels
 
 import android.app.Application
+import android.app.KeyguardManager
+import android.content.Context
 import android.net.Uri
+import android.os.PowerManager
 import android.util.Log
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
@@ -14,6 +17,7 @@ import com.kunzisoft.keepass.biometric.DeviceUnlockCryptoPromptType
 import com.kunzisoft.keepass.biometric.DeviceUnlockManager
 import com.kunzisoft.keepass.biometric.DeviceUnlockMode
 import com.kunzisoft.keepass.database.ContextualDatabase
+import com.kunzisoft.keepass.database.DatabaseJobManager
 import com.kunzisoft.keepass.database.exception.UnknownDatabaseLocationException
 import com.kunzisoft.keepass.model.CipherDecryptDatabase
 import com.kunzisoft.keepass.model.CipherEncryptDatabase
@@ -49,6 +53,22 @@ class DeviceUnlockViewModel(application: Application): AndroidViewModel(applicat
     private var cryptoPromptShowPending: Boolean = false
     private var isUnlockProcessingOrSucceeded: Boolean = false
     private var isAuthenticatingOrDecrypting: Boolean = false
+
+    val isUnlockInProgress: Boolean
+        get() = isUnlockProcessingOrSucceeded || isAuthenticatingOrDecrypting
+
+    private fun isDeviceInteractiveAndUnlocked(): Boolean {
+        return try {
+            val app = getApplication<Application>()
+            val powerManager = app.getSystemService(Context.POWER_SERVICE) as? PowerManager
+            val keyguardManager = app.getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
+            val isInteractive = powerManager?.isInteractive ?: true
+            val isKeyguardLocked = keyguardManager?.isKeyguardLocked ?: false
+            isInteractive && !isKeyguardLocked
+        } catch (_: Throwable) {
+            true
+        }
+    }
 
     // TODO Retrieve credential storage from app database
     var credentialDatabaseStorage: CredentialStorage = CredentialStorage.DEFAULT
@@ -104,7 +124,30 @@ class DeviceUnlockViewModel(application: Application): AndroidViewModel(applicat
                     && !ContextualDatabase.getInstance().loaded
                 ) {
                     isAutoOpenBiometricPromptAllowed = true
-                    checkUnlockAvailability()
+                    if (isDeviceInteractiveAndUnlocked()) {
+                        checkUnlockAvailability()
+                    } else {
+                        cryptoPromptShowPending = true
+                    }
+                }
+            }
+            .launchIn(viewModelScope)
+        DatabaseJobManager.getInstance().sessionState
+            .onEach { sessionState ->
+                when (sessionState) {
+                    is DatabaseJobManager.VaultSessionState.Locked -> {
+                        if (!isAuthenticatingOrDecrypting
+                            && DatabaseJobManager.getInstance().activeJobsCount.value == 0
+                        ) {
+                            isUnlockProcessingOrSucceeded = false
+                            isAutoOpenBiometricPromptAllowed = true
+                        }
+                    }
+                    is DatabaseJobManager.VaultSessionState.Unlocked -> {
+                        if (!isConditionToStoreCredentialVerified) {
+                            onUnlockCompletedAndNavigating()
+                        }
+                    }
                 }
             }
             .launchIn(viewModelScope)
@@ -457,9 +500,46 @@ class DeviceUnlockViewModel(application: Application): AndroidViewModel(applicat
             return
         }
         this@DeviceUnlockViewModel.cryptoPrompt = cryptoPrompt
+        val shouldAutoOpen = cryptoPromptShowPending
+                || (autoOpen && PreferencesUtil.isDeviceUnlockPromptAutoOpenEnable(getApplication()))
+        if (shouldAutoOpen) {
+            if (isDeviceInteractiveAndUnlocked()) {
+                showPrompt()
+            } else {
+                cryptoPromptShowPending = true
+                isAutoOpenBiometricPromptAllowed = true
+            }
+        }
+    }
+
+    fun deferPromptUntilInteractive() {
+        cryptoPromptShowPending = true
+        isAutoOpenBiometricPromptAllowed = true
+        _uiState.update { currentState ->
+            currentState.copy(
+                cryptoPromptState = DeviceUnlockPromptMode.IDLE_CLOSE
+            )
+        }
+    }
+
+    fun onActivityInteractiveFocusGained(databaseUri: Uri?) {
+        if (isUnlockProcessingOrSucceeded
+            || isAuthenticatingOrDecrypting
+            || (ContextualDatabase.getInstance().loaded && !isConditionToStoreCredentialVerified)
+            || DatabaseJobManager.getInstance().activeJobsCount.value > 0
+            || !isDeviceInteractiveAndUnlocked()
+        ) {
+            return
+        }
         if (cryptoPromptShowPending
-            || (autoOpen && PreferencesUtil.isDeviceUnlockPromptAutoOpenEnable(getApplication())))
-            showPrompt()
+            || (isAutoOpenBiometricPromptAllowed && PreferencesUtil.isDeviceUnlockPromptAutoOpenEnable(getApplication()))
+        ) {
+            if (cryptoPrompt != null) {
+                showPrompt()
+            } else {
+                connect(databaseUri)
+            }
+        }
     }
 
     fun showPrompt() {

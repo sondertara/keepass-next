@@ -133,4 +133,25 @@ class VaultNodeFilterTest {
         assertEquals(1, VaultNodeFilter.filter(nodes, VaultCategory.SECURE_NOTE).size)
         assertEquals(1, VaultNodeFilter.filter(nodes, VaultCategory.BANK).size)
     }
+
+    @Test
+    fun testResolveTemplateFromFields() {
+        val wifiEntry = EntryInfo().apply {
+            title = "Home Wi-Fi"
+            addOrReplaceField(Field(com.kunzisoft.keepass.database.element.template.TemplateField.LABEL_SSID, ProtectedString(false, "MyNet")))
+        }
+        assertEquals(
+            com.kunzisoft.keepass.database.element.template.TemplateBuilder.UUID_WIFI,
+            VaultNodeFilter.resolveTemplate(wifiEntry).uuid
+        )
+
+        val cryptoEntry = EntryInfo().apply {
+            title = "BTC Wallet"
+            addOrReplaceField(Field(com.kunzisoft.keepass.database.element.template.TemplateField.LABEL_SEED, ProtectedString(true, "twelve words")))
+        }
+        assertEquals(
+            com.kunzisoft.keepass.database.element.template.TemplateBuilder.UUID_CRYPTO,
+            VaultNodeFilter.resolveTemplate(cryptoEntry).uuid
+        )
+    }
 }

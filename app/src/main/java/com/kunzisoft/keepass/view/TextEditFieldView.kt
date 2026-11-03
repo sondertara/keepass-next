@@ -26,7 +26,7 @@ open class TextEditFieldView @JvmOverloads constructor(
     defStyle: Int = 0
 ) : ProtectedTextFieldView(context, attrs, defStyle) {
 
-    private var labelViewId = ViewCompat.generateViewId()
+    protected var labelViewId = ViewCompat.generateViewId()
     private var valueViewId = ViewCompat.generateViewId()
     protected var actionImageButtonId = ViewCompat.generateViewId()
 
@@ -35,12 +35,7 @@ open class TextEditFieldView @JvmOverloads constructor(
                 LayoutParams.MATCH_PARENT,
                 LayoutParams.WRAP_CONTENT)
     }
-    protected val valueView = TextInputEditText(
-        ContextThemeWrapper(
-            getContext(),
-            R.style.KeepassDXStyle_TextInputLayout
-        )
-    ).apply {
+    protected val valueView = TextInputEditText(labelView.context).apply {
         layoutParams = LinearLayout.LayoutParams(
                 LayoutParams.MATCH_PARENT,
                 LayoutParams.WRAP_CONTENT)
@@ -60,7 +55,7 @@ open class TextEditFieldView @JvmOverloads constructor(
                 LayoutParams.WRAP_CONTENT).also {
             it.topMargin = TypedValue.applyDimension(
                     TypedValue.COMPLEX_UNIT_DIP,
-                    12f,
+                    10f,
                     resources.displayMetrics
             ).toInt()
             it.addRule(ALIGN_PARENT_RIGHT)
@@ -109,11 +104,6 @@ open class TextEditFieldView @JvmOverloads constructor(
         }
         set(value) {
             labelView.hint = value
-            // Define views Ids with label value
-            labelViewId = "labelViewId $value".hashCode()
-            valueViewId = "valueViewId $value".hashCode()
-            actionImageButtonId = "actionImageButtonId $value".hashCode()
-            buildViews()
         }
 
     override var value: CharArray

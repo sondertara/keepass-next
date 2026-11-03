@@ -190,15 +190,16 @@ class EntryEditFragment: DatabaseFragment() {
                     mEntryEditViewModel.entryEditUIState.collect { uiState ->
                         // To prevent flickering
                         if (uiState.loaded) {
-                            if (!mEntryAssigned && uiState.entryInfo != null) {
-                                mEntryAssigned = true
-                                assignEntryInfo(uiState.entryInfo)
-                            }
                             if (!mTemplateAssigned) {
-                                uiState.templates?.defaultTemplate?.let { tpl ->
+                                val tpl = uiState.templates?.defaultTemplate ?: uiState.entryInfo?.template
+                                if (tpl != null) {
                                     mTemplateAssigned = true
                                     templateView.setTemplate(tpl)
                                 }
+                            }
+                            if (!mEntryAssigned && uiState.entryInfo != null) {
+                                mEntryAssigned = true
+                                assignEntryInfo(uiState.entryInfo)
                             }
                             rootView.showByFading()
                         }
@@ -381,6 +382,10 @@ class EntryEditFragment: DatabaseFragment() {
     }
 
     private fun assignEntryInfo(entryInfo: EntryInfo?) {
+        entryInfo?.template?.let { tpl ->
+            mTemplateAssigned = true
+            templateView.setTemplate(tpl)
+        }
         // Populate entry views
         templateView.setEntryInfo(entryInfo)
 

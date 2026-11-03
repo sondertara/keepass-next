@@ -86,8 +86,7 @@ class TemplateView @JvmOverloads constructor(
                 onSaveInstanceState = {
                     saveUnprotectedFieldState(field, isRevealed())
                 }
-                label = templateAttribute.alias
-                        ?: TemplateField.getLocalizedName(context, field.name)
+                label = TemplateField.getLocalizedName(context, templateAttribute.alias ?: field.name)
                 setMaxChars(templateAttribute.options.getNumberChars())
                 // TODO Linkify
                 value = field.protectedValue.charArrayValue

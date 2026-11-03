@@ -56,7 +56,10 @@ class MainCredentialViewModel(application: Application) : AndroidViewModel(appli
     private val _databaseFileUIState = MutableStateFlow<DatabaseFileUIState>(DatabaseFileUIState())
     val databaseFileUIState: StateFlow<DatabaseFileUIState> = _databaseFileUIState.asStateFlow()
 
-    private val _databaseFileEvent = MutableSharedFlow<DatabaseFileEvent>()
+    private val _databaseFileEvent = MutableSharedFlow<DatabaseFileEvent>(
+        replay = 0,
+        extraBufferCapacity = 16
+    )
     val databaseFileEvent: SharedFlow<DatabaseFileEvent> = _databaseFileEvent.asSharedFlow()
 
     init {

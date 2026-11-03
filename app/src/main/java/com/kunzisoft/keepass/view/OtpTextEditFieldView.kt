@@ -53,8 +53,8 @@ class OtpTextEditFieldView @JvmOverloads constructor(
                 onOtpSetupClickListener?.invoke()
             }, R.drawable.ic_mode_edit_white_24dp)
         } else {
-            value = CharArray(0)
-            valueView.hint = context.getString(R.string.totp_field_unconfigured)
+            value = context.getString(R.string.totp_field_unconfigured).toCharArray()
+            valueView.hint = null
             setOnActionClickListener({
                 onOtpSetupClickListener?.invoke()
             }, R.drawable.ic_otp_white_24dp)

@@ -12,6 +12,7 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.ImageView
 import androidx.annotation.IdRes
+import androidx.core.view.ViewCompat
 import com.kunzisoft.keepass.R
 import com.kunzisoft.keepass.database.element.DateInstant
 import com.kunzisoft.keepass.database.element.Field
@@ -142,9 +143,8 @@ abstract class TemplateAbstractView<
             // Create title view
             val titleAttribute = TemplateAttribute(
                 TemplateField.LABEL_TITLE,
-                TemplateAttributeType.TEXT).apply {
-                    default = template.title
-                }
+                TemplateAttributeType.TEXT
+            )
             val titleView = buildViewForTemplateField(
                 titleAttribute,
                 Field(
@@ -254,8 +254,7 @@ abstract class TemplateAbstractView<
             }
             TemplateAttributeType.DIVIDER -> null
         }
-        // Custom id defined by field name, use getViewByField(field: Field) to retrieve it
-        itemView?.id = field.name.hashCode()
+        itemView?.id = ViewCompat.generateViewId()
         itemView?.tag = fieldTag
 
         // Add new custom view id to the custom field list
@@ -263,7 +262,7 @@ abstract class TemplateAbstractView<
             val indexOldItem = getIndexViewFieldByName(field.name)
             if (indexOldItem >= 0)
                 mViewFields.removeAt(indexOldItem)
-            if (itemView?.id != null) {
+            if (itemView != null) {
                 mViewFields.add(
                     ViewField(
                         itemView,
@@ -653,6 +652,11 @@ abstract class TemplateAbstractView<
         templateFieldNotEmpty: Boolean,
         retrieveDefaultValues: Boolean
     ): Field? {
+        if (fieldName.equals(OtpEntryFields.OTP_TOKEN_FIELD, ignoreCase = true) ||
+            fieldName.equals(PasskeyEntryFields.PASSKEY_FIELD, ignoreCase = true)
+        ) {
+            return null
+        }
         getViewFieldByName(fieldName)?.let { fieldId ->
             val editView: View = fieldId.view
             if (editView is GenericFieldView) {
@@ -706,9 +710,11 @@ abstract class TemplateAbstractView<
                         customField
                     )
                     val indexOldItem = getIndexViewFieldByName(fieldId.field.name)
-                    if (indexOldItem >= 0)
-                        mViewFields.removeAt(indexOldItem)
-                    mViewFields.add(indexOldItem, fieldId)
+                    if (indexOldItem >= 0) {
+                        mViewFields[indexOldItem] = fieldId
+                    } else {
+                        mViewFields.add(fieldId)
+                    }
                     if (focus && newCustomView.visibility == VISIBLE)
                         newCustomView.requestFocus()
                 }
@@ -734,6 +740,7 @@ abstract class TemplateAbstractView<
                 val oldValue = getCustomField(oldField.name).protectedValue.charArrayValue
 
                 val parentGroup = viewToReplace.parent as? ViewGroup?
+                val indexInParent = parentGroup?.indexOfChild(viewToReplace) ?: -1
                 parentGroup?.removeView(viewToReplace)
 
                 val newCustomFieldWithValue = if (keepOldValue)
@@ -752,11 +759,18 @@ abstract class TemplateAbstractView<
 
                 val newCustomView = buildViewForCustomField(newCustomFieldWithValue)
                 newCustomView?.let {
-                    parentGroup?.indexOfChild(viewToReplace)?.let { indexInParent ->
-                        parentGroup.addView(newCustomView, indexInParent)
+                    if (indexInParent >= 0) {
+                        parentGroup?.addView(newCustomView, indexInParent)
+                    } else {
+                        parentGroup?.addView(newCustomView)
                     }
+                    val autoAddedIndex = getIndexViewFieldByName(newCustomFieldWithValue.name)
+                    if (autoAddedIndex >= 0) {
+                        mViewFields.removeAt(autoAddedIndex)
+                    }
+                    val targetPos = if (oldPosition in 0..mViewFields.size) oldPosition else mViewFields.size
                     mViewFields.add(
-                        oldPosition,
+                        targetPos,
                         ViewField(
                             newCustomView,
                             newCustomFieldWithValue

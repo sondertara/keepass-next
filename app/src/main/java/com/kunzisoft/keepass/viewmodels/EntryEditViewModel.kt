@@ -36,6 +36,7 @@ import com.kunzisoft.keepass.model.EntryType
 import com.kunzisoft.keepass.model.FieldProtection
 import com.kunzisoft.keepass.model.PasskeyEntryFields
 import com.kunzisoft.keepass.model.RegisterInfo
+import com.kunzisoft.keepass.model.VaultNodeFilter
 import com.kunzisoft.keepass.otp.OtpElement
 import com.kunzisoft.keepass.otp.OtpEntryFields
 import kotlinx.coroutines.Dispatchers
@@ -223,30 +224,7 @@ class EntryEditViewModel: NodeEditViewModel() {
 
     private fun inferTemplateForEntry(entryInfo: EntryInfo?): Template {
         if (entryInfo == null) return Template.STANDARD
-        val current = entryInfo.template
-        if (current != null && current != Template.STANDARD) {
-            return current
-        }
-        val hasOtp = entryInfo.otpModel != null ||
-            entryInfo.customFields.any { it.name.equals(OtpEntryFields.OTP_FIELD, ignoreCase = true) }
-        if (hasOtp && entryInfo.password.isEmpty()) {
-            return TemplateBuilder().totp
-        }
-        if (entryInfo.passkey != null && entryInfo.password.isEmpty()) {
-            return TemplateBuilder().passkey
-        }
-        if (entryInfo.creditCard?.number?.isNotEmpty() == true) {
-            return TemplateBuilder().creditCard
-        }
-        if (entryInfo.username.isEmpty() &&
-            entryInfo.password.isEmpty() &&
-            entryInfo.notes.isNotEmpty() &&
-            !hasOtp &&
-            entryInfo.passkey == null
-        ) {
-            return TemplateBuilder().notes
-        }
-        return current ?: Template.STANDARD
+        return VaultNodeFilter.resolveTemplate(entryInfo)
     }
 
     private suspend fun loadEntryInfo(database: ContextualDatabase, entryInfo: EntryInfo?) {

@@ -142,8 +142,12 @@ class DatabaseJobManager(
     private val _jobState = MutableStateFlow<DatabaseJobState>(DatabaseJobState.Idle)
     val jobState: StateFlow<DatabaseJobState> = _jobState.asStateFlow()
 
-    private val _jobEvents = MutableSharedFlow<DatabaseJobEvent>(replay = 16, extraBufferCapacity = 64)
+    private val _jobEvents = MutableSharedFlow<DatabaseJobEvent>(replay = 0, extraBufferCapacity = 64)
     val jobEvents: SharedFlow<DatabaseJobEvent> = _jobEvents.asSharedFlow()
+
+    fun launchJob(block: suspend CoroutineScope.() -> Unit) {
+        coroutineScope.launch(block = block)
+    }
 
     private val _databaseState = MutableStateFlow<ContextualDatabase?>(null)
     val databaseState: StateFlow<ContextualDatabase?> = _databaseState.asStateFlow()

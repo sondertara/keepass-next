@@ -75,7 +75,6 @@ class IconPickerActivity : DatabaseSessionActivity() {
     private lateinit var coordinatorLayout: CoordinatorLayout
     private lateinit var container: ViewGroup
     private lateinit var uploadButton: View
-    private var lockView: View? = null
 
     private var mIconImage: IconImage = IconImage()
 
@@ -108,10 +107,6 @@ class IconPickerActivity : DatabaseSessionActivity() {
 
         uploadButton = findViewById(R.id.icon_picker_upload)
 
-        lockView = findViewById(R.id.lock_button)
-        lockView?.setOnClickListener {
-            lockAndExit()
-        }
 
         intent?.getParcelableExtraCompat<IconImage>(EXTRA_ICON)?.let {
             mIconImage = it
@@ -237,12 +232,7 @@ class IconPickerActivity : DatabaseSessionActivity() {
     override fun onResume() {
         super.onResume()
 
-        // Show the lock button
-        lockView?.visibility = if (PreferencesUtil.showLockDatabaseButton(this)) {
-            View.VISIBLE
-        } else {
-            View.GONE
-        }
+
 
         // Padding if lock button visible
         toolbar.updateButtonPaddingStart()

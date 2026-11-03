@@ -31,10 +31,4 @@
         android:orderInCategory="41"
         app:iconTint="?attr/colorControlNormal"
         app:showAsAction="never" />
-    <item android:id="@+id/menu_lock"
-        android:icon="@drawable/ic_lock_white_24dp"
-        android:title="@string/lock"
-        android:orderInCategory="45"
-        app:iconTint="?attr/colorControlNormal"
-        app:showAsAction="never" />
 </menu>

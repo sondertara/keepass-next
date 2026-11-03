@@ -953,4 +953,13 @@
     <string name="unlock_methods_category">Unlock Methods</string>
     <string name="security_protection_summary">Sensitive operations and recording protection</string>
     <string name="auto_lock_category_summary">Inactivity timeouts and screen-off locking</string>
+    <string name="search_in_group_format">In group: %1$s</string>
+    <string name="search_count_format">Total: %1$s</string>
+    <string name="copy_username">Copy username</string>
+    <string name="copy_password">Copy password</string>
+    <string name="entry_moved_to_recycle_bin">Moved to Recycle Bin</string>
+    <string name="undo">Undo</string>
+    <string name="empty_vault_title">No items yet</string>
+    <string name="empty_vault_subtitle">Tap + to add your first item</string>
+    <string name="empty_search_clear_filter">Clear filters</string>
 </resources>

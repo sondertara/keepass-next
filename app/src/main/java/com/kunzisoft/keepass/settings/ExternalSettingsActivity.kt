@@ -15,8 +15,6 @@ abstract class ExternalSettingsActivity : DatabaseSessionActivity() {
     override fun createSessionOptions(): DatabaseSessionOptions =
         DatabaseSessionOptions(enableTimeout = false, manageDatabaseInfo = true, enableSpecialMode = true)
 
-    private var lockView: FloatingActionButton? = null
-
     override fun manageDatabaseInfo(): Boolean = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -27,9 +25,6 @@ abstract class ExternalSettingsActivity : DatabaseSessionActivity() {
         toolbar.setTitle(retrieveTitle())
         setSupportActionBar(toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
-
-        lockView = findViewById(R.id.lock_button)
-        lockView?.hide()
 
         if (savedInstanceState == null) {
             supportFragmentManager.beginTransaction()

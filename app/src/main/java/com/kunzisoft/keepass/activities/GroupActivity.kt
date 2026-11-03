@@ -284,7 +284,6 @@ class GroupActivity : VaultSessionActivity() {
         searchController.setupFilterChips(filterChipGroup)
         searchView = findViewById(R.id.search_content_view)
         toolbarAction = findViewById(R.id.toolbar_action)
-        lockView = findViewById(R.id.lock_button)
         loadingView = findViewById(R.id.loading)
 
         // To apply fit window with transparency
@@ -304,9 +303,6 @@ class GroupActivity : VaultSessionActivity() {
             ))
         }
 
-        lockView?.setOnClickListener {
-            lockAndExit()
-        }
 
         findViewById<View>(R.id.search_pill_click_area)?.setOnClickListener {
             mSearchViewModel.activateSearch()
@@ -598,7 +594,20 @@ class GroupActivity : VaultSessionActivity() {
                                 loadGroup(clearSearch = true)
                             }
                             is GroupViewModel.GroupEvent.DeleteNodes -> {
-                                deleteNodes(event.deleteActionState.nodes, event.deleteActionState.isRecycleBin)
+                                val currentParentId = mGroupViewModel.mainGroup?.nodeId ?: mDatabase?.rootGroup?.nodeId
+                                val deletedNodes = event.deleteActionState.nodes
+                                val wasRecycleBin = event.deleteActionState.isRecycleBin
+                                deleteNodes(deletedNodes, wasRecycleBin)
+                                if (!wasRecycleBin && mDatabase?.isRecycleBinEnabled == true) {
+                                    val coordinator = findViewById<View>(R.id.group_coordinator) ?: findViewById<View>(android.R.id.content)
+                                    Snackbar.make(coordinator, R.string.entry_moved_to_recycle_bin, Snackbar.LENGTH_LONG)
+                                        .setAction(R.string.undo) {
+                                            currentParentId?.let { parentId ->
+                                                moveNodes(parentId, deletedNodes)
+                                            }
+                                        }
+                                        .show()
+                                }
                             }
                             is GroupViewModel.GroupEvent.PasteNodes -> {
                                 when (event.pasteActionState.pasteMode) {
@@ -1303,7 +1312,6 @@ class GroupActivity : VaultSessionActivity() {
             inflater.inflate(R.menu.tree, menu)
             inflater.inflate(R.menu.database, menu)
             menu.findItem(R.id.menu_search)?.isVisible = false
-            menu.findItem(R.id.menu_lock)?.isVisible = PreferencesUtil.showLockDatabaseButton(this)
             if (!mGroupViewModel.saveDatabaseActionAllowed()) {
                 menu.findItem(R.id.menu_save_database)?.isVisible = false
             }
@@ -1375,17 +1383,7 @@ class GroupActivity : VaultSessionActivity() {
                     })
 
                 if (!sortMenuEducationPerformed) {
-                    // lockMenuEducationPerformed
-                    val lockButtonView = findViewById<View>(R.id.lock_button)
-                    lockButtonView != null
-                            && mGroupActivityEducation.checkAndPerformedLockMenuEducation(
-                        lockButtonView,
-                        {
-                            lockAndExit()
-                        },
-                        {
-                            performedNextEducation(menu)
-                        })
+                    // Lock education removed: lock action centralized in navigation drawer
                 }
             }
         }
@@ -1416,10 +1414,6 @@ class GroupActivity : VaultSessionActivity() {
             }
             R.id.menu_sort -> {
                 requestSort()
-                return true
-            }
-            R.id.menu_lock -> {
-                lockAndExit()
                 return true
             }
             R.id.menu_save_database -> {

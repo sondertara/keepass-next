@@ -58,6 +58,7 @@ class SearchFiltersView @JvmOverloads constructor(
             }
         }
     }
+    private var searchResultsCount: TextView? = null
     private var searchCurrentGroup: CompoundButton
     private var searchCaseSensitive: CompoundButton
     private var searchRegex: CompoundButton
@@ -147,6 +148,7 @@ class SearchFiltersView @JvmOverloads constructor(
         searchContainer = findViewById(R.id.search_container)
         searchAdvanceFiltersContainer = findViewById(R.id.search_advance_filters)
         searchExpandButton = findViewById(R.id.search_expand)
+        searchResultsCount = findViewById(R.id.search_results_count)
         searchCurrentGroup = findViewById(R.id.search_chip_current_group)
         searchTagsContainer = findViewById(R.id.search_tags_container)
         searchTagGroup = findViewById(R.id.search_chip_tag_group)
@@ -259,12 +261,29 @@ class SearchFiltersView @JvmOverloads constructor(
         }
     }
 
-    fun setCurrentGroupText(text: String?) {
-        val maxChars = 12
-        searchCurrentGroup.text = when {
-            text.isNullOrEmpty() -> context.getString(R.string.current_group)
-            text.length > maxChars -> text.substring(0, maxChars) + "…"
-            else -> text
+    fun setSearchResultsCount(count: String?) {
+        searchResultsCount?.apply {
+            if (count.isNullOrEmpty() || count == "0") {
+                visibility = GONE
+            } else {
+                visibility = VISIBLE
+                text = context.getString(R.string.search_count_format, count)
+            }
+        }
+    }
+
+    fun setCurrentGroupText(text: String?, isRootGroup: Boolean = false) {
+        if (isRootGroup) {
+            searchCurrentGroup.visibility = GONE
+        } else {
+            searchCurrentGroup.visibility = VISIBLE
+            val maxChars = 12
+            val formatted = when {
+                text.isNullOrEmpty() -> context.getString(R.string.current_group)
+                text.length > maxChars -> text.substring(0, maxChars) + "…"
+                else -> text
+            }
+            searchCurrentGroup.text = context.getString(R.string.search_in_group_format, formatted)
         }
     }
 

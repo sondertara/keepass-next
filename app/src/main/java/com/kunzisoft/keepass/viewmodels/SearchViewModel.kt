@@ -165,6 +165,7 @@ class SearchViewModel(application: Application): AndroidViewModel(application) {
                             }
                         }
                     }
+                    val isRootGroup = mCurrentGroup == null || mCurrentGroup?.nodeId == database.rootGroup?.nodeId
                     val allowAdvancedSearch = !mSearchState.tempSearchInfo
                     val title = if (mSearchState.tempSearchInfo)
                         searchGroup.title
@@ -187,6 +188,7 @@ class SearchViewModel(application: Application): AndroidViewModel(application) {
                                 children = children,
                                 advanceSearchAllowed = allowAdvancedSearch,
                                 searchParameters = searchParameters,
+                                isRootGroup = isRootGroup,
                                 title = title,
                                 numberResults = numberResults,
                                 selectableTags = selectableTags,
@@ -312,6 +314,7 @@ class SearchViewModel(application: Application): AndroidViewModel(application) {
         val loaded: Boolean = false,
         val children: List<SortedNodeInfo>? = null,
         val searchParameters: SearchParameters? = null,
+        val isRootGroup: Boolean = true,
         val title: String = "",
         val numberResults: String = "0",
         val advanceSearchAllowed: Boolean = false,

@@ -107,7 +107,7 @@ class EntryActivity : VaultSessionActivity() {
     private var entryContentTab: TabLayout? = null
     private var tagsAdapter: TagsAdapter? = null
     private var entryProgress: LinearProgressIndicator? = null
-    private var lockView: View? = null
+
     private var toolbar: Toolbar? = null
     private var loadingView: ProgressBar? = null
     private var editFab: FloatingActionButton? = null
@@ -167,8 +167,7 @@ class EntryActivity : VaultSessionActivity() {
         entryContentTab = findViewById(R.id.entry_content_tab)
         entryContentTab?.visibility = View.GONE
         entryProgress = findViewById(R.id.entry_progress)
-        lockView = findViewById(R.id.lock_button)
-        lockView?.visibility = View.GONE
+
         loadingView = findViewById(R.id.loading)
         editFab = findViewById(R.id.entry_edit_fab)
 
@@ -240,9 +239,7 @@ class EntryActivity : VaultSessionActivity() {
             mEntryViewModel.sendToMagikeyboard()
         }
 
-        lockView?.setOnClickListener {
-            lockAndExit()
-        }
+
 
         editFab?.setOnClickListener {
             requestEdition()
@@ -461,7 +458,7 @@ class EntryActivity : VaultSessionActivity() {
     override fun onResume() {
         super.onResume()
 
-        lockView?.visibility = View.GONE
+
 
         // To show the attachment download progress
         mAttachmentFileBinderManager.apply {

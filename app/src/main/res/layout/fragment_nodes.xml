@@ -19,9 +19,11 @@
 -->
 <FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:orientation="vertical"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
+
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/nodes_list"
         android:contentDescription="@string/content_description_node_children"
@@ -31,4 +33,42 @@
         android:layout_height="match_parent"
         android:paddingBottom="120dp"
         android:clipToPadding="false" />
+
+    <LinearLayout
+        android:id="@+id/empty_vault_container"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:gravity="center"
+        android:padding="32dp"
+        android:visibility="gone"
+        android:orientation="vertical">
+
+        <androidx.appcompat.widget.AppCompatImageView
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            android:src="@drawable/ic_key_white_24dp"
+            app:tint="?attr/colorOutline"
+            android:contentDescription="@null" />
+
+        <TextView
+            android:id="@+id/empty_vault_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:textSize="17sp"
+            android:textStyle="bold"
+            android:textColor="?attr/colorOnSurface"
+            android:text="@string/empty_vault_title" />
+
+        <TextView
+            android:id="@+id/empty_vault_subtitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:textSize="13sp"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:text="@string/empty_vault_subtitle" />
+    </LinearLayout>
+
 </FrameLayout>

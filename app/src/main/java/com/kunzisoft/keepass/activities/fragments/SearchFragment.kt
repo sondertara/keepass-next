@@ -41,8 +41,10 @@ import com.kunzisoft.keepass.adapters.NodesAdapter
 import com.kunzisoft.keepass.database.ContextualDatabase
 import com.kunzisoft.keepass.database.element.SortNodeEnum
 import com.kunzisoft.keepass.database.search.SearchParameters
+import com.kunzisoft.keepass.model.SortedEntryInfo
 import com.kunzisoft.keepass.model.SortedNodeInfo
 import com.kunzisoft.keepass.settings.PreferencesUtil
+import com.kunzisoft.keepass.timeout.timeoutCopyToClipboard
 import com.kunzisoft.keepass.utils.BACK_PREVIOUS_KEYBOARD_ACTION
 import com.kunzisoft.keepass.utils.KeyboardUtil.showKeyboard
 import com.kunzisoft.keepass.view.SearchFiltersView
@@ -55,7 +57,6 @@ class SearchFragment: DatabaseFragment() {
     private var searchBar: ViewGroup? = null
     private var searchView: SearchView? = null
     private var searchTitle: TextView? = null
-    private var searchNumbers: TextView? = null
     private var searchFiltersView: SearchFiltersView? = null
     private var searchSort: ImageView? = null
     private var searchClose: ImageView? = null
@@ -129,7 +130,6 @@ class SearchFragment: DatabaseFragment() {
         searchBar = view.findViewById(R.id.search_bar)
         searchView = view.findViewById(R.id.search_view)
         searchTitle = view.findViewById(R.id.search_title)
-        searchNumbers = view.findViewById(R.id.search_numbers)
         searchFiltersView = view.findViewById(R.id.search_filters)
         searchSort = view.findViewById(R.id.search_sort)
         searchClose = view.findViewById(R.id.search_close)
@@ -179,7 +179,8 @@ class SearchFragment: DatabaseFragment() {
                                     searchView?.requestFocus()
                                 }*/
                                 searchFiltersView?.apply {
-                                    setCurrentGroupText(searchState.title)
+                                    setCurrentGroupText(searchState.title, searchState.isRootGroup)
+                                    setSearchResultsCount(searchState.numberResults)
                                     allowAdvancedSearch(true)
                                     setSelectableTags(searchState.selectableTags)
                                     availableTags(searchState.tagsAvailable)
@@ -199,7 +200,7 @@ class SearchFragment: DatabaseFragment() {
                             }
                             searchFiltersView?.searchParameters = searchParameters
                         }
-                        searchNumbers?.text = searchState.numberResults
+                        searchFiltersView?.setSearchResultsCount(searchState.numberResults)
 
                         val children = searchState.children
                         if (children != null) {
@@ -272,11 +273,41 @@ class SearchFragment: DatabaseFragment() {
     }
 
     private fun showNodePopupMenu(node: SortedNodeInfo, anchorView: View) {
-        val popup = androidx.appcompat.widget.PopupMenu(anchorView.context, anchorView)
-        popup.menu.add(0, 1, 0, R.string.menu_edit)
-        popup.menu.add(0, 2, 1, R.string.menu_delete)
+        val context = anchorView.context
+        val popup = androidx.appcompat.widget.PopupMenu(context, anchorView)
+        var order = 0
+        if (node is SortedEntryInfo) {
+            if (node.username.isNotBlank()) {
+                popup.menu.add(0, 10, order++, R.string.copy_username)
+            }
+            if (node.password.isNotEmpty()) {
+                popup.menu.add(0, 11, order++, R.string.copy_password)
+            }
+        }
+        popup.menu.add(0, 1, order++, R.string.menu_edit)
+        popup.menu.add(0, 2, order++, R.string.menu_delete)
         popup.setOnMenuItemClickListener { menuItem ->
             when (menuItem.itemId) {
+                10 -> {
+                    if (node is SortedEntryInfo) {
+                        context.timeoutCopyToClipboard(
+                            context.getString(R.string.username),
+                            node.username,
+                            sensitive = false
+                        )
+                    }
+                    true
+                }
+                11 -> {
+                    if (node is SortedEntryInfo) {
+                        context.timeoutCopyToClipboard(
+                            context.getString(R.string.password),
+                            node.password,
+                            sensitive = true
+                        )
+                    }
+                    true
+                }
                 1 -> {
                     mGroupViewModel.editSingleNode(node)
                     true

@@ -30,7 +30,6 @@ class KeyGeneratorActivity : DatabaseSessionActivity() {
     private lateinit var coordinatorLayout: CoordinatorLayout
     private lateinit var container: ViewGroup
     private lateinit var validationButton: View
-    private var lockView: View? = null
 
     override fun manageDatabaseInfo(): Boolean = true
 
@@ -50,10 +49,6 @@ class KeyGeneratorActivity : DatabaseSessionActivity() {
         coordinatorLayout = findViewById(R.id.key_generator_coordinator)
         container = findViewById(R.id.key_generator_container)
 
-        lockView = findViewById(R.id.lock_button)
-        lockView?.setOnClickListener {
-            lockAndExit()
-        }
 
         validationButton = findViewById(R.id.key_generator_validation)
         validationButton.setOnClickListener {
@@ -87,12 +82,7 @@ class KeyGeneratorActivity : DatabaseSessionActivity() {
     override fun onResume() {
         super.onResume()
 
-        // Show the lock button
-        lockView?.visibility = if (PreferencesUtil.showLockDatabaseButton(this)) {
-            View.VISIBLE
-        } else {
-            View.GONE
-        }
+
 
         // Padding if lock button visible
         toolbar.updateButtonPaddingStart()

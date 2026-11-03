@@ -71,11 +71,6 @@
             android:title="@string/lock_database_back_root_title"
             android:summary="@string/lock_database_back_root_summary"
             android:defaultValue="@bool/lock_database_back_root_default"/>
-        <SwitchPreferenceCompat
-            android:key="@string/lock_database_show_button_key"
-            android:title="@string/lock_database_show_button_title"
-            android:summary="@string/lock_database_show_button_summary"
-            android:defaultValue="@bool/lock_database_show_button_default"/>
     </PreferenceCategory>
 
     <PreferenceCategory

@@ -100,7 +100,6 @@ open class SettingsActivity
 
     private var coordinatorLayout: CoordinatorLayout? = null
     private var toolbar: Toolbar? = null
-    private var lockView: FloatingActionButton? = null
     private var footer: TextView? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -110,7 +109,6 @@ open class SettingsActivity
 
         coordinatorLayout = findViewById(R.id.toolbar_coordinator)
         toolbar = findViewById(R.id.toolbar)
-        lockView = findViewById(R.id.lock_button)
         footer = findViewById(R.id.screenshot_mode_banner)
 
         // To apply navigation bar with background color
@@ -131,17 +129,10 @@ open class SettingsActivity
         setSupportActionBar(toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
-        lockView?.setOnClickListener {
-            lockAndExit()
-        }
-
         if (savedInstanceState == null) {
-            lockView?.visibility = View.GONE
             supportFragmentManager.beginTransaction()
                     .add(R.id.fragment_container, retrieveMainFragment())
                     .commit()
-        } else {
-            if (savedInstanceState.getBoolean(SHOW_LOCK)) lockView?.show() else lockView?.hide()
         }
 
         backupManager = BackupManager(this)
@@ -274,7 +265,7 @@ open class SettingsActivity
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
 
-        outState.putBoolean(SHOW_LOCK, lockView?.visibility == View.VISIBLE)
+        outState.putBoolean(SHOW_LOCK, false)
         outState.putString(TITLE_KEY, toolbar?.title?.toString())
     }
 

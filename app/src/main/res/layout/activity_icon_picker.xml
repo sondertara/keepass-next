@@ -63,12 +63,7 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="@+id/toolbar" />
 
-        <include
-            layout="@layout/view_button_lock"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            app:layout_constraintBottom_toTopOf="@+id/screenshot_mode_banner"
-            app:layout_constraintStart_toStartOf="parent" />
+
 
         <include layout="@layout/view_screenshot_mode_banner" />
     </androidx.constraintlayout.widget.ConstraintLayout>

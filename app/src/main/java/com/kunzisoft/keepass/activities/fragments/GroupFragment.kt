@@ -40,14 +40,17 @@ import com.kunzisoft.keepass.database.ContextualDatabase
 import com.kunzisoft.keepass.database.element.SortNodeEnum
 import com.kunzisoft.keepass.model.Passkey
 import com.kunzisoft.keepass.model.SearchGroupInfo
+import com.kunzisoft.keepass.model.SortedEntryInfo
 import com.kunzisoft.keepass.model.SortedNodeInfo
 import com.kunzisoft.keepass.model.VaultCategory
+import com.kunzisoft.keepass.timeout.timeoutCopyToClipboard
 import com.kunzisoft.keepass.viewmodels.GroupViewModel
 import kotlinx.coroutines.launch
 
 class GroupFragment : DatabaseFragment() {
 
     private var mNodesRecyclerView: RecyclerView? = null
+    private var mEmptyVaultContainer: View? = null
     private var mLayoutManager: LinearLayoutManager? = null
 
     private var mAdapter: NodesAdapter? = null
@@ -114,6 +117,7 @@ class GroupFragment : DatabaseFragment() {
         super.onViewCreated(view, savedInstanceState)
 
         mNodesRecyclerView = view.findViewById(R.id.nodes_list)
+        mEmptyVaultContainer = view.findViewById(R.id.empty_vault_container)
 
         mLayoutManager = LinearLayoutManager(context)
         mNodesRecyclerView?.apply {
@@ -140,6 +144,7 @@ class GroupFragment : DatabaseFragment() {
                                         isSearch = isSearchInfo
                                     )
                                 }
+                                mEmptyVaultContainer?.visibility = if (children.isNullOrEmpty()) View.VISIBLE else View.GONE
                                 // Direct action node selection after rebuild
                                 mAdapter?.setActionNodes(mGroupViewModel.actionsNodes.value)
                             }
@@ -186,11 +191,41 @@ class GroupFragment : DatabaseFragment() {
     }
 
     private fun showNodePopupMenu(node: SortedNodeInfo, anchorView: View) {
-        val popup = androidx.appcompat.widget.PopupMenu(anchorView.context, anchorView)
-        popup.menu.add(0, 1, 0, R.string.menu_edit)
-        popup.menu.add(0, 2, 1, R.string.menu_delete)
+        val context = anchorView.context
+        val popup = androidx.appcompat.widget.PopupMenu(context, anchorView)
+        var order = 0
+        if (node is SortedEntryInfo) {
+            if (node.username.isNotBlank()) {
+                popup.menu.add(0, 10, order++, R.string.copy_username)
+            }
+            if (node.password.isNotEmpty()) {
+                popup.menu.add(0, 11, order++, R.string.copy_password)
+            }
+        }
+        popup.menu.add(0, 1, order++, R.string.menu_edit)
+        popup.menu.add(0, 2, order++, R.string.menu_delete)
         popup.setOnMenuItemClickListener { menuItem ->
             when (menuItem.itemId) {
+                10 -> {
+                    if (node is SortedEntryInfo) {
+                        context.timeoutCopyToClipboard(
+                            context.getString(R.string.username),
+                            node.username,
+                            sensitive = false
+                        )
+                    }
+                    true
+                }
+                11 -> {
+                    if (node is SortedEntryInfo) {
+                        context.timeoutCopyToClipboard(
+                            context.getString(R.string.password),
+                            node.password,
+                            sensitive = true
+                        )
+                    }
+                    true
+                }
                 1 -> {
                     mGroupViewModel.editSingleNode(node)
                     true

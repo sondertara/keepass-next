@@ -137,7 +137,7 @@ class EntryEditActivity : VaultSessionActivity() {
     private var backButton: View? = null
     private var inlineAddFieldButton: View? = null
     private var inlineAddAttachmentButton: View? = null
-    private var lockView: View? = null
+
     private var loadingView: ProgressBar? = null
 
     private val mEntryEditViewModel: EntryEditViewModel by viewModels()
@@ -208,7 +208,6 @@ class EntryEditActivity : VaultSessionActivity() {
         titleView = findViewById(R.id.entry_edit_title)
         templateSelectorSpinner = findViewById(R.id.entry_edit_template_selector)
         templateSelectorSpinner?.visibility = View.GONE
-        lockView = findViewById(R.id.lock_button)
         validateButton = findViewById(R.id.entry_edit_validate)
         backButton = findViewById(R.id.entry_edit_back_button)
         inlineAddFieldButton = findViewById(R.id.btn_inline_add_field)
@@ -216,7 +215,6 @@ class EntryEditActivity : VaultSessionActivity() {
         loadingView = findViewById(R.id.loading)
 
         entryEditAddToolBar?.visibility = View.GONE
-        lockView?.visibility = View.GONE
         backButton?.setOnClickListener { onDatabaseBackPressed() }
         inlineAddFieldButton?.setOnClickListener { addNewCustomField() }
         inlineAddAttachmentButton?.setOnClickListener { addNewAttachment() }
@@ -246,8 +244,6 @@ class EntryEditActivity : VaultSessionActivity() {
             entryType = entryType
         )
 
-        // Lock button
-        lockView?.setOnClickListener { lockAndExit() }
         // Save button
         validateButton?.setOnClickListener { requestEntryValidation() }
 
@@ -641,7 +637,7 @@ class EntryEditActivity : VaultSessionActivity() {
     override fun onResume() {
         super.onResume()
 
-        lockView?.visibility = View.GONE
+
         entryEditAddToolBar?.visibility = View.GONE
 
         // To show the attachment upload progress

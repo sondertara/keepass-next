@@ -44,25 +44,14 @@
             app:srcCompat="@drawable/ic_baseline_arrow_back_white_24dp"
             app:tint="?attr/colorOnSurface"
             android:contentDescription="@android:string/cancel"/>
-        <androidx.appcompat.widget.AppCompatTextView
-            android:id="@+id/search_numbers"
-            style="@style/KeepassDXStyle.Text.Badge"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center_vertical"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintStart_toEndOf="@+id/search_close"
-            app:layout_constraintLeft_toRightOf="@+id/search_close"
-            tools:text="3" />
         <androidx.appcompat.widget.SearchView
             android:id="@+id/search_view"
-            app:layout_constraintStart_toEndOf="@+id/search_numbers"
+            app:layout_constraintStart_toEndOf="@+id/search_close"
             app:layout_constraintEnd_toStartOf="@+id/search_sort"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toBottomOf="parent"
-            android:layout_marginStart="8dp"
-            android:layout_marginEnd="8dp"
+            android:layout_marginStart="4dp"
+            android:layout_marginEnd="4dp"
             android:layout_marginVertical="6dp"
             android:background="@drawable/bg_search_pill"
             android:paddingHorizontal="6dp"
@@ -73,7 +62,7 @@
             android:layout_height="0dp" />
         <TextView
             android:id="@+id/search_title"
-            app:layout_constraintStart_toEndOf="@+id/search_numbers"
+            app:layout_constraintStart_toEndOf="@+id/search_close"
             app:layout_constraintEnd_toStartOf="@+id/search_sort"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toBottomOf="parent"
@@ -131,20 +120,26 @@
             <LinearLayout
                 android:id="@+id/not_found_container"
                 android:layout_gravity="center"
+                android:gravity="center"
                 android:orientation="vertical"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:padding="32dp"
                 android:visibility="gone">
                 <androidx.appcompat.widget.AppCompatImageView
                     android:id="@+id/not_found_img"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+                    android:layout_width="64dp"
+                    android:layout_height="64dp"
                     android:layout_gravity="center"
-                    android:src="@drawable/img_not_found"/>
+                    app:tint="?attr/colorOutline"
+                    android:src="@drawable/ic_search_white_24dp"/>
                 <TextView
                     android:id="@+id/not_found_text"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:textSize="15sp"
+                    android:textColor="?attr/colorOnSurfaceVariant"
                     android:text="@string/no_results"/>
             </LinearLayout>
         </FrameLayout>

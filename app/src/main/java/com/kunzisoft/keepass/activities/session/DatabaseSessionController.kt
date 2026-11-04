@@ -163,6 +163,12 @@ class DatabaseSessionController(
 
     init {
         activity.lifecycle.addObserver(this)
+        if (options.enableSpecialMode) {
+            activity.intent?.let {
+                specialMode = it.retrieveSpecialMode()
+                typeMode = it.retrieveTypeMode()
+            }
+        }
     }
 
     inner class CredentialActivityResultLauncher(

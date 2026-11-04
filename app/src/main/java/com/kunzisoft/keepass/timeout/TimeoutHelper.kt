@@ -151,7 +151,7 @@ object TimeoutHelper {
         if (diff >= appTimeout) {
             // We have timed out
             timeoutAction?.invoke()
-            context.sendBroadcast(Intent(LOCK_ACTION))
+            context.sendBroadcast(Intent(LOCK_ACTION).setPackage(context.packageName))
             return false
         }
         return true
@@ -162,7 +162,7 @@ object TimeoutHelper {
      */
     fun checkTimeAndLockIfTimeout(context: Context): Boolean {
         return checkTime(context) {
-            context.sendBroadcast(Intent(LOCK_ACTION))
+            context.sendBroadcast(Intent(LOCK_ACTION).setPackage(context.packageName))
         }
     }
 

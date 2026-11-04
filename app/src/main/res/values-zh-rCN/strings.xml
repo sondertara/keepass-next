@@ -170,7 +170,7 @@
     <string name="menu_appearance_settings">外观</string>
     <string name="general">常规</string>
     <string name="autofill">自动填充</string>
-    <string name="autofill_sign_in_prompt">使用 KeePassDX 登录</string>
+    <string name="autofill_sign_in_prompt">使用 KeePass Next 登录</string>
     <string name="clipboard">剪贴板</string>
     <string name="lock">锁定</string>
     <string name="device_unlock">设备解锁</string>
@@ -227,7 +227,7 @@
     <string name="magic_keyboard_explanation_summary">激活自定义键盘以填写密码和所有身份字段</string>
     <string name="allow_copy_password_title">剪贴板信任设置</string>
     <string name="keyboard_name">魔法键盘</string>
-    <string name="keyboard_label">魔法键盘（KeePassDX）</string>
+    <string name="keyboard_label">魔法键盘（KeePass Next）</string>
     <string name="keyboard_setting_label">魔法键盘设置</string>
     <string name="keyboard_entry_category">条目</string>
     <string name="keyboard_entry_timeout_title">超时设置</string>
@@ -710,7 +710,7 @@
     <string name="passkey_update_description">在 %1$s 中更新通行密钥</string>
     <string name="passkey_selection_username">未找到通行密钥</string>
     <string name="passkey_selection_description">选择现有通行密钥</string>
-    <string name="credential_provider_database_username">KeePassDX 数据库</string>
+    <string name="credential_provider_database_username">KeePass Next 数据库</string>
     <string name="passkey_username">通行密钥用户名</string>
     <string name="passkey_private_key">通行密钥私钥</string>
     <string name="passkey_credential_id">通行密钥凭据 ID</string>
@@ -725,7 +725,7 @@
     <string name="passkey_user_handle">通行密钥用户句柄</string>
     <string name="credential_provider_locked_database_description">选择以解锁</string>
     <string name="credential_provider">凭据提供程序</string>
-    <string name="credential_provider_service_name">KeePassDX 凭据提供程序</string>
+    <string name="credential_provider_service_name">KeePass Next</string>
     <string name="credential_provider_service_subtitle">通行密钥、自动填充凭据提供程序</string>
     <string name="passkeys_privileged_apps_summary">管理自定义特权应用列表中的浏览器</string>
     <string name="passkeys_privileged_apps_ask_title">应用未被识别</string>

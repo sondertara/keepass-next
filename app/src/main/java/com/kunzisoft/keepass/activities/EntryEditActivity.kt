@@ -206,6 +206,16 @@ class EntryEditActivity : VaultSessionActivity() {
         scrollView = findViewById(R.id.entry_edit_scroll)
         scrollView?.scrollBarStyle = View.SCROLLBARS_INSIDE_INSET
         titleView = findViewById(R.id.entry_edit_title)
+        val subtitleView: TextView? = findViewById(R.id.entry_edit_subtitle)
+        val registerInfoForTitle = intent.retrieveRegisterInfo() ?: intent.retrieveSearchInfo()?.toRegisterInfo()
+        val searchInfoForTitle = registerInfoForTitle?.searchInfo ?: intent.retrieveSearchInfo()
+        val originName = registerInfoForTitle?.getName(resources) ?: searchInfoForTitle?.getName(resources)
+        if (!originName.isNullOrBlank()) {
+            subtitleView?.text = originName
+            subtitleView?.isVisible = true
+        } else {
+            subtitleView?.isVisible = false
+        }
         templateSelectorSpinner = findViewById(R.id.entry_edit_template_selector)
         templateSelectorSpinner?.visibility = View.GONE
         validateButton = findViewById(R.id.entry_edit_validate)

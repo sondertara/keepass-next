@@ -173,8 +173,13 @@ class DatabaseJobManager(
         set(value) {
             val loadedDb = value?.takeIf { it.loaded }
             _databaseState.value = loadedDb
+            val previousState = _sessionState.value
             _sessionState.value = if (loadedDb != null) {
-                VaultSessionState.Unlocked(loadedDb)
+                if (previousState is VaultSessionState.Unlocked && previousState.database === loadedDb) {
+                    previousState
+                } else {
+                    VaultSessionState.Unlocked(loadedDb)
+                }
             } else {
                 VaultSessionState.Locked
             }

@@ -215,7 +215,13 @@ class MainCredentialActivity : PreUnlockSessionActivity() {
                         // Enable or not the open button if setting is checked
                         confirmButtonView?.isEnabled = state.confirmButtonEnabled
                         invalidateOptionsMenu()
-                        mainCredentialView.focusPasswordFieldAndOpenKeyboard()
+                        val shouldAutoPromptBiometric = PreferencesUtil.isDeviceUnlockPromptAutoOpenEnable(this@MainCredentialActivity)
+                                && (mDeviceUnlockViewModel.isAutoOpenBiometricPromptAllowed || mDeviceUnlockViewModel.cryptoPromptShowPending)
+                        if (!shouldAutoPromptBiometric) {
+                            mainCredentialView.focusPasswordFieldAndOpenKeyboard()
+                        } else {
+                            mainCredentialView.requestPasswordFocus()
+                        }
                     }
                 }
                 launch {
@@ -239,6 +245,9 @@ class MainCredentialActivity : PreUnlockSessionActivity() {
                                 )
                             }
                             is MainCredentialViewModel.DatabaseFileEvent.OpenGroup -> {
+                                if (sessionController.credentialResultLaunched) {
+                                    return@collect
+                                }
                                 val currentSession = DatabaseJobManager.getInstance().sessionState.value
                                 val sessionVer = (currentSession as? DatabaseJobManager.VaultSessionState.Unlocked)?.sessionVersion ?: 0L
                                 if (sessionVer != 0L && mNavigatedSessionVersion == sessionVer) {

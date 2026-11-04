@@ -459,7 +459,7 @@
     <string name="passkeys_backup_state_summary">Indicate that credentials are backed up and protected against the loss of a single device</string>
     <string name="autofill">Autofill</string>
     <string name="credential_provider_service_subtitle">Passkeys, Autofill credential provider</string>
-    <string name="autofill_sign_in_prompt">Sign in with KeePassDX</string>
+    <string name="autofill_sign_in_prompt">Sign in with KeePass Next</string>
     <string name="autofill_explanation_summary">Configure autofilling to quickly fill out forms in other apps</string>
     <string name="autofill_select_entry">Select entry…</string>
     <string name="autofill_preference_title">Autofill settings</string>
@@ -560,7 +560,7 @@
     <string name="magic_keyboard_explanation_summary">Activate a custom keyboard populating your passwords and all identity fields</string>
     <string name="device_keyboard_setting_title">Device keyboard settings</string>
     <string name="keyboard_name">Magikeyboard</string>
-    <string name="keyboard_label">Magikeyboard (KeePassDX)</string>
+    <string name="keyboard_label">Magikeyboard (KeePass Next)</string>
     <string name="keyboard_setting_label">Magikeyboard settings</string>
     <string name="keyboard_entry_category">Entry</string>
     <string name="keyboard_notification_entry_title">Notification info</string>
@@ -791,8 +791,8 @@
     <string name="hide_templates_title">Hide templates</string>
     <string name="hide_templates_summary">Templates are not shown</string>
     <string name="passkey">Passkey</string>
-    <string name="credential_provider_service_name">KeePassDX Credential Provider</string>
-    <string name="credential_provider_database_username">KeePassDX Database</string>
+    <string name="credential_provider_service_name">KeePass Next</string>
+    <string name="credential_provider_database_username">KeePass Next Database</string>
     <string name="credential_provider_locked_database_description">Select to unlock</string>
     <string name="passkey_creation_description">Save passkey in new entry</string>
     <string name="passkey_update_description">Update passkey in "%1$s"</string>

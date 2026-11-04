@@ -27,6 +27,7 @@ import com.kunzisoft.keepass.model.SearchInfo
 import com.kunzisoft.keepass.repository.CredentialRepositoryImpl
 import com.kunzisoft.keepass.settings.PreferencesUtil.searchSubDomains
 import com.kunzisoft.keepass.timeout.TimeoutHelper
+import com.kunzisoft.keepass.utils.closeDatabase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -169,6 +170,10 @@ object SearchHelper {
                 }
             } else
                 onItemNotFound.invoke(database)
+        } else {
+            // Timeout expired: close database and notify callback so callers don't hang
+            context.closeDatabase(database)
+            onDatabaseClosed.invoke()
         }
     }
 }

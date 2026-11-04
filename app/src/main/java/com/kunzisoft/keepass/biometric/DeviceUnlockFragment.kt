@@ -154,6 +154,15 @@ class DeviceUnlockFragment: Fragment() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        context?.let { ctx ->
+            if (isDeviceInteractiveAndUnlocked(ctx)) {
+                mDeviceUnlockViewModel.onActivityInteractiveFocusGained(null)
+            }
+        }
+    }
+
     private fun manageDeviceCredentialPrompt(
         state: DeviceUnlockPromptMode
     ) {
@@ -161,7 +170,6 @@ class DeviceUnlockFragment: Fragment() {
             DeviceUnlockPromptMode.SHOW -> {
                 mDeviceUnlockViewModel.cryptoPrompt?.let { prompt ->
                     openPrompt(prompt)
-                    mDeviceUnlockViewModel.promptShown()
                 }
             }
             DeviceUnlockPromptMode.CLOSE -> {
@@ -214,6 +222,7 @@ class DeviceUnlockFragment: Fragment() {
                         }.build(),
                         BiometricPrompt.CryptoObject(cryptoPrompt.cipher)
                     )
+                    mDeviceUnlockViewModel.promptShown()
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Unable to open prompt", e)

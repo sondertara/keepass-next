@@ -186,7 +186,9 @@ class TemplateEditView @JvmOverloads constructor(
             return
         }
         view.apply {
-            applyFontVisibility(mFontInVisibility)
+            if (field.protectedValue.isProtected || view is PasswordTextEditFieldView) {
+                applyFontVisibility(mFontInVisibility)
+            }
             label = TemplateField.getLocalizedName(context, templateAttribute.alias ?: field.name)
             val fieldValue = field.protectedValue.charArrayValue
             value = if (fieldValue.isEmpty())

@@ -64,7 +64,7 @@
     <string name="autofill_save_search_info_summary">進行手動輸入選擇時嘗試儲存搜尋信息，以便將來使用</string>
     <string name="autofill_save_search_info_title">保存搜尋資訊</string>
     <string name="autofill_select_entry">選擇項目…</string>
-    <string name="autofill_sign_in_prompt">用 KeePassDX 登入</string>
+    <string name="autofill_sign_in_prompt">用 KeePass Next 登入</string>
     <string name="autofill_web_domain_blocklist_summary">禁止在下列域名中自動填充憑證</string>
     <string name="autofill_web_domain_blocklist_title">網域名稱黑名單</string>
     <string name="back_to_previous_keyboard">回到之前的鍵盤</string>
@@ -338,7 +338,7 @@
     <string name="keyboard_key_sound_title">按鍵聲音</string>
     <string name="keyboard_key_vibrate_title">按鍵震動</string>
     <string name="keyboard_keys_category">鑰匙</string>
-    <string name="keyboard_label">魔法鍵盤（KeePassDX)</string>
+    <string name="keyboard_label">魔法鍵盤（KeePass Next)</string>
     <string name="keyboard_name">魔法鍵盤</string>
     <string name="keyboard_notification_entry_clear_close_summary">關閉通知時也關閉資料庫</string>
     <string name="keyboard_notification_entry_clear_close_title">關閉時清除</string>
@@ -723,8 +723,8 @@
     <string name="education_user_verification_title">敏感操作驗證</string>
     <string name="education_user_verification_summary">更改會話的用戶驗證模式。\n\n“啟用用戶驗證”會對受保護的欄位和資料庫設定的操作進行驗證。\n“禁用用戶驗證”允許您在不進行驗證的情況下更改資料庫中的任何資料。</string>
     <string name="passkey">通行密鑰</string>
-    <string name="credential_provider_service_name">KeePassDX 憑證提供程式</string>
-    <string name="credential_provider_database_username">KeePassDX 資料庫</string>
+    <string name="credential_provider_service_name">KeePass Next</string>
+    <string name="credential_provider_database_username">KeePass Next 資料庫</string>
     <string name="credential_provider_locked_database_description">選擇以解鎖</string>
     <string name="passkey_credential_id">通行密鑰憑證 ID</string>
     <string name="passkey_user_handle">通行密鑰使用者句柄</string>

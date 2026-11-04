@@ -71,7 +71,9 @@ class TemplateView @JvmOverloads constructor(
                 }
             }
             buildTextField.apply {
-                applyFontVisibility(mFontInVisibility)
+                if (field.protectedValue.isProtected || buildTextField is PasswordTextFieldView) {
+                    applyFontVisibility(mFontInVisibility)
+                }
                 onRevealChanged = {
                     onChangeFieldProtectionClickListener?.invoke(
                         FieldProtection(field, isRevealed(), needUserVerificationToReveal)

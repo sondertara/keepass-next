@@ -159,6 +159,8 @@ class DatabaseSessionController(
         private set
     var typeMode: TypeMode = TypeMode.DEFAULT
         private set
+    val isSpecialMode: Boolean
+        get() = specialMode != SpecialMode.DEFAULT
     private var toolbarSpecial: ToolbarSpecial? = null
 
     init {

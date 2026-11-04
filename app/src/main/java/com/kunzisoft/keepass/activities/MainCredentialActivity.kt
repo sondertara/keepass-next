@@ -135,8 +135,9 @@ class MainCredentialActivity : PreUnlockSessionActivity() {
         toolbar = findViewById(R.id.toolbar)
         toolbar?.title = ""
         setSupportActionBar(toolbar)
-        supportActionBar?.setDisplayHomeAsUpEnabled(!isTaskRoot)
-        supportActionBar?.setDisplayShowHomeEnabled(!isTaskRoot)
+        val showHomeAsUp = !isTaskRoot || sessionController.isSpecialMode
+        supportActionBar?.setDisplayHomeAsUpEnabled(showHomeAsUp)
+        supportActionBar?.setDisplayShowHomeEnabled(showHomeAsUp)
 
         filenameView = findViewById(R.id.filename)
         logotypeButton = findViewById(R.id.activity_password_logotype)
@@ -709,7 +710,13 @@ class MainCredentialActivity : PreUnlockSessionActivity() {
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
 
         when (item.itemId) {
-            android.R.id.home -> finish()
+            android.R.id.home -> {
+                if (sessionController.isSpecialMode) {
+                    sessionController.onCancelSpecialMode()
+                } else {
+                    finish()
+                }
+            }
             R.id.menu_open_file_read_mode_key -> {
                 mMainCredentialViewModel.toggleReadOnly()
                 changeDatabaseReadModeIcon(item)

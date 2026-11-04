@@ -29,7 +29,11 @@
 		android:id="@+id/template_header_container"
 		android:layout_width="match_parent"
 		android:layout_height="wrap_content"
-		style="?attr/cardViewStyle">
+		app:cardBackgroundColor="@android:color/transparent"
+		app:cardElevation="0dp"
+		app:cardMaxElevation="0dp"
+		app:strokeWidth="0dp"
+		app:strokeColor="@android:color/transparent">
 
 		<FrameLayout
 			android:layout_width="match_parent"
@@ -76,7 +80,9 @@
 			<FrameLayout
 				android:layout_width="match_parent"
 				android:layout_height="wrap_content"
-				android:layout_margin="@dimen/card_view_padding">
+				android:layout_marginHorizontal="@dimen/card_view_margin_horizontal"
+				android:layout_marginTop="4dp"
+				android:layout_marginBottom="4dp">
 
 				<!-- Title (100% full width to align left & right edges with all form fields) -->
 				<FrameLayout
@@ -87,15 +93,16 @@
 				<!-- Icon selector tucked neatly inside the right end of the Title box -->
 				<androidx.appcompat.widget.AppCompatImageButton
 					android:id="@+id/template_icon_button"
+					style="@style/KeepassDXStyle.ImageButton.OnSurface"
 					android:layout_width="40dp"
 					android:layout_height="40dp"
 					android:layout_gravity="center_vertical|end"
-					android:layout_marginTop="3dp"
-					android:layout_marginEnd="8dp"
-					android:elevation="2dp"
+					android:layout_marginTop="2dp"
+					android:layout_marginEnd="6dp"
 					android:padding="8dp"
 					android:scaleType="fitCenter"
-					android:background="@drawable/bg_entry_icon_box"
+					android:background="?attr/selectableItemBackgroundBorderless"
+					app:backgroundTint="@null"
 					android:src="@drawable/ic_blank_32dp"
 					android:contentDescription="@string/content_description_entry_icon"/>
 			</FrameLayout>

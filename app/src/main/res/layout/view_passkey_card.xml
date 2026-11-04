@@ -50,7 +50,7 @@
                 android:layout_width="26dp"
                 android:layout_height="26dp"
                 android:src="@drawable/ic_passkey_white_24dp"
-                app:tint="?attr/colorPrimary"
+                app:tint="#4D6BFE"
                 android:contentDescription="@string/passkey" />
 
             <TextView
@@ -69,6 +69,7 @@
                 android:layout_height="36dp"
                 android:insetTop="0dp"
                 android:insetBottom="0dp"
+                android:textColor="#4D6BFE"
                 android:text="@string/passkey_view_details"
                 android:textSize="13sp" />
 
@@ -150,7 +151,7 @@
                 android:paddingHorizontal="10dp"
                 android:paddingVertical="3dp"
                 android:textAppearance="?attr/textAppearanceLabelSmall"
-                android:textColor="?attr/colorOnPrimaryContainer"
+                android:textColor="#4D6BFE"
                 android:textStyle="bold"
                 tools:text="ES256" />
 

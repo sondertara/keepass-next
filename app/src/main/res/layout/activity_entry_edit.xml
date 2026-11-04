@@ -46,9 +46,11 @@
 
             <androidx.appcompat.widget.AppCompatImageButton
                 android:id="@+id/entry_edit_back_button"
+                style="@style/KeepassDXStyle.ImageButton.OnSurface"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
+                app:backgroundTint="@null"
                 android:contentDescription="@android:string/cancel"
                 android:padding="8dp"
                 android:src="@drawable/ic_arrow_back_white_24dp"
@@ -77,7 +79,7 @@
                     android:maxLines="1"
                     android:text="@string/standard"
                     android:textColor="?attr/colorOnSurface"
-                    android:textSize="17sp"
+                    android:textSize="18sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -86,8 +88,8 @@
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
                     android:maxLines="1"
-                    android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="12sp"
+                    android:textColor="?attr/colorOnSurfaceVariant"
+                    android:textSize="13sp"
                     android:visibility="gone"
                     tools:text="www.passkeys.io" />
             </LinearLayout>
@@ -118,7 +120,7 @@
                 android:textColor="@android:color/white"
                 android:textSize="14sp"
                 android:textStyle="bold"
-                app:backgroundTint="?attr/colorPrimary"
+                app:backgroundTint="#4D6BFE"
                 app:cornerRadius="19dp"
                 app:icon="@drawable/ic_check_white_24dp"
                 app:iconGravity="textStart"
@@ -193,7 +195,7 @@
                             app:iconGravity="textStart"
                             app:iconPadding="6dp"
                             app:iconSize="18dp"
-                            app:iconTint="?attr/colorPrimary"
+                            app:iconTint="#4D6BFE"
                             app:strokeColor="?attr/colorOutlineVariant"
                             app:strokeWidth="1dp" />
 
@@ -216,7 +218,7 @@
                             app:iconGravity="textStart"
                             app:iconPadding="6dp"
                             app:iconSize="18dp"
-                            app:iconTint="?attr/colorPrimary"
+                            app:iconTint="#4D6BFE"
                             app:strokeColor="?attr/colorOutlineVariant"
                             app:strokeWidth="1dp" />
                     </LinearLayout>

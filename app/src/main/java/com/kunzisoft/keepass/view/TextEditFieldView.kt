@@ -1,6 +1,7 @@
 package com.kunzisoft.keepass.view
 
 import android.content.Context
+import android.graphics.Typeface
 import android.text.InputFilter
 import android.text.InputType
 import android.text.method.PasswordTransformationMethod
@@ -110,8 +111,11 @@ open class TextEditFieldView @JvmOverloads constructor(
     }
 
     override fun applyFontVisibility(fontInVisibility: Boolean) {
-        if (fontInVisibility)
+        if (fontInVisibility && (isProtected || this is PasswordTextEditFieldView)) {
             valueView.applyFontVisibility()
+        } else {
+            valueView.typeface = Typeface.DEFAULT
+        }
     }
 
     open fun getActionImageView(): View {

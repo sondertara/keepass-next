@@ -34,22 +34,25 @@ class SectionView @JvmOverloads constructor(context: Context,
     : CardView(context, attrs, defStyle) {
 
     private var containerSectionView = LinearLayout(context).apply {
-        val padding = resources.getDimensionPixelSize(R.dimen.card_view_padding)
         layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT)
-        setPadding(padding)
         orientation = LinearLayout.VERTICAL
     }
 
     init {
         val marginHorizontal = resources.getDimensionPixelSize(R.dimen.card_view_margin_horizontal)
-        val marginVertical = resources.getDimensionPixelSize(R.dimen.card_view_margin_vertical)
+        val marginVertical = (4 * resources.displayMetrics.density).toInt()
         layoutParams = LayoutParams(
                 LayoutParams.MATCH_PARENT,
                 LayoutParams.WRAP_CONTENT).also {
             it.setMargins(marginHorizontal, marginVertical, marginHorizontal, marginVertical)
         }
+        // Transparent flat container so OutlinedBox fields render cleanly without nested card borders
+        setCardBackgroundColor(android.graphics.Color.TRANSPARENT)
+        cardElevation = 0f
+        maxCardElevation = 0f
+        radius = 0f
         visibility = View.GONE
         super.addView(containerSectionView)
     }
@@ -62,7 +65,7 @@ class SectionView @JvmOverloads constructor(context: Context,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply {
                 if (containerSectionView.childCount > 0) {
-                    topMargin = (10 * resources.displayMetrics.density).toInt()
+                    topMargin = (8 * resources.displayMetrics.density).toInt()
                 }
             }
             containerSectionView.addView(child, lp)

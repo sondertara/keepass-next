@@ -216,7 +216,7 @@ class MainCredentialActivity : PreUnlockSessionActivity() {
                         confirmButtonView?.isEnabled = state.confirmButtonEnabled
                         invalidateOptionsMenu()
                         val shouldAutoPromptBiometric = PreferencesUtil.isDeviceUnlockPromptAutoOpenEnable(this@MainCredentialActivity)
-                                && (mDeviceUnlockViewModel.isAutoOpenBiometricPromptAllowed || mDeviceUnlockViewModel.cryptoPromptShowPending)
+                                && mDeviceUnlockViewModel.isAutoPromptAllowedOrPending
                         if (!shouldAutoPromptBiometric) {
                             mainCredentialView.focusPasswordFieldAndOpenKeyboard()
                         } else {

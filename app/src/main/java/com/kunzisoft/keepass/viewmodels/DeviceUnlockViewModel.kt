@@ -51,6 +51,8 @@ class DeviceUnlockViewModel(application: Application): AndroidViewModel(applicat
         private set
     private var isAutoOpenBiometricPromptAllowed = true
     private var cryptoPromptShowPending: Boolean = false
+    val isAutoPromptAllowedOrPending: Boolean
+        get() = isAutoOpenBiometricPromptAllowed || cryptoPromptShowPending
     private var isUnlockProcessingOrSucceeded: Boolean = false
     private var isAuthenticatingOrDecrypting: Boolean = false
 
